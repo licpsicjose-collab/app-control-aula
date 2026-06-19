@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Registro Docente</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    padding-top: 50px;
+}
+input, button {
+    padding: 10px;
+    margin: 5px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>Registro Docente</h1>
+
+<input id="correo" placeholder="Correo"><br><br>
+<input id="password" type="password" placeholder="Contraseña"><br><br>
+
+<button onclick="registrar()">Registrarse</button>
+
+<script>
+
+function registrar() {
+
+    let correo = document.getElementById("correo").value.trim().toLowerCase();
+    let password = document.getElementById("password").value;
+
+    if (!correo || !password) {
+        alert("Completa todos los campos");
+        return;
+    }
+
+    // ✅ obtener lista de docentes
+    let docentes = JSON.parse(localStorage.getItem("docentes")) || [];
+
+    // ✅ evitar duplicados
+    let existe = docentes.find(d => d.correo === correo);
+
+    if (existe) {
+        alert("Este docente ya está registrado");
+        return;
+    }
+
+    // ✅ crear docente
+    let nuevoDocente = {
+        id: Date.now(),
+        correo: correo,
+        password: password,
+        escuelas: [] // preparado para estructura completa
+    };
+
+    docentes.push(nuevoDocente);
+
+    localStorage.setItem("docentes", JSON.stringify(docentes));
+
+    alert("Docente registrado correctamente");
+
+    window.location.href = "login.html";
+}
+
+</script>
+
+</body>
+</html>

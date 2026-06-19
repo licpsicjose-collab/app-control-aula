@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Alumno</title>
+</head>
+
+<body>
+
+<h1>Entrar a Clase</h1>
+
+<input id="codigo" placeholder="Código de clase"><br><br>
+
+<button onclick="ingresar()">Entrar</button>
+
+<h2 id="estado"></h2>
+
+<!-- ✅ FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase.js"></script>
+
+<script>
+
+let claseActual = null;
+
+// ✅ ESCUCHAR CLASE
+db.collection("clases").doc("activa")
+.onSnapshot((doc) => {
+    claseActual = doc.data();
+});
+
+// ✅ ENTRAR A CLASE
+function ingresar() {
+
+    let codigo = document.getElementById("codigo").value;
+
+    if (!claseActual) {
+        alert("No hay clase activa");
+        return;
+    }
+
+    if (codigo !== claseActual.codigo) {
+        alert("Código incorrecto");
+        return;
+    }
+
+    document.getElementById("estado").innerText = "✅ Entraste correctamente";
+
+}
+
+</script>
+
+</body>
+</html>

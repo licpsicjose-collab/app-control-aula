@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Inicio</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    padding-top: 60px;
+}
+
+button {
+    padding: 15px;
+    margin: 10px;
+    width: 200px;
+    font-size: 16px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>Sistema de Control de Aula</h1>
+
+<h2>Selecciona una opción</h2>
+
+<button onclick="irRegistroDocente()">Registro Docente</button><br>
+<button onclick="irRegistroAlumno()">Registro Alumno</button><br>
+
+<hr>
+
+<h2>¿Ya tienes cuenta?</h2>
+
+<button onclick="irLogin()">Ir a Login</button>
+
+<script>
+
+function irRegistroDocente() {
+    window.location.href = "registro-docente.html";
+}
+
+function irRegistroAlumno() {
+    window.location.href = "registro-alumno.html";
+}
+
+function irLogin() {
+    window.location.href = "login.html";
+}
+
+</script>
+
+</body>
+</html>

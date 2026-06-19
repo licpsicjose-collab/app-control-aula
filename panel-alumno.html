@@ -9,7 +9,11 @@
 
 <h1>Entrar a Clase</h1>
 
-<input id="codigo" placeholder="Código de clase"><br><br>
+<input id="nombre" placeholder="Nombre"><br>
+<input id="escuela" placeholder="Escuela"><br>
+<input id="grupo" placeholder="Grupo"><br><br>
+
+<input id="codigo" placeholder="Código"><br><br>
 
 <button onclick="ingresar()">Entrar</button>
 
@@ -17,7 +21,7 @@
 
 <!-- ✅ FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.jsscript>
 <script src="firebase.js"></script>
 
 <script>
@@ -30,9 +34,11 @@ db.collection("clases").doc("activa")
     claseActual = doc.data();
 });
 
-// ✅ ENTRAR A CLASE
 function ingresar() {
 
+    let nombre = document.getElementById("nombre").value;
+    let escuela = document.getElementById("escuela").value;
+    let grupo = document.getElementById("grupo").value;
     let codigo = document.getElementById("codigo").value;
 
     if (!claseActual) {
@@ -44,6 +50,23 @@ function ingresar() {
         alert("Código incorrecto");
         return;
     }
+
+    if (!nombre || !escuela || !grupo) {
+        alert("Completa tus datos");
+        return;
+    }
+
+    // ✅ GUARDAR SIEMPRE (SIN depender de localStorage)
+    db.collection("clases")
+    .doc("activa")
+    .collection("alumnos")
+    .doc(nombre)
+    .set({
+        nombre,
+        grupo,
+        escuela,
+        horaEntrada: Date.now()
+    });
 
     document.getElementById("estado").innerText = "✅ Entraste correctamente";
 

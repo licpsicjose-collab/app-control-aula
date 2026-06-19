@@ -20,9 +20,12 @@
 <h2>Clase Activa</h2>
 <div id="clase"></div>
 
-<!-- ✅ FIREBASE CORRECTO -->
+<h2>Alumnos en clase</h2>
+<div id="alumnos"></div>
+
+<!-- ✅ FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.jsscript>
 <script src="firebase.js"></script>
 
 <script>
@@ -53,12 +56,10 @@ function iniciarClase() {
         inicio: Date.now()
     };
 
-    // ✅ GUARDAR EN FIREBASE
     db.collection("clases").doc("activa").set(clase);
-
 }
 
-// ✅ ESCUCHAR CLASE EN TIEMPO REAL
+// ✅ ESCUCHAR CLASE
 db.collection("clases").doc("activa")
 .onSnapshot((doc) => {
 
@@ -73,6 +74,31 @@ db.collection("clases").doc("activa")
         `;
     }
 
+});
+
+// ✅ ESCUCHAR ALUMNOS
+db.collection("clases")
+.doc("activa")
+.collection("alumnos")
+.onSnapshot((snapshot) => {
+
+    let html = "";
+
+    snapshot.forEach((doc) => {
+        let a = doc.data();
+
+        html += `
+        <div>
+            ${a.nombre} - ${a.grupo}
+        </div>
+        `;
+    });
+
+    if (html === "") {
+        html = "Sin alumnos";
+    }
+
+    document.getElementById("alumnos").innerHTML = html;
 });
 
 </script>

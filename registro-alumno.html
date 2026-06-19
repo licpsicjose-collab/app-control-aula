@@ -3,19 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>Registro Alumno</title>
-
-<style>
-body {
-    font-family: Arial;
-    text-align: center;
-    padding-top: 50px;
-}
-input, button {
-    padding: 10px;
-    margin: 5px;
-}
-</style>
-
 </head>
 
 <body>
@@ -24,89 +11,42 @@ input, button {
 
 <input id="nombre" placeholder="Nombre"><br><br>
 <input id="escuela" placeholder="Escuela"><br><br>
-<input id="grupo" placeholder="Grupo (ej: 3A)"><br><br>
+<input id="grupo" placeholder="Grupo"><br><br>
 <input id="password" type="password" placeholder="Contraseña"><br><br>
 
 <button onclick="registrar()">Registrarse</button>
 
 <script>
 
-function normalizar(texto) {
-    return texto.trim().toLowerCase();
-}
-
 function registrar() {
 
-    let nombre = document.getElementById("nombre").value.trim();
-    let escuelaInput = document.getElementById("escuela").value;
-    let grupoInput = document.getElementById("grupo").value;
+    let nombre = document.getElementById("nombre").value;
+    let escuela = document.getElementById("escuela").value;
+    let grupo = document.getElementById("grupo").value;
     let password = document.getElementById("password").value;
 
-    if (!nombre || !escuelaInput || !grupoInput || !password) {
+    if (!nombre || !escuela || !grupo || !password) {
         alert("Completa todos los campos");
         return;
     }
 
-    // ✅ normalizar para evitar errores de usuario
-    let escuela = normalizar(escuelaInput);
-    let grupo = normalizar(grupoInput);
-
-    let escuelas = JSON.parse(localStorage.getItem("escuelas")) || [];
-
-    // ✅ buscar escuela
-    let escuelaEncontrada = escuelas.find(e => 
-        normalizar(e.nombre) === escuela
-    );
-
-    if (!escuelaEncontrada) {
-        alert("La escuela no existe");
-        return;
-    }
-
-    // ✅ buscar grupo dentro de escuela
-    let grupoEncontrado = escuelaEncontrada.grupos.find(g => 
-        normalizar(g.nombre) === grupo
-    );
-
-    if (!grupoEncontrado) {
-        alert("El grupo no existe en esa escuela");
-        return;
-    }
-
-    // ✅ obtener alumnos existentes
-    let alumnos = JSON.parse(localStorage.getItem("alumnos")) || [];
-
-    // ✅ evitar duplicados exactos (mismo nombre + grupo + escuela)
-    let existe = alumnos.find(a =>
-        a.nombre === nombre &&
-        a.grupo === grupoEncontrado.nombre &&
-        a.escuela === escuelaEncontrada.nombre
-    );
-
-    if (existe) {
-        alert("Este alumno ya está registrado en ese grupo");
-        return;
-    }
-
-    // ✅ crear alumno
-    let nuevoAlumno = {
-        id: Date.now(),
-        nombre: nombre,
-        escuela: escuelaEncontrada.nombre,
-        grupo: grupoEncontrado.nombre,
-        password: password
+    // ✅ guardar local (solo sesión)
+    let alumno = {
+        nombre,
+        escuela,
+        grupo,
+        password
     };
 
-    alumnos.push(nuevoAlumno);
+    localStorage.setItem("alumno", JSON.stringify(alumno));
 
-    localStorage.setItem("alumnos", JSON.stringify(alumnos));
+    alert("Registro correcto ✅");
 
-    alert("Alumno registrado correctamente");
-
-    window.location.href = "login.html";
+    window.location.href = "panel-alumno.html";
 }
 
 </script>
 
 </body>
 </html>
+``

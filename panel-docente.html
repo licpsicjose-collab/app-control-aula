@@ -21,11 +21,11 @@
 <div id="clase"></div>
 
 <h2>Alumnos en clase</h2>
-<div id="alumnos"></div>
+<div id="alumnos">Sin alumnos</div>
 
-<!-- ✅ FIREBASE -->
+<!-- ✅ FIREBASE BIEN ESCRITO -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.jsscript>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
@@ -73,7 +73,6 @@ db.collection("clases").doc("activa")
             Código: <strong>${clase.codigo}</strong>
         `;
     }
-
 });
 
 // ✅ ESCUCHAR ALUMNOS
@@ -85,23 +84,25 @@ db.collection("clases")
     let html = "";
 
     snapshot.forEach((doc) => {
+
         let a = doc.data();
+        let tiempo = Math.floor((a.tiempo || 0) / 1000);
 
         html += `
-        <div>
-            ${a.nombre} - ${a.grupo}
+        <div style="border:1px solid #ccc; margin:5px; padding:5px;">
+            👤 ${a.nombre}<br>
+            Grupo: ${a.grupo}<br>
+            ⏱ Tiempo: ${tiempo}s<br>
+            🚫 Salidas: ${a.salidas || 0}
         </div>
         `;
     });
 
-    if (html === "") {
-        html = "Sin alumnos";
-    }
-
-    document.getElementById("alumnos").innerHTML = html;
+    document.getElementById("alumnos").innerHTML = html || "Sin alumnos";
 });
 
 </script>
 
 </body>
 </html>
+``

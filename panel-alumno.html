@@ -68,7 +68,7 @@ db.collection("clases").doc("activa")
     claseActual = doc.data();
 });
 
-// ===== INGRESAR A CLASE =====
+// ===== ENTRAR A CLASE =====
 function ingresar() {
 
     let nombre = document.getElementById("nombre").value;
@@ -90,20 +90,18 @@ function ingresar() {
         return;
     }
 
-    // ✅ ACTIVAR REGISTRO
     enClase = true;
     inicioClase = Date.now();
 
     nombreAlumno = nombre;
     grupoAlumno = grupo;
 
-    // ✅ Oculta formulario
     document.getElementById("formulario").style.display = "none";
 
     document.getElementById("estado").innerText =
         "✔ Registrando tu actividad...";
 
-    // ✅ GUARDAR EN FIREBASE
+    // ✅ CREAR REGISTRO EN FIREBASE
     db.collection("clases")
     .doc("activa")
     .collection("alumnos")
@@ -114,22 +112,34 @@ function ingresar() {
         tiempo: 0,
         salidas: 0
     });
-
 }
 
 // ===== DETECCIÓN DE SALIDAS =====
 
-// cuando sale de la app
+// al salir de la app
 window.addEventListener("blur", () => {
+
     if (!enClase) return;
+
+    let clase = claseActual;
+    if (clase?.pausada) return;
 
     salidas++;
     salidaInicio = Date.now();
 });
 
-// cuando regresa
+// al volver a la app
 window.addEventListener("focus", () => {
+
     if (!enClase) return;
+
+    let clase = claseActual;
+
+    // si está en pausa, no penaliza
+    if (clase?.pausada) {
+        salidaInicio = 0;
+        return;
+    }
 
     if (salidaInicio !== 0) {
         tiempoFuera += Date.now() - salidaInicio;
@@ -137,14 +147,21 @@ window.addEventListener("focus", () => {
     }
 });
 
-// respaldo extra (más preciso en móviles)
+// respaldo extra (para móviles)
 document.addEventListener("visibilitychange", () => {
+
     if (!enClase) return;
 
+    let clase = claseActual;
+    if (clase?.pausada) return;
+
     if (document.visibilityState === "hidden") {
+
         salidas++;
         salidaInicio = Date.now();
+
     } else {
+
         if (salidaInicio !== 0) {
             tiempoFuera += Date.now() - salidaInicio;
             salidaInicio = 0;
@@ -158,7 +175,15 @@ setInterval(() => {
     if (!enClase) return;
 
     let tiempoTotal = Date.now() - inicioClase;
+
+    // ✅ evita penalizar durante pausa
+    let clase = claseActual;
+
     let tiempoEnApp = tiempoTotal - tiempoFuera;
+
+    if (clase?.pausada) {
+        tiempoEnApp = tiempoTotal; // no resta tiempo fuera
+    }
 
     db.collection("clases")
     .doc("activa")

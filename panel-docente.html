@@ -8,7 +8,7 @@
 body {
     font-family: Arial;
     text-align: center;
-    padding-top: 40px;
+    padding-top: 30px;
 }
 
 input, button {
@@ -30,48 +30,47 @@ input, button {
 
 <h1>Panel Docente</h1>
 
-<h2>Crear Clase</h2>
-
 <input id="escuela" placeholder="Escuela"><br>
 <input id="grupo" placeholder="Grupo"><br>
 <input id="materia" placeholder="Materia"><br><br>
 
 <button onclick="iniciarClase()">Iniciar Clase</button>
+<button onclick="finalizarClase()">Finalizar Clase</button>
 
 <h2>Clase Activa</h2>
 <div id="clase"></div>
 
-<h2>Alumnos en clase</h2>
+<h2>Alumnos</h2>
 <div id="alumnos">Sin alumnos</div>
 
-<!-- ✅ FIREBASE -->
+<hr>
+
+<h2>Historial de Clases</h2>
+<div id="historial"></div>
+
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
 
-// ✅ GENERAR CÓDIGO
+// ===== GENERAR CÓDIGO =====
 function generarCodigo() {
     return Math.random().toString(36).substring(2,6).toUpperCase();
 }
 
-// ✅ INICIAR CLASE
+// ===== INICIAR CLASE =====
 function iniciarClase() {
 
     let escuela = document.getElementById("escuela").value;
     let grupo = document.getElementById("grupo").value;
     let materia = document.getElementById("materia").value;
 
-    if (!escuela || !grupo || !materia) {
-        alert("Completa todos los campos");
-        return;
-    }
-
     let clase = {
-        escuela: escuela,
-        grupo: grupo,
-        materia: materia,
+        escuela,
+        grupo,
+        materia,
         codigo: generarCodigo(),
         inicio: Date.now()
     };
@@ -79,22 +78,62 @@ function iniciarClase() {
     db.collection("clases").doc("activa").set(clase);
 }
 
-// ✅ MOSTRAR CLASE
+// ===== FINALIZAR CLASE =====
+async function finalizarClase() {
+
+    let claseDoc = await db.collection("clases").doc("activa").get();
+    let clase = claseDoc.data();
+
+    if (!clase) {
+        alert("No hay clase activa");
+        return;
+    }
+
+    // obtener alumnos
+    let alumnosSnap = await db.collection("clases")
+        .doc("activa")
+        .collection("alumnos")
+        .get();
+
+    let alumnos = [];
+
+    alumnosSnap.forEach(doc => {
+        alumnos.push(doc.data());
+    });
+
+    // guardar historial
+    await db.collection("historial").add({
+        ...clase,
+        alumnos: alumnos,
+        fin: Date.now()
+    });
+
+    // borrar clase activa
+    await db.collection("clases").doc("activa").delete();
+
+    alert("Clase finalizada ✅");
+}
+
+// ===== MOSTRAR CLASE =====
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
 
     let c = doc.data();
-    if (!c) return;
+
+    if (!c) {
+        document.getElementById("clase").innerHTML = "Sin clase activa";
+        return;
+    }
 
     document.getElementById("clase").innerHTML = `
         🏫 ${c.escuela}<br>
         👥 ${c.grupo}<br>
         📘 ${c.materia}<br>
-        🔑 Código: <strong>${c.codigo}</strong>
+        🔑 ${c.codigo}
     `;
 });
 
-// ✅ MOSTRAR ALUMNOS CON DATOS
+// ===== MOSTRAR ALUMNOS =====
 db.collection("clases")
 .doc("activa")
 .collection("alumnos")
@@ -105,21 +144,41 @@ db.collection("clases")
     snapshot.forEach(doc => {
 
         let a = doc.data();
-
-        // convertir milisegundos a segundos
-        let tiempoSeg = Math.floor((a.tiempo || 0) / 1000);
+        let tiempo = Math.floor((a.tiempo || 0)/1000);
 
         html += `
         <div class="alumno">
-            👤 <strong>${a.nombre}</strong><br>
-            📚 Grupo: ${a.grupo}<br>
-            ⏱ Tiempo en app: ${tiempoSeg} segundos<br>
-            🚫 Salidas: ${a.salidas || 0}
+            👤 ${a.nombre}<br>
+            📚 ${a.grupo}<br>
+            ⏱ ${tiempo}s<br>
+            🚫 ${a.salidas || 0}
         </div>
         `;
     });
 
     document.getElementById("alumnos").innerHTML = html || "Sin alumnos";
+});
+
+// ===== HISTORIAL =====
+db.collection("historial")
+.onSnapshot(snapshot => {
+
+    let html = "";
+
+    snapshot.forEach(doc => {
+
+        let c = doc.data();
+
+        html += `
+        <div class="alumno">
+            📘 ${c.materia} - ${c.grupo}<br>
+            🏫 ${c.escuela}<br>
+            ⏰ ${new Date(c.inicio).toLocaleString()}<br>
+        </div>
+        `;
+    });
+
+    document.getElementById("historial").innerHTML = html || "Sin historial";
 });
 
 </script>

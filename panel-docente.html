@@ -3,6 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <title>Panel Docente</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    padding-top: 40px;
+}
+
+input, button {
+    padding: 10px;
+    margin: 5px;
+}
+
+.alumno {
+    border: 1px solid #ccc;
+    margin: 10px;
+    padding: 10px;
+    border-radius: 10px;
+}
+</style>
+
 </head>
 
 <body>
@@ -20,22 +41,22 @@
 <h2>Clase Activa</h2>
 <div id="clase"></div>
 
-<h2>Alumnos</h2>
+<h2>Alumnos en clase</h2>
 <div id="alumnos">Sin alumnos</div>
 
-<!-- Firebase -->
+<!-- ✅ FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
 
-// generar código
+// ✅ GENERAR CÓDIGO
 function generarCodigo() {
     return Math.random().toString(36).substring(2,6).toUpperCase();
 }
 
-// iniciar clase
+// ✅ INICIAR CLASE
 function iniciarClase() {
 
     let escuela = document.getElementById("escuela").value;
@@ -48,36 +69,54 @@ function iniciarClase() {
     }
 
     let clase = {
-        escuela,
-        grupo,
-        materia,
-        codigo: generarCodigo()
+        escuela: escuela,
+        grupo: grupo,
+        materia: materia,
+        codigo: generarCodigo(),
+        inicio: Date.now()
     };
 
     db.collection("clases").doc("activa").set(clase);
 }
 
-// escuchar clase
+// ✅ MOSTRAR CLASE
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
 
-    let data = doc.data();
-    if (!data) return;
+    let c = doc.data();
+    if (!c) return;
 
-    document.getElementById("clase").innerHTML =
-        `${data.escuela} - ${data.grupo}<br>Código: ${data.codigo}`;
+    document.getElementById("clase").innerHTML = `
+        🏫 ${c.escuela}<br>
+        👥 ${c.grupo}<br>
+        📘 ${c.materia}<br>
+        🔑 Código: <strong>${c.codigo}</strong>
+    `;
 });
 
-// escuchar alumnos
-db.collection("clases").doc("activa")
+// ✅ MOSTRAR ALUMNOS CON DATOS
+db.collection("clases")
+.doc("activa")
 .collection("alumnos")
 .onSnapshot(snapshot => {
 
     let html = "";
 
     snapshot.forEach(doc => {
-        let alumno = doc.data();
-        html += `${alumno.nombre} - ${alumno.grupo}<br>`;
+
+        let a = doc.data();
+
+        // convertir milisegundos a segundos
+        let tiempoSeg = Math.floor((a.tiempo || 0) / 1000);
+
+        html += `
+        <div class="alumno">
+            👤 <strong>${a.nombre}</strong><br>
+            📚 Grupo: ${a.grupo}<br>
+            ⏱ Tiempo en app: ${tiempoSeg} segundos<br>
+            🚫 Salidas: ${a.salidas || 0}
+        </div>
+        `;
     });
 
     document.getElementById("alumnos").innerHTML = html || "Sin alumnos";

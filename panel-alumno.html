@@ -2,38 +2,74 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Alumno</title>
+<title>Clase en progreso</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    padding-top: 80px;
+    background-color: #111;
+    color: white;
+}
+
+input, button {
+    padding: 10px;
+    margin: 5px;
+}
+
+#estado {
+    margin-top: 20px;
+    font-size: 20px;
+    color: #00ff88;
+}
+</style>
+
 </head>
 
 <body>
 
-<h1>Entrar a clase</h1>
+<h1>Clase en progreso</h1>
+
+<div id="formulario">
 
 <input id="nombre" placeholder="Nombre"><br>
 <input id="grupo" placeholder="Grupo"><br>
 <input id="codigo" placeholder="Código"><br><br>
 
-<button onclick="entrar()">Entrar</button>
+<button onclick="ingresar()">Entrar</button>
 
-<h2 id="estado"></h2>
+</div>
 
-<!-- Firebase -->
+<div id="estado"></div>
+
+<!-- ✅ FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
 
-let claseActual;
+// ===== VARIABLES =====
+let claseActual = null;
+let enClase = false;
 
-// escuchar clase
+let inicioClase = 0;
+let tiempoFuera = 0;
+let salidas = 0;
+let salidaInicio = 0;
+
+let nombreAlumno = "";
+let grupoAlumno = "";
+
+// ===== ESCUCHAR CLASE =====
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
     claseActual = doc.data();
 });
 
-// entrar a clase
-function entrar() {
+// ===== INGRESAR A CLASE =====
+function ingresar() {
 
     let nombre = document.getElementById("nombre").value;
     let grupo = document.getElementById("grupo").value;
@@ -49,17 +85,91 @@ function entrar() {
         return;
     }
 
+    if (!nombre || !grupo) {
+        alert("Completa tus datos");
+        return;
+    }
+
+    // ✅ ACTIVAR REGISTRO
+    enClase = true;
+    inicioClase = Date.now();
+
+    nombreAlumno = nombre;
+    grupoAlumno = grupo;
+
+    // ✅ Oculta formulario
+    document.getElementById("formulario").style.display = "none";
+
+    document.getElementById("estado").innerText =
+        "✔ Registrando tu actividad...";
+
+    // ✅ GUARDAR EN FIREBASE
     db.collection("clases")
     .doc("activa")
     .collection("alumnos")
     .doc(nombre)
     .set({
-        nombre,
-        grupo
+        nombre: nombre,
+        grupo: grupo,
+        tiempo: 0,
+        salidas: 0
     });
 
-    document.getElementById("estado").innerText = "✅ Entraste correctamente";
 }
+
+// ===== DETECCIÓN DE SALIDAS =====
+
+// cuando sale de la app
+window.addEventListener("blur", () => {
+    if (!enClase) return;
+
+    salidas++;
+    salidaInicio = Date.now();
+});
+
+// cuando regresa
+window.addEventListener("focus", () => {
+    if (!enClase) return;
+
+    if (salidaInicio !== 0) {
+        tiempoFuera += Date.now() - salidaInicio;
+        salidaInicio = 0;
+    }
+});
+
+// respaldo extra (más preciso en móviles)
+document.addEventListener("visibilitychange", () => {
+    if (!enClase) return;
+
+    if (document.visibilityState === "hidden") {
+        salidas++;
+        salidaInicio = Date.now();
+    } else {
+        if (salidaInicio !== 0) {
+            tiempoFuera += Date.now() - salidaInicio;
+            salidaInicio = 0;
+        }
+    }
+});
+
+// ===== GUARDADO EN TIEMPO REAL =====
+setInterval(() => {
+
+    if (!enClase) return;
+
+    let tiempoTotal = Date.now() - inicioClase;
+    let tiempoEnApp = tiempoTotal - tiempoFuera;
+
+    db.collection("clases")
+    .doc("activa")
+    .collection("alumnos")
+    .doc(nombreAlumno)
+    .update({
+        tiempo: tiempoEnApp,
+        salidas: salidas
+    });
+
+}, 5000);
 
 </script>
 

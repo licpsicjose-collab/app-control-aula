@@ -7,57 +7,47 @@
 
 <body>
 
-<h1>Clase en progreso</h1>
+<h1>Entrar a clase</h1>
 
 <input id="nombre" placeholder="Nombre"><br>
 <input id="grupo" placeholder="Grupo"><br>
-<input id="escuela" placeholder="Escuela"><br><br>
-
 <input id="codigo" placeholder="Código"><br><br>
 
-<button onclick="ingresar()">Entrar</button>
+<button onclick="entrar()">Entrar</button>
 
 <h2 id="estado"></h2>
 
-<!-- ✅ FIREBASE CORRECTO -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
 
-let claseActual = null;
-let enClase = false;
-let inicio = 0;
-let tiempoFuera = 0;
-let salidas = 0;
-let salidaInicio = 0;
-let nombreAlumno = "";
+let claseActual;
 
-// ✅ ESCUCHAR CLASE
+// escuchar clase
 db.collection("clases").doc("activa")
-.onSnapshot((doc) => {
+.onSnapshot(doc => {
     claseActual = doc.data();
 });
 
-// ✅ ENTRAR
-function ingresar() {
+// entrar a clase
+function entrar() {
 
     let nombre = document.getElementById("nombre").value;
     let grupo = document.getElementById("grupo").value;
-    let escuela = document.getElementById("escuela").value;
     let codigo = document.getElementById("codigo").value;
 
-    if (!claseActual) return alert("No hay clase activa");
-    if (codigo !== claseActual.codigo) return alert("Código incorrecto");
+    if (!claseActual) {
+        alert("No hay clase activa");
+        return;
+    }
 
-    if (!nombre) return alert("Escribe tu nombre");
-
-    enClase = true;
-    inicio = Date.now();
-    nombreAlumno = nombre;
-
-    document.getElementById("estado").innerText = "✅ Registrando actividad";
+    if (codigo !== claseActual.codigo) {
+        alert("Código incorrecto");
+        return;
+    }
 
     db.collection("clases")
     .doc("activa")
@@ -65,50 +55,13 @@ function ingresar() {
     .doc(nombre)
     .set({
         nombre,
-        grupo,
-        escuela,
-        tiempo: 0,
-        salidas: 0
+        grupo
     });
+
+    document.getElementById("estado").innerText = "✅ Entraste correctamente";
 }
-
-// ✅ DETECCIÓN DE SALIDAS
-window.addEventListener("blur", () => {
-    if (!enClase) return;
-    salidas++;
-    salidaInicio = Date.now();
-});
-
-window.addEventListener("focus", () => {
-    if (!enClase) return;
-
-    if (salidaInicio !== 0) {
-        tiempoFuera += Date.now() - salidaInicio;
-        salidaInicio = 0;
-    }
-});
-
-// ✅ GUARDADO CONTINUO
-setInterval(() => {
-
-    if (!enClase) return;
-
-    let tiempoTotal = Date.now() - inicio;
-    let tiempoEnApp = tiempoTotal - tiempoFuera;
-
-    db.collection("clases")
-    .doc("activa")
-    .collection("alumnos")
-    .doc(nombreAlumno)
-    .update({
-        tiempo: tiempoEnApp,
-        salidas: salidas
-    });
-
-}, 5000);
 
 </script>
 
 </body>
 </html>
-``

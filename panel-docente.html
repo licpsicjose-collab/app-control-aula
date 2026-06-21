@@ -20,22 +20,22 @@
 <h2>Clase Activa</h2>
 <div id="clase"></div>
 
-<h2>Alumnos en clase</h2>
+<h2>Alumnos</h2>
 <div id="alumnos">Sin alumnos</div>
 
-<!-- ✅ FIREBASE BIEN ESCRITO -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
 
-// ✅ GENERAR CÓDIGO
+// generar código
 function generarCodigo() {
     return Math.random().toString(36).substring(2,6).toUpperCase();
 }
 
-// ✅ INICIAR CLASE
+// iniciar clase
 function iniciarClase() {
 
     let escuela = document.getElementById("escuela").value;
@@ -51,51 +51,33 @@ function iniciarClase() {
         escuela,
         grupo,
         materia,
-        codigo: generarCodigo(),
-        activa: true,
-        inicio: Date.now()
+        codigo: generarCodigo()
     };
 
     db.collection("clases").doc("activa").set(clase);
 }
 
-// ✅ ESCUCHAR CLASE
+// escuchar clase
 db.collection("clases").doc("activa")
-.onSnapshot((doc) => {
+.onSnapshot(doc => {
 
-    let clase = doc.data();
+    let data = doc.data();
+    if (!data) return;
 
-    if (clase) {
-        document.getElementById("clase").innerHTML = `
-            Escuela: ${clase.escuela}<br>
-            Grupo: ${clase.grupo}<br>
-            Materia: ${clase.materia}<br>
-            Código: <strong>${clase.codigo}</strong>
-        `;
-    }
+    document.getElementById("clase").innerHTML =
+        `${data.escuela} - ${data.grupo}<br>Código: ${data.codigo}`;
 });
 
-// ✅ ESCUCHAR ALUMNOS
-db.collection("clases")
-.doc("activa")
+// escuchar alumnos
+db.collection("clases").doc("activa")
 .collection("alumnos")
-.onSnapshot((snapshot) => {
+.onSnapshot(snapshot => {
 
     let html = "";
 
-    snapshot.forEach((doc) => {
-
-        let a = doc.data();
-        let tiempo = Math.floor((a.tiempo || 0) / 1000);
-
-        html += `
-        <div style="border:1px solid #ccc; margin:5px; padding:5px;">
-            👤 ${a.nombre}<br>
-            Grupo: ${a.grupo}<br>
-            ⏱ Tiempo: ${tiempo}s<br>
-            🚫 Salidas: ${a.salidas || 0}
-        </div>
-        `;
+    snapshot.forEach(doc => {
+        let alumno = doc.data();
+        html += `${alumno.nombre} - ${alumno.grupo}<br>`;
     });
 
     document.getElementById("alumnos").innerHTML = html || "Sin alumnos";
@@ -105,4 +87,3 @@ db.collection("clases")
 
 </body>
 </html>
-``

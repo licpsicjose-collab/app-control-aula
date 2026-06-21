@@ -127,20 +127,18 @@ async function finalizarClase() {
         alumnos.push(doc.data());
     });
 
-    // guardar en historial
     await db.collection("historial").add({
         ...clase,
         alumnos: alumnos,
         fin: Date.now()
     });
 
-    // eliminar clase activa
     await db.collection("clases").doc("activa").delete();
 
     alert("Clase finalizada ✅");
 }
 
-// ===== MOSTRAR CLASE + BOTÓN PAUSA =====
+// ===== MOSTRAR CLASE Y BOTÓN PAUSA =====
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
 
@@ -160,10 +158,10 @@ db.collection("clases").doc("activa")
     `;
 
     let texto = c.pausada ? "Reanudar ▶️" : "Pausar ⏸";
-    let claseBtn = c.pausada ? "reanudar" : "pausa";
+    let estilo = c.pausada ? "reanudar" : "pausa";
 
     document.getElementById("controlPausa").innerHTML = `
-        <button class="${claseBtn}" onclick="togglePausa()">
+        <button class="${estilo}" onclick="togglePausa()">
             ${texto}
         </button>
     `;
@@ -180,14 +178,25 @@ db.collection("clases")
     snapshot.forEach(doc => {
 
         let a = doc.data();
-        let tiempo = Math.floor((a.tiempo || 0)/1000);
+
+        let tiempoTotal = Math.floor((a.tiempo || 0) / 1000);
+        let minutos = Math.floor(tiempoTotal / 60);
+        let segundos = tiempoTotal % 60;
+
+        let tiempo;
+
+        if (minutos > 0) {
+            tiempo = `${minutos} min ${segundos} s`;
+        } else {
+            tiempo = `${segundos} s`;
+        }
 
         html += `
         <div class="alumno">
             👤 ${a.nombre}<br>
             📚 ${a.grupo}<br>
-            ⏱ ${tiempo}s<br>
-            🚫 ${a.salidas || 0}
+            ⏱ ${tiempo}<br>
+            🚫 Salidas: ${a.salidas || 0}
         </div>
         `;
     });

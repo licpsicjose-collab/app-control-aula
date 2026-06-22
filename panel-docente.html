@@ -46,6 +46,7 @@ input, button {
 
 <button onclick="iniciarClase()">Iniciar Clase</button>
 <button onclick="finalizarClase()">Finalizar Clase</button>
+<button onclick="exportarCSV()">Exportar a Excel</button>
 
 <h2>Clase Activa</h2>
 <div id="clase"></div>
@@ -67,7 +68,7 @@ input, button {
 
 <script>
 
-// ===== GENERAR CÓDIGO =====
+// ===== GENERAR CODIGO =====
 function generarCodigo() {
     return Math.random().toString(36).substring(2,6).toUpperCase();
 }
@@ -91,12 +92,13 @@ function iniciarClase() {
     db.collection("clases").doc("activa").set(clase);
 }
 
-// ===== PAUSA / REANUDAR =====
+// ===== PAUSA =====
 function togglePausa() {
 
     let ref = db.collection("clases").doc("activa");
 
     ref.get().then(doc => {
+
         let clase = doc.data();
 
         ref.update({
@@ -138,7 +140,40 @@ async function finalizarClase() {
     alert("Clase finalizada ✅");
 }
 
-// ===== MOSTRAR CLASE Y BOTÓN PAUSA =====
+// ===== EXPORTAR CSV =====
+async function exportarCSV() {
+
+    let snap = await db.collection("clases")
+        .doc("activa")
+        .collection("alumnos")
+        .get();
+
+    let contenido = "Nombre,Grupo,Tiempo,Salidas\n";
+
+    snap.forEach(doc => {
+
+        let a = doc.data();
+
+        let tiempoTotal = Math.floor((a.tiempo || 0) / 1000);
+        let minutos = Math.floor(tiempoTotal / 60);
+        let segundos = tiempoTotal % 60;
+
+        let tiempo = minutos > 0
+            ? `${minutos} min ${segundos} s`
+            : `${segundos} s`;
+
+        contenido += `${a.nombre},${a.grupo},${tiempo},${a.salidas || 0}\n`;
+    });
+
+    let blob = new Blob([contenido], { type: "text/csv" });
+
+    let link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "reporte_clase.csv";
+    link.click();
+}
+
+// ===== MOSTRAR CLASE =====
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
 

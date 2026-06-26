@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="es">
+<!DOCTYPE html><!DOCTYPE="es">
 <head>
 <meta charset="UTF-8">
 <title>Panel Docente</title>
@@ -13,13 +12,6 @@ body {
 input, button {
     padding: 10px;
     margin: 5px;
-}
-
-.alumno {
-    border: 1px solid #ccc;
-    margin: 10px;
-    padding: 10px;
-    border-radius: 10px;
 }
 </style>
 
@@ -42,27 +34,39 @@ input, button {
 <h2>Clase</h2>
 <div id="clase"></div>
 
-<!-- ✅ Firebase CORRECTO -->
+<!-- ✅ FIREBASE BIEN CARGADO -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="firebase.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"/script>
 
 <script>
 
-let db = firebase.firestore();
-let auth = firebase.auth();
+// ✅ CONFIGURACIÓN
+const firebaseConfig = {
+  apiKey: "AIzaSyDRjBwW6nueplRNYL-S0sxfliC8taWNZCM",
+  authDomain: "app-clase-3a564.firebaseapp.com",
+  projectId: "app-clase-3a564"
+};
 
-// ✅ PROTEGER ACCESO
+// ✅ INICIAR FIREBASE
+firebase.initializeApp(firebaseConfig);
+
+// ✅ BASE DE DATOS (YA DEFINIDA)
+const db = firebase.firestore();
+
+// ✅ AUTH
+const auth = firebase.auth();
+
+// ✅ PROTEGER PANEL
 auth.onAuthStateChanged(user => {
 
-    if (!user) {
+    if (!user){
         alert("Debes iniciar sesión");
         window.location.href = "login.html";
         return;
     }
 
-    console.log("✅ Usuario:", user.email);
+    console.log("Usuario:", user.email);
 });
 
 // ✅ CERRAR SESIÓN
@@ -98,7 +102,7 @@ db.collection("clases").doc("activa")
     let c = doc.data();
 
     if (!c) {
-        document.getElementById("clase").innerHTML = "Sin clase activa";
+        document.getElementById("clase").innerHTML = "Sin clase";
         return;
     }
 

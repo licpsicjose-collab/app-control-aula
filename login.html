@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html langUTF-8"><html lang="es">
+<html="UTF-8"><html lang="es">
 <title>Login</title>
 
 <style>
@@ -27,7 +27,7 @@ input, button {
 <button onclick="registrar()">Registrarse</button>
 <button onclick="entrar()">Entrar</button>
 
-<!-- ✅ FIREBASE (CORRECTO) -->
+<!-- ✅ FIREBASE CORRECTO (ESTO ES CLAVE) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -35,7 +35,7 @@ input, button {
 
 <script>
 
-// ✅ REGISTRAR USUARIO
+// registrar
 function registrar(){
 
     let correoVal = document.getElementById("correo").value;
@@ -43,14 +43,14 @@ function registrar(){
 
     auth.createUserWithEmailAndPassword(correoVal, passVal)
     .then(() => {
-        alert("✅ Usuario creado correctamente");
+        alert("✅ Usuario creado");
     })
     .catch(e => {
-        alert("❌ Error: " + e.message);
+        alert("❌ " + e.message);
     });
 }
 
-// ✅ INICIAR SESIÓN
+// login
 function entrar(){
 
     let correoVal = document.getElementById("correo").value;
@@ -62,7 +62,7 @@ function entrar(){
         window.location.href = "panel-docente.html";
     })
     .catch(e => {
-        alert("❌ Error: " + e.message);
+        alert("❌ " + e.message);
     });
 }
 

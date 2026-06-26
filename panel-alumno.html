@@ -8,9 +8,16 @@
 body {
     font-family: Arial;
     text-align: center;
-    padding-top: 80px;
-    background-color: #111;
+}
+
+.pantalla {
+    background: black;
     color: white;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 .parpadeo {
@@ -52,7 +59,7 @@ body {
 
 <script>
 
-let claseActual;
+let claseActual = null;
 let enClase = false;
 
 let inicio = 0;
@@ -63,11 +70,31 @@ let salidaInicio = 0;
 let nombreAlumno = "";
 let wakeLock = null;
 
+// ✅ ESCUCHAR CLASE
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
-    claseActual = doc.data();
+
+    let data = doc.data();
+
+    // ✅ SI YA NO EXISTE LA CLASE
+    if (!data && enClase) {
+
+        enClase = false;
+
+        document.body.innerHTML = `
+            <div class="pantalla">
+                <h2>✅ Clase finalizada</h2>
+                <p>Puedes cerrar esta pantalla</p>
+            </div>
+        `;
+
+        return;
+    }
+
+    claseActual = data;
 });
 
+// ✅ ENTRAR
 function entrar() {
 
     let nombre = document.getElementById("nombre").value;
@@ -85,8 +112,7 @@ function entrar() {
     nombreAlumno = nombre;
 
     document.body.innerHTML = `
-        <div style="background:black;color:white;height:100vh;
-        display:flex;flex-direction:column;justify-content:center;align-items:center;">
+        <div class="pantalla">
             <h2>📵 Estás en clase</h2>
             <p>No uses el teléfono</p>
             <div class="parpadeo">🔴</div>
@@ -107,22 +133,24 @@ function entrar() {
     });
 }
 
+// ✅ PANTALLA ACTIVA
 async function activarPantalla() {
     try {
         wakeLock = await navigator.wakeLock.request('screen');
     } catch {}
 }
 
-// SALIDAS
+// ✅ SALIDA
 window.addEventListener("blur", () => {
-    if (!enClase) return;
-    if (claseActual?.pausada) return;
+    if (!enClase || claseActual?.pausada) return;
 
     salidas++;
     salidaInicio = Date.now();
 });
 
+// ✅ REGRESO
 window.addEventListener("focus", () => {
+
     if (!enClase) return;
 
     let tiempoSalida = Date.now() - salidaInicio;
@@ -134,10 +162,10 @@ window.addEventListener("focus", () => {
     salidaInicio = 0;
 });
 
+// ✅ VISIBILIDAD
 document.addEventListener("visibilitychange", () => {
 
-    if (!enClase) return;
-    if (claseActual?.pausada) return;
+    if (!enClase || claseActual?.pausada) return;
 
     if (document.visibilityState === "hidden") {
         salidas++;
@@ -153,7 +181,7 @@ document.addEventListener("visibilitychange", () => {
     }
 });
 
-// GUARDAR
+// ✅ GUARDAR
 setInterval(() => {
 
     if (!enClase) return;

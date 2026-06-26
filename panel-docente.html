@@ -34,27 +34,28 @@ input, button {
 <h2>Clase</h2>
 <div id="clase"></div>
 
-<!-- ✅ FIREBASE COMPLETO -->
+<!-- ✅ FIREBASE SOLO UNA VEZ, BIEN CARGADO -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
 <script>
 
+// ✅ CONFIGURACIÓN (directo aquí, sin firebase.js para evitar conflictos)
 const firebaseConfig = {
   apiKey: "AIzaSyDRjBwW6nueplRNYL-S0sxfliC8taWNZCM",
   authDomain: "app-clase-3a564.firebaseapp.com",
   projectId: "app-clase-3a564"
 };
 
-// ✅ INICIALIZAR
+// ✅ INICIALIZAR UNA SOLA VEZ
 firebase.initializeApp(firebaseConfig);
 
-// ✅ SERVICIOS (AHORA SÍ DEFINIDOS)
+// ✅ SERVICIOS
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// ✅ PROTECCIÓN
+// ✅ VALIDAR LOGIN
 auth.onAuthStateChanged(user => {
 
     if (!user){
@@ -63,6 +64,7 @@ auth.onAuthStateChanged(user => {
         return;
     }
 
+    console.log("Usuario:", user.email);
 });
 
 // ✅ CERRAR SESIÓN
@@ -77,10 +79,10 @@ function generarCodigo(){
     return Math.random().toString(36).substring(2,6).toUpperCase();
 }
 
-// ✅ ESTA FUNCIÓN YA EXISTE (CLAVE)
+// ✅ ESTA FUNCIÓN YA NO SE ROMPE
 function iniciarClase(){
 
-    console.log("Iniciando clase...");
+    console.log("✅ iniciarClase ejecutándose");
 
     let claseData = {
         escuela: document.getElementById("escuela").value,

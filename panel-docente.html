@@ -1,4 +1,5 @@
-<!DOCTYPE html><!DOCTYPE="es">
+<!DOCTYPE html>
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <title>Panel Docente</title>
@@ -8,7 +9,6 @@ body {
     font-family: Arial;
     text-align: center;
 }
-
 input, button {
     padding: 10px;
     margin: 5px;
@@ -34,30 +34,19 @@ input, button {
 <h2>Clase</h2>
 <div id="clase"></div>
 
-<!-- ✅ FIREBASE BIEN CARGADO -->
+<!-- ✅ FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"/script>
+<script src="firebase.js"></script>
 
 <script>
 
-// ✅ CONFIGURACIÓN
-const firebaseConfig = {
-  apiKey: "AIzaSyDRjBwW6nueplRNYL-S0sxfliC8taWNZCM",
-  authDomain: "app-clase-3a564.firebaseapp.com",
-  projectId: "app-clase-3a564"
-};
-
-// ✅ INICIAR FIREBASE
-firebase.initializeApp(firebaseConfig);
-
-// ✅ BASE DE DATOS (YA DEFINIDA)
+// ✅ USAR LO QUE YA EXISTE EN firebase.js (NO redefinir)
 const db = firebase.firestore();
-
-// ✅ AUTH
 const auth = firebase.auth();
 
-// ✅ PROTEGER PANEL
+// ✅ VALIDAR LOGIN
 auth.onAuthStateChanged(user => {
 
     if (!user){
@@ -76,7 +65,7 @@ function salir(){
     });
 }
 
-// ✅ GENERAR CÓDIGO
+// ✅ CÓDIGO
 function generarCodigo(){
     return Math.random().toString(36).substring(2,6).toUpperCase();
 }
@@ -101,7 +90,7 @@ db.collection("clases").doc("activa")
 
     let c = doc.data();
 
-    if (!c) {
+    if (!c){
         document.getElementById("clase").innerHTML = "Sin clase";
         return;
     }

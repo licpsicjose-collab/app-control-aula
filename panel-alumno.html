@@ -2,41 +2,10 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Clase en progreso</title>
-
-<style>
-body {
-    font-family: Arial;
-    text-align: center;
-}
-
-.pantalla {
-    background: black;
-    color: white;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-}
-
-.parpadeo {
-    font-size: 50px;
-    animation: blink 1s infinite;
-}
-
-@keyframes blink {
-    0% { opacity: 1; }
-    50% { opacity: 0.3; }
-    100% { opacity: 1; }
-}
-</style>
-
+<title>Alumno</title>
 </head>
 
 <body>
-
-<div id="formulario">
 
 <h1>Entrar a clase</h1>
 
@@ -46,78 +15,46 @@ body {
 
 <button onclick="entrar()">Entrar</button>
 
-</div>
-
-<div id="estado"></div>
-
-<button onclick="activarPantalla()">🔆 Mantener pantalla activa</button>
-
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
 
-let claseActual = null;
-let enClase = false;
+let claseActual;
 
-let inicio = 0;
-let tiempoFuera = 0;
-let salidas = 0;
-let salidaInicio = 0;
-
-let nombreAlumno = "";
-let wakeLock = null;
-
-// ✅ ESCUCHAR CLASE
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
-
-    let data = doc.data();
-
-    // ✅ SI YA NO EXISTE LA CLASE
-    if (!data && enClase) {
-
-        enClase = false;
-
-        document.body.innerHTML = `
-            <div class="pantalla">
-                <h2>✅ Clase finalizada</h2>
-                <p>Puedes cerrar esta pantalla</p>
-            </div>
-        `;
-
-        return;
-    }
-
-    claseActual = data;
+    claseActual = doc.data();
 });
 
-// ✅ ENTRAR
 function entrar() {
 
     let nombre = document.getElementById("nombre").value;
     let grupo = document.getElementById("grupo").value;
     let codigo = document.getElementById("codigo").value;
 
-    if (!claseActual) return alert("No hay clase");
-    if (codigo !== claseActual.codigo) return alert("Código incorrecto");
+    if (!claseActual) {
+        alert("No hay clase");
+        return;
+    }
+
+    // ✅ VALIDAR DOBLE CÓDIGO
+    let valido =
+        codigo === claseActual.codigoInicial ||
+        codigo === claseActual.codigoRetardo;
+
+    if (!valido) {
+        alert("Código incorrecto");
+        return;
+    }
 
     let horaEntrada = Date.now();
+
     let tardanza = horaEntrada - claseActual.inicio;
 
-    enClase = true;
-    inicio = Date.now();
-    nombreAlumno = nombre;
-
-    document.body.innerHTML = `
-        <div class="pantalla">
-            <h2>📵 Estás en clase</h2>
-            <p>No uses el teléfono</p>
-            <div class="parpadeo">🔴</div>
-        </div>
-    `;
+    // ✅ DETECTAR SI ENTRÓ POR RETARDO
+    let retardoManual = (codigo === claseActual.codigoRetardo);
 
     db.collection("clases")
     .doc("activa")
@@ -128,83 +65,16 @@ function entrar() {
         grupo,
         tiempo: 0,
         salidas: 0,
-        horaEntrada: horaEntrada,
-        tardanza: tardanza
-    });
-}
 
-// ✅ PANTALLA ACTIVA
-async function activarPantalla() {
-    try {
-        wakeLock = await navigator.wakeLock.request('screen');
-    } catch {}
-}
-
-// ✅ SALIDA
-window.addEventListener("blur", () => {
-    if (!enClase || claseActual?.pausada) return;
-
-    salidas++;
-    salidaInicio = Date.now();
-});
-
-// ✅ REGRESO
-window.addEventListener("focus", () => {
-
-    if (!enClase) return;
-
-    let tiempoSalida = Date.now() - salidaInicio;
-
-    if (tiempoSalida > 20000) {
-        tiempoFuera += tiempoSalida;
-    }
-
-    salidaInicio = 0;
-});
-
-// ✅ VISIBILIDAD
-document.addEventListener("visibilitychange", () => {
-
-    if (!enClase || claseActual?.pausada) return;
-
-    if (document.visibilityState === "hidden") {
-        salidas++;
-        salidaInicio = Date.now();
-    } else {
-        let tiempoSalida = Date.now() - salidaInicio;
-
-        if (tiempoSalida > 20000) {
-            tiempoFuera += tiempoSalida;
-        }
-
-        salidaInicio = 0;
-    }
-});
-
-// ✅ GUARDAR
-setInterval(() => {
-
-    if (!enClase) return;
-
-    let tiempoTotal = Date.now() - inicio;
-    let tiempoEnApp = tiempoTotal - tiempoFuera;
-
-    if (claseActual?.pausada) {
-        tiempoEnApp = tiempoTotal;
-    }
-
-    db.collection("clases")
-    .doc("activa")
-    .collection("alumnos")
-    .doc(nombreAlumno)
-    .update({
-        tiempo: tiempoEnApp,
-        salidas: salidas
+        tardanza: tardanza,
+        retardoManual: retardoManual
     });
 
-}, 5000);
+    alert("Entrada registrada ✅");
+}
 
 </script>
 
 </body>
 </html>
+``

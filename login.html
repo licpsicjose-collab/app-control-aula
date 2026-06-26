@@ -37,11 +37,16 @@ input, button {
 
 <script>
 
-// ✅ REGISTRAR
+// ✅ REGISTRAR USUARIO
 function registrar(){
 
     let correoVal = document.getElementById("correo").value;
     let passVal = document.getElementById("password").value;
+
+    if (!correoVal || !passVal){
+        alert("Completa correo y contraseña");
+        return;
+    }
 
     auth.createUserWithEmailAndPassword(correoVal, passVal)
     .then(() => {
@@ -53,11 +58,16 @@ function registrar(){
     });
 }
 
-// ✅ LOGIN
+// ✅ INICIAR SESIÓN
 function entrar(){
 
     let correoVal = document.getElementById("correo").value;
     let passVal = document.getElementById("password").value;
+
+    if (!correoVal || !passVal){
+        alert("Completa correo y contraseña");
+        return;
+    }
 
     auth.signInWithEmailAndPassword(correoVal, passVal)
     .then(() => {
@@ -74,4 +84,3 @@ function entrar(){
 
 </body>
 </html>
-``

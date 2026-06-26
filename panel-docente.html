@@ -22,15 +22,8 @@ input, button {
     border-radius: 10px;
 }
 
-.pausa {
-    background-color: orange;
-    color: white;
-}
-
-.reanudar {
-    background-color: green;
-    color: white;
-}
+.pausa { background: orange; color: white; }
+.reanudar { background: green; color: white; }
 </style>
 
 </head>
@@ -38,6 +31,10 @@ input, button {
 <body>
 
 <h1>Panel Docente</h1>
+
+<button onclick="salir()">Cerrar sesión</button>
+
+<br><br>
 
 <input id="escuela" placeholder="Escuela"><br>
 <input id="grupo" placeholder="Grupo"><br>
@@ -55,7 +52,7 @@ input, button {
 <div id="controlPausa"></div>
 
 <h2>Buscar alumno</h2>
-<input id="busqueda" placeholder="Nombre..." onkeyup="filtrar()">
+<input id="busqueda" onkeyup="filtrar()">
 
 <h2>Alumnos</h2>
 <div id="alumnos"></div>
@@ -65,63 +62,87 @@ input, button {
 <h2>Historial</h2>
 <div id="historial"></div>
 
+<!-- ✅ FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
 
 let lista = [];
+let usuario = null;
 
-// ===== GENERAR CÓDIGO =====
+// ✅ CONTROL DE LOGIN
+firebase.auth().onAuthStateChanged(user => {
+
+    if (!user){
+        alert("Debes iniciar sesión");
+        window.location.href = "login.html";
+        return;
+    }
+
+    usuario = user;
+    console.log("Usuario activo:", user.email);
+});
+
+// ✅ CERRAR SESIÓN
+function salir(){
+    firebase.auth().signOut().then(()=>{
+        window.location.href = "login.html";
+    });
+}
+
+// ✅ GENERAR CÓDIGO
 function generarCodigo(){
     return Math.random().toString(36).substring(2,6).toUpperCase();
 }
 
-// ===== INICIAR CLASE =====
+// ✅ INICIAR CLASE
 function iniciarClase(){
 
-    let clase = {
-        escuela: escuela.value,
-        grupo: grupo.value,
-        materia: materia.value,
+    let claseData = {
+        escuela: document.getElementById("escuela").value,
+        grupo: document.getElementById("grupo").value,
+        materia: document.getElementById("materia").value,
+
         codigoInicial: generarCodigo(),
         codigoRetardo: generarCodigo(),
+
         modo: "normal",
         pausada: false,
-        inicio: Date.now()
+        inicio: Date.now(),
+
+        docente: usuario.uid   // ✅ clave nueva
     };
 
-    db.collection("clases").doc("activa").set(clase);
+    db.collection("clases").doc("activa").set(claseData);
 }
 
-// ===== ACTIVAR RETARDOS =====
+// ✅ ACTIVAR RETARDOS
 function activarRetardo(){
-    db.collection("clases").doc("activa").update({
-        modo: "retardo"
-    });
+    db.collection("clases").doc("activa").update({ modo: "retardo" });
 }
 
-// ===== PAUSA =====
+// ✅ PAUSA
 function togglePausa(){
+
     let ref = db.collection("clases").doc("activa");
 
     ref.get().then(doc=>{
-        ref.update({
-            pausada: !doc.data().pausada
-        });
+        ref.update({ pausada: !doc.data().pausada });
     });
 }
 
-// ===== MOSTRAR CLASE =====
+// ✅ MOSTRAR CLASE
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
 
     let c = doc.data();
 
-    if (!c) {
-        clase.innerHTML = "Sin clase activa";
-        controlPausa.innerHTML = "";
+    if (!c){
+        document.getElementById("clase").innerHTML = "Sin clase";
+        document.getElementById("controlPausa").innerHTML = "";
         return;
     }
 
@@ -129,72 +150,64 @@ db.collection("clases").doc("activa")
         ? c.codigoInicial
         : c.codigoRetardo;
 
-    clase.innerHTML = `
-        🏫 ${c.escuela}<br>
-        👥 ${c.grupo}<br>
-        📘 ${c.materia}<br>
+    document.getElementById("clase").innerHTML = `
+        ${c.escuela}<br>
+        ${c.grupo}<br>
+        ${c.materia}<br>
         🔑 <strong>${codigo}</strong><br>
-        ⚙️ ${c.modo}
+        ${c.modo}
     `;
 
-    controlPausa.innerHTML = `
+    document.getElementById("controlPausa").innerHTML = `
     <button class="${c.pausada?'reanudar':'pausa'}" onclick="togglePausa()">
-        ${c.pausada ? "Reanudar ▶️" : "Pausar ⏸"}
+        ${c.pausada ? "Reanudar" : "Pausar"}
     </button>
     `;
 });
 
-// ===== ALUMNOS =====
+// ✅ ALUMNOS
 db.collection("clases").doc("activa")
 .collection("alumnos")
 .onSnapshot(snap=>{
-    lista = [];
-    snap.forEach(doc => lista.push(doc.data()));
+    lista=[];
+    snap.forEach(doc=>lista.push(doc.data()));
     render(lista);
 });
 
-// ===== BUSCAR =====
+// ✅ BUSCAR
 function filtrar(){
-    let texto = busqueda.value.toLowerCase();
-    render(lista.filter(a => a.nombre.toLowerCase().includes(texto)));
+    let t = busqueda.value.toLowerCase();
+    render(lista.filter(a=>a.nombre.toLowerCase().includes(t)));
 }
 
-// ===== ESTADO / RÚBRICA =====
-function setEstado(nombre, estado){
-    db.collection("clases")
-    .doc("activa")
-    .collection("alumnos")
-    .doc(nombre)
-    .update({ estado });
+// ✅ RÚBRICA
+function setEstado(n,e){
+    db.collection("clases").doc("activa")
+    .collection("alumnos").doc(n)
+    .update({estado:e});
 }
 
-// ===== RENDER =====
+// ✅ MOSTRAR ALUMNOS
 function render(data){
 
-    let html = "";
+    let html="";
 
-    data.forEach(a => {
+    data.forEach(a=>{
 
-        let t = Math.floor((a.tiempo || 0)/1000);
-        let min = Math.floor(t/60);
-        let seg = t % 60;
+        let t=Math.floor((a.tiempo||0)/1000);
+        let tiempo=Math.floor(t/60)>0?`${Math.floor(t/60)}m ${t%60}s`:`${t}s`;
 
-        let tiempo = min > 0 ? `${min}m ${seg}s` : `${seg}s`;
+        let tardanzaSeg=Math.floor((a.tardanza||0)/1000);
+        let tardanza=tardanzaSeg<60?"✅ A tiempo":
+        `⏰ ${Math.floor(tardanzaSeg/60)}m ${tardanzaSeg%60}s`;
 
-        let tardanzaSeg = Math.floor((a.tardanza || 0)/1000);
-
-        let tardanza = tardanzaSeg < 60
-            ? "✅ A tiempo"
-            : `⏰ ${Math.floor(tardanzaSeg/60)}m ${tardanzaSeg%60}s`;
-
-        html += `
+        html+=`
         <div class="alumno">
-            👤 ${a.nombre}<br>
-            📚 ${a.grupo}<br>
-            ⏱ ${tiempo}<br>
-            🚫 ${a.salidas || 0}<br>
+            ${a.nombre}<br>
+            ${tiempo}<br>
+            🚫 ${a.salidas||0}<br>
             ${tardanza}<br>
-            Estado: ${a.estado || "-"}<br><br>
+            Estado: ${a.estado||"-"}<br><br>
 
             <button onclick="setEstado('${a.nombre}','😄 Excelente')">😄</button>
             <button onclick="setEstado('${a.nombre}','👍 Bien')">👍</button>
@@ -204,111 +217,83 @@ function render(data){
         `;
     });
 
-    alumnos.innerHTML = html;
+    alumnos.innerHTML=html;
 }
 
-// ===== EXPORTAR =====
+// ✅ EXPORTAR
 async function exportarCSV(){
 
-    let snap = await db.collection("clases")
-        .doc("activa")
-        .collection("alumnos")
-        .get();
+    let snap=await db.collection("clases")
+    .doc("activa").collection("alumnos").get();
 
-    let contenido = "Nombre,Grupo,Tiempo,Salidas,Estado,Tardanza\n";
+    let contenido="Nombre,Grupo,Tiempo,Salidas,Estado,Tardanza\n";
 
-    snap.forEach(doc => {
+    snap.forEach(doc=>{
+        let a=doc.data();
 
-        let a = doc.data();
+        let t=Math.floor((a.tiempo||0)/1000);
+        let tiempo=Math.floor(t/60)>0?`${Math.floor(t/60)}m ${t%60}s`:`${t}s`;
 
-        let t = Math.floor((a.tiempo||0)/1000);
-        let min = Math.floor(t/60);
-        let seg = t%60;
+        let tard=Math.floor((a.tardanza||0)/1000);
+        let tardanza=tard<60?"A tiempo":`${Math.floor(tard/60)}m ${tard%60}s`;
 
-        let tiempo = min>0?`${min}m ${seg}s`:`${seg}s`;
-
-        let tard = Math.floor((a.tardanza||0)/1000);
-
-        let tardanza = tard<60
-            ? "A tiempo"
-            : `${Math.floor(tard/60)}m ${tard%60}s`;
-
-        contenido += `${a.nombre},${a.grupo},${tiempo},${a.salidas||0},${a.estado||""},${tardanza}\n`;
+        contenido+=`${a.nombre},${a.grupo},${tiempo},${a.salidas||0},${a.estado||""},${tardanza}\n`;
     });
 
-    let blob = new Blob([contenido], {type:"text/csv"});
-    let link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-    link.download = "reporte.csv";
+    let blob=new Blob([contenido]);
+    let link=document.createElement("a");
+    link.href=URL.createObjectURL(blob);
+    link.download="reporte.csv";
     link.click();
 }
 
-// ===== FINALIZAR CLASE =====
+// ✅ FINALIZAR
 async function finalizarClase(){
 
-    let docClase = await db.collection("clases").doc("activa").get();
-    let claseData = docClase.data();
+    let docClase=await db.collection("clases").doc("activa").get();
+    let claseData=docClase.data();
 
-    if (!claseData){
-        alert("No hay clase");
-        return;
-    }
+    let snap=await db.collection("clases")
+    .doc("activa").collection("alumnos").get();
 
-    let snap = await db.collection("clases")
-        .doc("activa")
-        .collection("alumnos")
-        .get();
-
-    let alumnosData = [];
-    snap.forEach(doc => alumnosData.push(doc.data()));
+    let alumnos=[];
+    snap.forEach(doc=>alumnos.push(doc.data()));
 
     await db.collection("historial").add({
         ...claseData,
-        alumnos: alumnosData,
+        alumnos,
         fin: Date.now()
     });
 
     await db.collection("clases").doc("activa").delete();
 
-    alert("✅ Clase finalizada");
+    alert("Clase finalizada ✅");
 }
 
-// ===== BORRADO SEGURO =====
+// ✅ BORRADO SEGURO
 async function confirmarBorrado(){
 
-    let paso1 = confirm("⚠️ ¿Eliminar TODO el historial?");
-    if (!paso1) return;
+    if(!confirm("¿Eliminar historial?")) return;
 
-    let texto = prompt("Escribe BORRAR para confirmar:");
+    let texto = prompt("Escribe BORRAR");
 
-    if (texto !== "BORRAR") {
-        alert("Cancelado ❌");
-        return;
-    }
+    if(texto !== "BORRAR") return;
 
     let snap = await db.collection("historial").get();
     let batch = db.batch();
 
-    snap.forEach(doc => {
-        batch.delete(doc.ref);
-    });
+    snap.forEach(doc => batch.delete(doc.ref));
 
     await batch.commit();
 
-    alert("✅ Historial eliminado");
+    alert("Historial eliminado ✅");
 }
 
-// ===== HISTORIAL =====
-db.collection("historial").onSnapshot(snap => {
-
-    let html = "";
-
-    snap.forEach(() => {
-        html += "<div>✅ Clase guardada</div>";
-    });
-
-    historial.innerHTML = html;
+// ✅ HISTORIAL
+db.collection("historial").onSnapshot(snap=>{
+    let html="";
+    snap.forEach(()=>html+="<div>Clase guardada ✅</div>");
+    historial.innerHTML=html;
 });
 
 </script>

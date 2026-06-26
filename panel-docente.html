@@ -21,9 +21,6 @@ input, button {
     padding: 10px;
     border-radius: 10px;
 }
-
-.pausa { background: orange; color: white; }
-.reanudar { background: green; color: white; }
 </style>
 
 </head>
@@ -41,28 +38,11 @@ input, button {
 <input id="materia" placeholder="Materia"><br><br>
 
 <button onclick="iniciarClase()">Iniciar Clase</button>
-<button onclick="activarRetardo()">Modo Retardos</button>
-<button onclick="exportarCSV()">Exportar Excel</button>
-<button onclick="finalizarClase()">Finalizar Clase</button>
-<button onclick="confirmarBorrado()">🗑 Borrar historial</button>
 
-<h2>Clase Activa</h2>
+<h2>Clase</h2>
 <div id="clase"></div>
 
-<div id="controlPausa"></div>
-
-<h2>Buscar alumno</h2>
-<input id="busqueda" onkeyup="filtrar()">
-
-<h2>Alumnos</h2>
-<div id="alumnos"></div>
-
-<hr>
-
-<h2>Historial</h2>
-<div id="historial"></div>
-
-<!-- ✅ FIREBASE -->
+<!-- ✅ Firebase CORRECTO -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -70,25 +50,24 @@ input, button {
 
 <script>
 
-let lista = [];
-let usuario = null;
+let db = firebase.firestore();
+let auth = firebase.auth();
 
-// ✅ CONTROL DE LOGIN
-firebase.auth().onAuthStateChanged(user => {
+// ✅ PROTEGER ACCESO
+auth.onAuthStateChanged(user => {
 
-    if (!user){
+    if (!user) {
         alert("Debes iniciar sesión");
         window.location.href = "login.html";
         return;
     }
 
-    usuario = user;
-    console.log("Usuario activo:", user.email);
+    console.log("✅ Usuario:", user.email);
 });
 
 // ✅ CERRAR SESIÓN
 function salir(){
-    firebase.auth().signOut().then(()=>{
+    auth.signOut().then(()=>{
         window.location.href = "login.html";
     });
 }
@@ -101,37 +80,15 @@ function generarCodigo(){
 // ✅ INICIAR CLASE
 function iniciarClase(){
 
-    let claseData = {
+    let clase = {
         escuela: document.getElementById("escuela").value,
         grupo: document.getElementById("grupo").value,
         materia: document.getElementById("materia").value,
-
-        codigoInicial: generarCodigo(),
-        codigoRetardo: generarCodigo(),
-
-        modo: "normal",
-        pausada: false,
-        inicio: Date.now(),
-
-        docente: usuario.uid   // ✅ clave nueva
+        codigo: generarCodigo(),
+        inicio: Date.now()
     };
 
-    db.collection("clases").doc("activa").set(claseData);
-}
-
-// ✅ ACTIVAR RETARDOS
-function activarRetardo(){
-    db.collection("clases").doc("activa").update({ modo: "retardo" });
-}
-
-// ✅ PAUSA
-function togglePausa(){
-
-    let ref = db.collection("clases").doc("activa");
-
-    ref.get().then(doc=>{
-        ref.update({ pausada: !doc.data().pausada });
-    });
+    db.collection("clases").doc("activa").set(clase);
 }
 
 // ✅ MOSTRAR CLASE
@@ -140,160 +97,17 @@ db.collection("clases").doc("activa")
 
     let c = doc.data();
 
-    if (!c){
-        document.getElementById("clase").innerHTML = "Sin clase";
-        document.getElementById("controlPausa").innerHTML = "";
+    if (!c) {
+        document.getElementById("clase").innerHTML = "Sin clase activa";
         return;
     }
-
-    let codigo = c.modo === "normal"
-        ? c.codigoInicial
-        : c.codigoRetardo;
 
     document.getElementById("clase").innerHTML = `
         ${c.escuela}<br>
         ${c.grupo}<br>
         ${c.materia}<br>
-        🔑 <strong>${codigo}</strong><br>
-        ${c.modo}
+        🔑 ${c.codigo}
     `;
-
-    document.getElementById("controlPausa").innerHTML = `
-    <button class="${c.pausada?'reanudar':'pausa'}" onclick="togglePausa()">
-        ${c.pausada ? "Reanudar" : "Pausar"}
-    </button>
-    `;
-});
-
-// ✅ ALUMNOS
-db.collection("clases").doc("activa")
-.collection("alumnos")
-.onSnapshot(snap=>{
-    lista=[];
-    snap.forEach(doc=>lista.push(doc.data()));
-    render(lista);
-});
-
-// ✅ BUSCAR
-function filtrar(){
-    let t = busqueda.value.toLowerCase();
-    render(lista.filter(a=>a.nombre.toLowerCase().includes(t)));
-}
-
-// ✅ RÚBRICA
-function setEstado(n,e){
-    db.collection("clases").doc("activa")
-    .collection("alumnos").doc(n)
-    .update({estado:e});
-}
-
-// ✅ MOSTRAR ALUMNOS
-function render(data){
-
-    let html="";
-
-    data.forEach(a=>{
-
-        let t=Math.floor((a.tiempo||0)/1000);
-        let tiempo=Math.floor(t/60)>0?`${Math.floor(t/60)}m ${t%60}s`:`${t}s`;
-
-        let tardanzaSeg=Math.floor((a.tardanza||0)/1000);
-        let tardanza=tardanzaSeg<60?"✅ A tiempo":
-        `⏰ ${Math.floor(tardanzaSeg/60)}m ${tardanzaSeg%60}s`;
-
-        html+=`
-        <div class="alumno">
-            ${a.nombre}<br>
-            ${tiempo}<br>
-            🚫 ${a.salidas||0}<br>
-            ${tardanza}<br>
-            Estado: ${a.estado||"-"}<br><br>
-
-            <button onclick="setEstado('${a.nombre}','😄 Excelente')">😄</button>
-            <button onclick="setEstado('${a.nombre}','👍 Bien')">👍</button>
-            <button onclick="setEstado('${a.nombre}','😐 Regular')">😐</button>
-            <button onclick="setEstado('${a.nombre}','❌ No trabajó')">❌</button>
-        </div>
-        `;
-    });
-
-    alumnos.innerHTML=html;
-}
-
-// ✅ EXPORTAR
-async function exportarCSV(){
-
-    let snap=await db.collection("clases")
-    .doc("activa").collection("alumnos").get();
-
-    let contenido="Nombre,Grupo,Tiempo,Salidas,Estado,Tardanza\n";
-
-    snap.forEach(doc=>{
-        let a=doc.data();
-
-        let t=Math.floor((a.tiempo||0)/1000);
-        let tiempo=Math.floor(t/60)>0?`${Math.floor(t/60)}m ${t%60}s`:`${t}s`;
-
-        let tard=Math.floor((a.tardanza||0)/1000);
-        let tardanza=tard<60?"A tiempo":`${Math.floor(tard/60)}m ${tard%60}s`;
-
-        contenido+=`${a.nombre},${a.grupo},${tiempo},${a.salidas||0},${a.estado||""},${tardanza}\n`;
-    });
-
-    let blob=new Blob([contenido]);
-    let link=document.createElement("a");
-    link.href=URL.createObjectURL(blob);
-    link.download="reporte.csv";
-    link.click();
-}
-
-// ✅ FINALIZAR
-async function finalizarClase(){
-
-    let docClase=await db.collection("clases").doc("activa").get();
-    let claseData=docClase.data();
-
-    let snap=await db.collection("clases")
-    .doc("activa").collection("alumnos").get();
-
-    let alumnos=[];
-    snap.forEach(doc=>alumnos.push(doc.data()));
-
-    await db.collection("historial").add({
-        ...claseData,
-        alumnos,
-        fin: Date.now()
-    });
-
-    await db.collection("clases").doc("activa").delete();
-
-    alert("Clase finalizada ✅");
-}
-
-// ✅ BORRADO SEGURO
-async function confirmarBorrado(){
-
-    if(!confirm("¿Eliminar historial?")) return;
-
-    let texto = prompt("Escribe BORRAR");
-
-    if(texto !== "BORRAR") return;
-
-    let snap = await db.collection("historial").get();
-    let batch = db.batch();
-
-    snap.forEach(doc => batch.delete(doc.ref));
-
-    await batch.commit();
-
-    alert("Historial eliminado ✅");
-}
-
-// ✅ HISTORIAL
-db.collection("historial").onSnapshot(snap=>{
-    let html="";
-    snap.forEach(()=>html+="<div>Clase guardada ✅</div>");
-    historial.innerHTML=html;
 });
 
 </script>

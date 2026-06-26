@@ -9,9 +9,17 @@ body {
     font-family: Arial;
     text-align: center;
 }
+
 input, button {
     padding: 10px;
     margin: 5px;
+}
+
+.alumno {
+    border: 1px solid #ccc;
+    margin: 10px;
+    padding: 10px;
+    border-radius: 10px;
 }
 </style>
 
@@ -27,64 +35,39 @@ input, button {
 
 <button onclick="iniciarClase()">Iniciar Clase</button>
 
-<h2>Clase</h2>
+<h2>Clase Activa</h2>
 <div id="clase"></div>
 
-<!-- ✅ Firebase (BIEN ORDENADO Y SIN DUPLICAR) -->
+<h2>Alumnos</h2>
+<div id="alumnos"></div>
+
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase.js"></script>
 
 <script>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDRjBwW6nueplRNYL-S0sxfliC8taWNZCM",
-  authDomain: "app-clase-3a564.firebaseapp.com",
-  projectId: "app-clase-3a564"
-};
-
-// ✅ INICIAR FIREBASE UNA SOLA VEZ
-firebase.initializeApp(firebaseConfig);
-
-// ✅ BASE DE DATOS
-const db = firebase.firestore();
-
-// ✅ FUNCIÓN QUE DEBE FUNCIONAR SI O SI
+// ✅ INICIAR CLASE
 function iniciarClase(){
 
-    alert("✅ botón funcionando");
-
-    let escuela = document.getElementById("escuela").value;
-    let grupo = document.getElementById("grupo").value;
-    let materia = document.getElementById("materia").value;
-
-    let claseData = {
-        escuela,
-        grupo,
-        materia,
+    let clase = {
+        escuela: document.getElementById("escuela").value,
+        grupo: document.getElementById("grupo").value,
+        materia: document.getElementById("materia").value,
         codigo: Math.random().toString(36).substring(2,6).toUpperCase(),
         inicio: Date.now()
     };
 
-    db.collection("clases")
-      .doc("activa")
-      .set(claseData)
-      .then(() => {
-          alert("✅ Clase creada correctamente");
-      })
-      .catch(err => {
-          alert("❌ Error: " + err.message);
-          console.error(err);
-      });
+    db.collection("clases").doc("activa").set(clase);
 }
 
-// ✅ ESCUCHAR CLASE
-db.collection("clases")
-.doc("activa")
+// ✅ MOSTRAR CLASE
+db.collection("clases").doc("activa")
 .onSnapshot(doc => {
 
     let c = doc.data();
 
-    if(!c){
+    if (!c){
         document.getElementById("clase").innerHTML = "Sin clase";
         return;
     }
@@ -95,6 +78,28 @@ db.collection("clases")
         ${c.materia}<br>
         🔑 ${c.codigo}
     `;
+});
+
+// ✅ ALUMNOS
+db.collection("clases").doc("activa")
+.collection("alumnos")
+.onSnapshot(snap => {
+
+    let html = "";
+
+    snap.forEach(doc => {
+
+        let a = doc.data();
+
+        html += `
+        <div class="alumno">
+            ${a.nombre}<br>
+            ⏱ ${Math.floor((a.tiempo||0)/1000)}s<br>
+            🚫 ${a.salidas||0}
+        </div>`;
+    });
+
+    document.getElementById("alumnos").innerHTML = html;
 });
 
 </script>

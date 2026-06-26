@@ -2,36 +2,77 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Test Login</title>
+<title>Login</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    padding-top: 80px;
+}
+input, button {
+    padding: 10px;
+    margin: 5px;
+}
+</style>
+
 </head>
 
 <body>
 
-<h2>Test Firebase Auth</h2>
+<h2>Acceso Docente</h2>
 
 <input id="correo" placeholder="Correo"><br>
 <input id="password" type="password" placeholder="Contraseña"><br><br>
 
 <button onclick="registrar()">Registrarse</button>
+<button onclick="entrar()">Entrar</button>
 
-<!-- ✅ SCRIPTS CORRECTOS -->
+<!-- ✅ ORDEN CORRECTO DE SCRIPTS -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script src="firebase.js"></script>
 
 <script>
 
+// ✅ REGISTRAR
 function registrar(){
 
-    console.log("Intentando registrar...");
+    let correoVal = document.getElementById("correo").value;
+    let passVal = document.getElementById("password").value;
 
-    let c = document.getElementById("correo").value;
-    let p = document.getElementById("password").value;
+    if (!correoVal || !passVal){
+        alert("Completa los datos");
+        return;
+    }
 
-    auth.createUserWithEmailAndPassword(c, p)
+    auth.createUserWithEmailAndPassword(correoVal, passVal)
     .then(() => {
-        alert("✅ FUNCIONÓ");
+        alert("✅ Usuario creado correctamente");
+    })
+    .catch(e => {
+        alert("❌ " + e.message);
+        console.error(e);
+    });
+}
+
+// ✅ LOGIN
+function entrar(){
+
+    let correoVal = document.getElementById("correo").value;
+    let passVal = document.getElementById("password").value;
+
+    if (!correoVal || !passVal){
+        alert("Completa los datos");
+        return;
+    }
+
+    auth.signInWithEmailAndPassword(correoVal, passVal)
+    .then(() => {
+        alert("✅ Login correcto");
+        window.location.href = "panel-docente.html";
     })
     .catch(e => {
         alert("❌ " + e.message);
@@ -43,4 +84,3 @@ function registrar(){
 
 </body>
 </html>
-``

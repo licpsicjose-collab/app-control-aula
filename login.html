@@ -2,78 +2,36 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Login</title>
-
-<style>
-body {
-    font-family: Arial;
-    text-align: center;
-    padding-top: 80px;
-}
-
-input, button {
-    padding: 10px;
-    margin: 5px;
-}
-</style>
-
+<title>Test Login</title>
 </head>
 
 <body>
 
-<h2>Acceso Docente</h2>
+<h2>Test Firebase Auth</h2>
 
 <input id="correo" placeholder="Correo"><br>
 <input id="password" type="password" placeholder="Contraseña"><br><br>
 
 <button onclick="registrar()">Registrarse</button>
-<button onclick="entrar()">Entrar</button>
 
-<!-- ✅ FIREBASE BIEN CARGADO -->
+<!-- ✅ SCRIPTS CORRECTOS -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script src="firebase.js"></script>
 
 <script>
 
-// ✅ REGISTRAR
 function registrar(){
 
-    let correoVal = document.getElementById("correo").value;
-    let passVal = document.getElementById("password").value;
+    console.log("Intentando registrar...");
 
-    if (!correoVal || !passVal){
-        alert("Completa los datos");
-        return;
-    }
+    let c = document.getElementById("correo").value;
+    let p = document.getElementById("password").value;
 
-    auth.createUserWithEmailAndPassword(correoVal, passVal)
+    auth.createUserWithEmailAndPassword(c, p)
     .then(() => {
-        alert("✅ Usuario creado");
-    })
-    .catch(e => {
-        alert("❌ " + e.message);
-        console.error(e);
-    });
-}
-
-// ✅ LOGIN
-function entrar(){
-
-    let correoVal = document.getElementById("correo").value;
-    let passVal = document.getElementById("password").value;
-
-    if (!correoVal || !passVal){
-        alert("Completa los datos");
-        return;
-    }
-
-    auth.signInWithEmailAndPassword(correoVal, passVal)
-    .then(() => {
-        alert("✅ Login correcto");
-        window.location.href = "panel-docente.html";
+        alert("✅ FUNCIONÓ");
     })
     .catch(e => {
         alert("❌ " + e.message);
@@ -85,3 +43,4 @@ function entrar(){
 
 </body>
 </html>
+``

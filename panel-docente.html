@@ -5,17 +5,32 @@
 <title>Panel Docente</title>
 
 <style>
-body { font-family: Arial; text-align:center; }
-input,button { padding:10px;margin:5px; }
+body {
+    font-family: Arial;
+    text-align: center;
+}
+
+input, button {
+    padding: 10px;
+    margin: 5px;
+}
 
 .alumno {
-  border:1px solid #ccc;
-  margin:10px;
-  padding:10px;
-  border-radius:10px;
+    border: 1px solid #ccc;
+    margin: 10px;
+    padding: 10px;
+    border-radius: 10px;
 }
-.pausa { background:orange;color:white; }
-.reanudar { background:green;color:white; }
+
+.pausa {
+    background-color: orange;
+    color: white;
+}
+
+.reanudar {
+    background-color: green;
+    color: white;
+}
 </style>
 
 </head>
@@ -34,12 +49,13 @@ input,button { padding:10px;margin:5px; }
 <button onclick="finalizarClase()">Finalizar Clase</button>
 <button onclick="confirmarBorrado()">🗑 Borrar historial</button>
 
-<h2>Clase</h2>
+<h2>Clase Activa</h2>
 <div id="clase"></div>
+
 <div id="controlPausa"></div>
 
 <h2>Buscar alumno</h2>
-<input id="busqueda" onkeyup="filtrar()">
+<input id="busqueda" placeholder="Nombre..." onkeyup="filtrar()">
 
 <h2>Alumnos</h2>
 <div id="alumnos"></div>
@@ -55,183 +71,244 @@ input,button { padding:10px;margin:5px; }
 
 <script>
 
-let lista=[];
+let lista = [];
 
+// ===== GENERAR CÓDIGO =====
 function generarCodigo(){
-  return Math.random().toString(36).substring(2,6).toUpperCase();
+    return Math.random().toString(36).substring(2,6).toUpperCase();
 }
 
+// ===== INICIAR CLASE =====
 function iniciarClase(){
-  let clase = {
-    escuela: escuela.value,
-    grupo: grupo.value,
-    materia: materia.value,
-    codigoInicial: generarCodigo(),
-    codigoRetardo: generarCodigo(),
-    modo:"normal",
-    pausada:false,
-    inicio: Date.now()
-  };
 
-  db.collection("clases").doc("activa").set(clase);
+    let clase = {
+        escuela: escuela.value,
+        grupo: grupo.value,
+        materia: materia.value,
+        codigoInicial: generarCodigo(),
+        codigoRetardo: generarCodigo(),
+        modo: "normal",
+        pausada: false,
+        inicio: Date.now()
+    };
+
+    db.collection("clases").doc("activa").set(clase);
 }
 
+// ===== ACTIVAR RETARDOS =====
 function activarRetardo(){
-  db.collection("clases").doc("activa").update({modo:"retardo"});
+    db.collection("clases").doc("activa").update({
+        modo: "retardo"
+    });
 }
 
+// ===== PAUSA =====
 function togglePausa(){
-  let ref=db.collection("clases").doc("activa");
+    let ref = db.collection("clases").doc("activa");
 
-  ref.get().then(doc=>{
-    ref.update({pausada:!doc.data().pausada});
-  });
+    ref.get().then(doc=>{
+        ref.update({
+            pausada: !doc.data().pausada
+        });
+    });
 }
 
+// ===== MOSTRAR CLASE =====
 db.collection("clases").doc("activa")
-.onSnapshot(doc=>{
+.onSnapshot(doc => {
 
-  let c=doc.data();
+    let c = doc.data();
 
-  if(!c){
-    clase.innerHTML="Sin clase";
-    controlPausa.innerHTML="";
-    return;
-  }
+    if (!c) {
+        clase.innerHTML = "Sin clase activa";
+        controlPausa.innerHTML = "";
+        return;
+    }
 
-  let codigo=c.modo==="normal"?c.codigoInicial:c.codigoRetardo;
+    let codigo = c.modo === "normal"
+        ? c.codigoInicial
+        : c.codigoRetardo;
 
-  clase.innerHTML=`
-  ${c.escuela}<br>
-  ${c.grupo}<br>
-  ${c.materia}<br>
-  🔑 <strong>${codigo}</strong><br>
-  ${c.modo}
-  `;
+    clase.innerHTML = `
+        🏫 ${c.escuela}<br>
+        👥 ${c.grupo}<br>
+        📘 ${c.materia}<br>
+        🔑 <strong>${codigo}</strong><br>
+        ⚙️ ${c.modo}
+    `;
 
-  controlPausa.innerHTML=`
-  <button class="${c.pausada?'reanudar':'pausa'}" onclick="togglePausa()">
-  ${c.pausada?'Reanudar':'Pausar'}
-  </button>
-  `;
+    controlPausa.innerHTML = `
+    <button class="${c.pausada?'reanudar':'pausa'}" onclick="togglePausa()">
+        ${c.pausada ? "Reanudar ▶️" : "Pausar ⏸"}
+    </button>
+    `;
 });
 
+// ===== ALUMNOS =====
 db.collection("clases").doc("activa")
 .collection("alumnos")
 .onSnapshot(snap=>{
-  lista=[];
-  snap.forEach(doc=>lista.push(doc.data()));
-  render(lista);
+    lista = [];
+    snap.forEach(doc => lista.push(doc.data()));
+    render(lista);
 });
 
+// ===== BUSCAR =====
 function filtrar(){
-  let t=busqueda.value.toLowerCase();
-  render(lista.filter(a=>a.nombre.toLowerCase().includes(t)));
+    let texto = busqueda.value.toLowerCase();
+    render(lista.filter(a => a.nombre.toLowerCase().includes(texto)));
 }
 
-function setEstado(n,e){
-  db.collection("clases").doc("activa")
-  .collection("alumnos").doc(n)
-  .update({estado:e});
+// ===== ESTADO / RÚBRICA =====
+function setEstado(nombre, estado){
+    db.collection("clases")
+    .doc("activa")
+    .collection("alumnos")
+    .doc(nombre)
+    .update({ estado });
 }
 
+// ===== RENDER =====
 function render(data){
-  let html="";
 
-  data.forEach(a=>{
+    let html = "";
 
-    let t=Math.floor((a.tiempo||0)/1000);
-    let tiempo=Math.floor(t/60)>0?`${Math.floor(t/60)}m ${t%60}s`:`${t}s`;
+    data.forEach(a => {
 
-    let tardanzaSeg=Math.floor((a.tardanza||0)/1000);
-    let tardanza=tardanzaSeg<60?"✅ A tiempo":
-    `⏰ ${Math.floor(tardanzaSeg/60)}m ${tardanzaSeg%60}s`;
+        let t = Math.floor((a.tiempo || 0)/1000);
+        let min = Math.floor(t/60);
+        let seg = t % 60;
 
-    html+=`
-    <div class="alumno">
-      ${a.nombre}<br>
-      ${tiempo}<br>
-      🚫 ${a.salidas||0}<br>
-      ${tardanza}<br>
-      Estado: ${a.estado||"-"}<br><br>
+        let tiempo = min > 0 ? `${min}m ${seg}s` : `${seg}s`;
 
-      <button onclick="setEstado('${a.nombre}','😄 Excelente')">😄</button>
-      <button onclick="setEstado('${a.nombre}','👍 Bien')">👍</button>
-      <button onclick="setEstado('${a.nombre}','😐 Regular')">😐</button>
-      <button onclick="setEstado('${a.nombre}','❌ No trabajó')">❌</button>
-    </div>
-    `;
-  });
+        let tardanzaSeg = Math.floor((a.tardanza || 0)/1000);
 
-  alumnos.innerHTML=html;
+        let tardanza = tardanzaSeg < 60
+            ? "✅ A tiempo"
+            : `⏰ ${Math.floor(tardanzaSeg/60)}m ${tardanzaSeg%60}s`;
+
+        html += `
+        <div class="alumno">
+            👤 ${a.nombre}<br>
+            📚 ${a.grupo}<br>
+            ⏱ ${tiempo}<br>
+            🚫 ${a.salidas || 0}<br>
+            ${tardanza}<br>
+            Estado: ${a.estado || "-"}<br><br>
+
+            <button onclick="setEstado('${a.nombre}','😄 Excelente')">😄</button>
+            <button onclick="setEstado('${a.nombre}','👍 Bien')">👍</button>
+            <button onclick="setEstado('${a.nombre}','😐 Regular')">😐</button>
+            <button onclick="setEstado('${a.nombre}','❌ No trabajó')">❌</button>
+        </div>
+        `;
+    });
+
+    alumnos.innerHTML = html;
 }
 
+// ===== EXPORTAR =====
 async function exportarCSV(){
 
-  let snap=await db.collection("clases")
-  .doc("activa").collection("alumnos").get();
+    let snap = await db.collection("clases")
+        .doc("activa")
+        .collection("alumnos")
+        .get();
 
-  let contenido="Nombre,Grupo,Tiempo,Salidas,Estado,Tardanza\n";
+    let contenido = "Nombre,Grupo,Tiempo,Salidas,Estado,Tardanza\n";
 
-  snap.forEach(doc=>{
-    let a=doc.data();
+    snap.forEach(doc => {
 
-    let t=Math.floor((a.tiempo||0)/1000);
-    let tiempo=Math.floor(t/60)>0?`${Math.floor(t/60)}m ${t%60}s`:`${t}s`;
+        let a = doc.data();
 
-    let tard=Math.floor((a.tardanza||0)/1000);
-    let tardanza=tard<60?"A tiempo":`${Math.floor(tard/60)}m ${tard%60}s`;
+        let t = Math.floor((a.tiempo||0)/1000);
+        let min = Math.floor(t/60);
+        let seg = t%60;
 
-    contenido+=`${a.nombre},${a.grupo},${tiempo},${a.salidas||0},${a.estado||""},${tardanza}\n`;
-  });
+        let tiempo = min>0?`${min}m ${seg}s`:`${seg}s`;
 
-  let blob=new Blob([contenido]);
-  let link=document.createElement("a");
-  link.href=URL.createObjectURL(blob);
-  link.download="reporte.csv";
-  link.click();
+        let tard = Math.floor((a.tardanza||0)/1000);
+
+        let tardanza = tard<60
+            ? "A tiempo"
+            : `${Math.floor(tard/60)}m ${tard%60}s`;
+
+        contenido += `${a.nombre},${a.grupo},${tiempo},${a.salidas||0},${a.estado||""},${tardanza}\n`;
+    });
+
+    let blob = new Blob([contenido], {type:"text/csv"});
+    let link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "reporte.csv";
+    link.click();
 }
 
+// ===== FINALIZAR CLASE =====
 async function finalizarClase(){
-  let docClase=await db.collection("clases").doc("activa").get();
-  let claseData=docClase.data();
 
-  let snap=await db.collection("clases")
-  .doc("activa").collection("alumnos").get();
+    let docClase = await db.collection("clases").doc("activa").get();
+    let claseData = docClase.data();
 
-  let alumnos=[];
-  snap.forEach(doc=>alumnos.push(doc.data()));
+    if (!claseData){
+        alert("No hay clase");
+        return;
+    }
 
-  await db.collection("historial").add({
-    ...claseData,
-    alumnos,
-    fin: Date.now()
-  });
+    let snap = await db.collection("clases")
+        .doc("activa")
+        .collection("alumnos")
+        .get();
 
-  await db.collection("clases").doc("activa").delete();
-  alert("Clase finalizada ✅");
+    let alumnosData = [];
+    snap.forEach(doc => alumnosData.push(doc.data()));
+
+    await db.collection("historial").add({
+        ...claseData,
+        alumnos: alumnosData,
+        fin: Date.now()
+    });
+
+    await db.collection("clases").doc("activa").delete();
+
+    alert("✅ Clase finalizada");
 }
 
+// ===== BORRADO SEGURO =====
 async function confirmarBorrado(){
 
-  if(!confirm("¿Eliminar historial?"))return;
+    let paso1 = confirm("⚠️ ¿Eliminar TODO el historial?");
+    if (!paso1) return;
 
-  let texto=prompt("Escribe BORRAR");
-  if(texto!=="BORRAR")return;
+    let texto = prompt("Escribe BORRAR para confirmar:");
 
-  let snap=await db.collection("historial").get();
-  let batch=db.batch();
+    if (texto !== "BORRAR") {
+        alert("Cancelado ❌");
+        return;
+    }
 
-  snap.forEach(doc=>batch.delete(doc.ref));
-  await batch.commit();
+    let snap = await db.collection("historial").get();
+    let batch = db.batch();
 
-  alert("Historial eliminado ✅");
+    snap.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+
+    alert("✅ Historial eliminado");
 }
 
-db.collection("historial").onSnapshot(snap=>{
-  let html="";
-  snap.forEach(()=>html+="<div>✅ Clase guardada</div>");
-  historial.innerHTML=html;
+// ===== HISTORIAL =====
+db.collection("historial").onSnapshot(snap => {
+
+    let html = "";
+
+    snap.forEach(() => {
+        html += "<div>✅ Clase guardada</div>";
+    });
+
+    historial.innerHTML = html;
 });
 
 </script>

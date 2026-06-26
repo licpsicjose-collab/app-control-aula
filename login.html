@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html="UTF-8"><html lang="es">
+<html lang="es">
+<head>
+<meta charset="UTF-8">
 <title>Login</title>
 
 <style>
@@ -27,7 +29,7 @@ input, button {
 <button onclick="registrar()">Registrarse</button>
 <button onclick="entrar()">Entrar</button>
 
-<!-- ✅ FIREBASE CORRECTO (ESTO ES CLAVE) -->
+<!-- ✅ FIREBASE CORRECTO -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -35,7 +37,7 @@ input, button {
 
 <script>
 
-// registrar
+// ✅ REGISTRAR
 function registrar(){
 
     let correoVal = document.getElementById("correo").value;
@@ -43,14 +45,15 @@ function registrar(){
 
     auth.createUserWithEmailAndPassword(correoVal, passVal)
     .then(() => {
-        alert("✅ Usuario creado");
+        alert("✅ Usuario creado correctamente");
     })
     .catch(e => {
         alert("❌ " + e.message);
+        console.error(e);
     });
 }
 
-// login
+// ✅ LOGIN
 function entrar(){
 
     let correoVal = document.getElementById("correo").value;
@@ -63,6 +66,7 @@ function entrar(){
     })
     .catch(e => {
         alert("❌ " + e.message);
+        console.error(e);
     });
 }
 
@@ -70,4 +74,4 @@ function entrar(){
 
 </body>
 </html>
-<head>
+``

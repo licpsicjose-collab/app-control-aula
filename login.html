@@ -29,10 +29,11 @@ input, button {
 <button onclick="registrar()">Registrarse</button>
 <button onclick="entrar()">Entrar</button>
 
-<!-- ✅ SCRIPTS CORRECTOS (ESTO ES LA CLAVE) -->
+<!-- ✅ FIREBASE BIEN CARGADO -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <script src="firebase.js"></script>
 
 <script>
@@ -50,7 +51,7 @@ function registrar(){
 
     auth.createUserWithEmailAndPassword(correoVal, passVal)
     .then(() => {
-        alert("✅ Usuario creado correctamente");
+        alert("✅ Usuario creado");
     })
     .catch(e => {
         alert("❌ " + e.message);

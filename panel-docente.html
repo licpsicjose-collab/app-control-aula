@@ -34,19 +34,27 @@ input, button {
 <h2>Clase</h2>
 <div id="clase"></div>
 
-<!-- ✅ FIREBASE -->
+<!-- ✅ FIREBASE COMPLETO -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"/script>
-<script src="firebase.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
 <script>
 
-// ✅ USAR LO QUE YA EXISTE EN firebase.js (NO redefinir)
+const firebaseConfig = {
+  apiKey: "AIzaSyDRjBwW6nueplRNYL-S0sxfliC8taWNZCM",
+  authDomain: "app-clase-3a564.firebaseapp.com",
+  projectId: "app-clase-3a564"
+};
+
+// ✅ INICIALIZAR
+firebase.initializeApp(firebaseConfig);
+
+// ✅ SERVICIOS (AHORA SÍ DEFINIDOS)
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// ✅ VALIDAR LOGIN
+// ✅ PROTECCIÓN
 auth.onAuthStateChanged(user => {
 
     if (!user){
@@ -55,7 +63,6 @@ auth.onAuthStateChanged(user => {
         return;
     }
 
-    console.log("Usuario:", user.email);
 });
 
 // ✅ CERRAR SESIÓN
@@ -65,15 +72,17 @@ function salir(){
     });
 }
 
-// ✅ CÓDIGO
+// ✅ GENERAR CÓDIGO
 function generarCodigo(){
     return Math.random().toString(36).substring(2,6).toUpperCase();
 }
 
-// ✅ INICIAR CLASE
+// ✅ ESTA FUNCIÓN YA EXISTE (CLAVE)
 function iniciarClase(){
 
-    let clase = {
+    console.log("Iniciando clase...");
+
+    let claseData = {
         escuela: document.getElementById("escuela").value,
         grupo: document.getElementById("grupo").value,
         materia: document.getElementById("materia").value,
@@ -81,7 +90,7 @@ function iniciarClase(){
         inicio: Date.now()
     };
 
-    db.collection("clases").doc("activa").set(clase);
+    db.collection("clases").doc("activa").set(claseData);
 }
 
 // ✅ MOSTRAR CLASE
@@ -91,7 +100,7 @@ db.collection("clases").doc("activa")
     let c = doc.data();
 
     if (!c){
-        document.getElementById("clase").innerHTML = "Sin clase";
+        document.getElementById("clase").innerHTML = "Sin clase activa";
         return;
     }
 

@@ -22,6 +22,16 @@ input, button {
     padding: 10px;
     border-radius: 10px;
 }
+
+.pausa {
+    background-color: orange;
+    color: white;
+}
+
+.reanudar {
+    background-color: green;
+    color: white;
+}
 </style>
 
 </head>
@@ -40,6 +50,9 @@ input, button {
 
 <h2>Clase Activa</h2>
 <div id="clase"></div>
+
+<!-- ✅ BOTÓN PAUSA -->
+<div id="controlPausa"></div>
 
 <h2>Buscar alumno</h2>
 <input id="busqueda" placeholder="Nombre..." onkeyup="filtrar()">
@@ -66,7 +79,7 @@ function generarCodigo() {
     return Math.random().toString(36).substring(2,6).toUpperCase();
 }
 
-// ✅ INICIAR CLASE CORREGIDO
+// ===== INICIAR CLASE =====
 function iniciarClase() {
 
     let escuela = document.getElementById("escuela").value;
@@ -83,13 +96,28 @@ function iniciarClase() {
         grupo,
         materia,
         codigo: generarCodigo(),
+        pausada: false,
         inicio: Date.now()
     };
 
     db.collection("clases").doc("activa").set(clase);
 }
 
-// ✅ MOSTRAR CLASE (IMPORTANTE)
+// ===== PAUSA =====
+function togglePausa() {
+
+    let ref = db.collection("clases").doc("activa");
+
+    ref.get().then(doc => {
+        let clase = doc.data();
+
+        ref.update({
+            pausada: !clase.pausada
+        });
+    });
+}
+
+// ===== MOSTRAR CLASE + PAUSA =====
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
 
@@ -97,6 +125,7 @@ db.collection("clases").doc("activa")
 
     if (!c) {
         document.getElementById("clase").innerHTML = "Sin clase activa";
+        document.getElementById("controlPausa").innerHTML = "";
         return;
     }
 
@@ -105,6 +134,15 @@ db.collection("clases").doc("activa")
         👥 ${c.grupo}<br>
         📘 ${c.materia}<br>
         🔑 Código: <strong>${c.codigo}</strong>
+    `;
+
+    let texto = c.pausada ? "Reanudar ▶️" : "Pausar ⏸";
+    let estilo = c.pausada ? "reanudar" : "pausa";
+
+    document.getElementById("controlPausa").innerHTML = `
+        <button class="${estilo}" onclick="togglePausa()">
+            ${texto}
+        </button>
     `;
 });
 
@@ -160,7 +198,7 @@ async function exportarCSV() {
     link.click();
 }
 
-// ===== ESTADO =====
+// ===== EMOJIS =====
 function setEstado(nombre, valor) {
 
     db.collection("clases")
@@ -172,7 +210,7 @@ function setEstado(nombre, valor) {
     });
 }
 
-// ===== LEER ALUMNOS =====
+// ===== ALUMNOS =====
 db.collection("clases")
 .doc("activa")
 .collection("alumnos")
@@ -187,7 +225,7 @@ db.collection("clases")
     render(listaAlumnos);
 });
 
-// ===== FILTRAR =====
+// ===== FILTRO =====
 function filtrar() {
 
     let texto = document.getElementById("busqueda").value.toLowerCase();
@@ -199,7 +237,7 @@ function filtrar() {
     render(filtrados);
 }
 
-// ===== PINTAR =====
+// ===== RENDER =====
 function render(lista) {
 
     let html = "";
@@ -228,7 +266,7 @@ function render(lista) {
         `;
     });
 
-    document.getElementById("alumnos").innerHTML = html;
+    document.getElementById("alumnos").innerHTML = html || "Sin alumnos";
 }
 
 // ===== HISTORIAL =====

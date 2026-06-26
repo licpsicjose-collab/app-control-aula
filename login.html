@@ -29,7 +29,7 @@ input, button {
 <button onclick="registrar()">Registrarse</button>
 <button onclick="entrar()">Entrar</button>
 
-<!-- ✅ FIREBASE CORRECTO -->
+<!-- ✅ SCRIPTS CORRECTOS -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -37,20 +37,20 @@ input, button {
 
 <script>
 
-// ✅ REGISTRAR USUARIO
+// ✅ REGISTRAR
 function registrar(){
 
     let correoVal = document.getElementById("correo").value;
     let passVal = document.getElementById("password").value;
 
     if (!correoVal || !passVal){
-        alert("Completa correo y contraseña");
+        alert("Completa datos");
         return;
     }
 
     auth.createUserWithEmailAndPassword(correoVal, passVal)
     .then(() => {
-        alert("✅ Usuario creado correctamente");
+        alert("✅ Usuario creado");
     })
     .catch(e => {
         alert("❌ " + e.message);
@@ -58,14 +58,14 @@ function registrar(){
     });
 }
 
-// ✅ INICIAR SESIÓN
+// ✅ LOGIN
 function entrar(){
 
     let correoVal = document.getElementById("correo").value;
     let passVal = document.getElementById("password").value;
 
     if (!correoVal || !passVal){
-        alert("Completa correo y contraseña");
+        alert("Completa datos");
         return;
     }
 

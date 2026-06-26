@@ -1,265 +1,207 @@
 <!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Panel Docente</title>
+<html langUTF-8"><html lang="es">
+<title>Alumno</title>
 
 <style>
 body {
+    margin: 0;
     font-family: Arial;
-    text-align: center;
 }
 
-input, button {
-    padding: 10px;
-    margin: 5px;
+/* Pantalla activa en clase */
+.pantalla {
+    background: black;
+    color: white;
+    height: 100vh;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
-.alumno {
-    border: 1px solid #ccc;
-    margin: 10px;
-    padding: 10px;
-    border-radius: 10px;
+/* animación simple */
+.parpadeo {
+    font-size: 40px;
+    animation: blink 1s infinite;
 }
 
-.pausa { background: orange; color:white; }
-.reanudar { background: green; color:white; }
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
 </style>
 
 </head>
 
 <body>
 
-<h1>Panel Docente</h1>
+<!-- ===== FORMULARIO ===== -->
+<div id="formulario">
 
-<input id="escuela" placeholder="Escuela"><br>
+<h2>Entrar a clase</h2>
+
+<input id="nombre" placeholder="Nombre"><br>
 <input id="grupo" placeholder="Grupo"><br>
-<input id="materia" placeholder="Materia"><br><br>
+<input id="codigo" placeholder="Código"><br><br>
 
-<button onclick="iniciarClase()">Iniciar Clase</button>
-<button onclick="activarRetardo()">Modo Retardos</button>
-<button onclick="exportarCSV()">Exportar Excel</button>
-<button onclick="finalizarClase()">Finalizar Clase</button>
+<button onclick="entrar()">Entrar</button>
 
-<h2>Clase Activa</h2>
-<div id="clase"></div>
+</div>
 
-<div id="controlPausa"></div>
-
-<h2>Buscar alumno</h2>
-<input id="busqueda" onkeyup="filtrar()">
-
-<h2>Alumnos</h2>
-<div id="alumnos"></div>
-
-<hr>
-
-<h2>Historial</h2>
-<div id="historial"></div>
-
+<!-- ===== FIREBASE ===== -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
 
-let lista = [];
+// =============================
+// VARIABLES
+// =============================
+let clase = null;
+let enClase = false;
 
-// generar código
-function generarCodigo(){
-    return Math.random().toString(36).substring(2,6).toUpperCase();
-}
+let inicio = 0;
+let tiempoFuera = 0;
+let salidas = 0;
+let salidaInicio = 0;
 
-// iniciar clase
-function iniciarClase(){
+let nombreAlumno = "";
 
-    let clase = {
-        escuela: escuela.value,
-        grupo: grupo.value,
-        materia: materia.value,
-        codigoInicial: generarCodigo(),
-        codigoRetardo: generarCodigo(),
-        modo: "normal",
-        pausada: false,
-        inicio: Date.now()
-    };
-
-    db.collection("clases").doc("activa").set(clase);
-}
-
-// activar retardos
-function activarRetardo(){
-    db.collection("clases").doc("activa").update({ modo: "retardo" });
-}
-
-// pausa
-function togglePausa(){
-    let ref = db.collection("clases").doc("activa");
-
-    ref.get().then(doc=>{
-        ref.update({ pausada: !doc.data().pausada });
-    });
-}
-
-// mostrar clase
+// =============================
+// ESCUCHAR CLASE EN TIEMPO REAL
+// =============================
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
 
-    let c = doc.data();
+    let data = doc.data();
 
-    if (!c){
-        clase.innerHTML = "Sin clase activa";
-        controlPausa.innerHTML = "";
-        return;
-    }
+    // ✅ SI EL DOCENTE FINALIZA CLASE
+    if (!data && enClase) {
 
-    let codigo = c.modo==="normal"
-        ? c.codigoInicial
-        : c.codigoRetardo;
+        enClase = false;
 
-    clase.innerHTML = `
-        🏫 ${c.escuela}<br>
-        👥 ${c.grupo}<br>
-        📘 ${c.materia}<br>
-        🔑 <strong>${codigo}</strong><br>
-        ⚙️ ${c.modo}
-    `;
-
-    controlPausa.innerHTML = `
-        <button class="${c.pausada?'reanudar':'pausa'}" onclick="togglePausa()">
-        ${c.pausada?'Reanudar ▶️':'Pausar ⏸'}
-        </button>
-    `;
-});
-
-// alumnos en vivo
-db.collection("clases").doc("activa")
-.collection("alumnos")
-.onSnapshot(snap=>{
-    lista=[];
-    snap.forEach(doc=> lista.push(doc.data()));
-    render(lista);
-});
-
-// filtro
-function filtrar(){
-    let t = busqueda.value.toLowerCase();
-    render(lista.filter(a=>a.nombre.toLowerCase().includes(t)));
-}
-
-// estados (rúbrica)
-function setEstado(n,e){
-    db.collection("clases").doc("activa")
-    .collection("alumnos").doc(n)
-    .update({estado:e});
-}
-
-// render
-function render(data){
-
-    let html="";
-
-    data.forEach(a=>{
-
-        let t=Math.floor((a.tiempo||0)/1000);
-        let min=Math.floor(t/60);
-        let seg=t%60;
-
-        let tiempo=min>0?`${min}m ${seg}s`:`${seg}s`;
-
-        let tardanzaSeg=Math.floor((a.tardanza||0)/1000);
-        let tardanza=tardanzaSeg<60?"✅ A tiempo":
-        `⏰ ${Math.floor(tardanzaSeg/60)}m ${tardanzaSeg%60}s`;
-
-        html+=`
-        <div class="alumno">
-            👤 ${a.nombre}<br>
-            ⏱ ${tiempo}<br>
-            🚫 ${a.salidas||0}<br>
-            ${tardanza}<br>
-            Estado: ${a.estado||"-"}<br><br>
-
-            <button onclick="setEstado('${a.nombre}','😄 Excelente')">😄</button>
-            <button onclick="setEstado('${a.nombre}','👍 Bien')">👍</button>
-            <button onclick="setEstado('${a.nombre}','😐 Regular')">😐</button>
-            <button onclick="setEstado('${a.nombre}','❌ No trabajó')">❌</button>
+        document.body.innerHTML = `
+        <div class="pantalla">
+            <h2>✅ Clase finalizada</h2>
+            <p>Puedes cerrar esta pantalla</p>
         </div>
         `;
-    });
-
-    alumnos.innerHTML=html;
-}
-
-// exportación
-async function exportarCSV(){
-
-    let snap = await db.collection("clases").doc("activa")
-    .collection("alumnos").get();
-
-    let contenido="Nombre,Grupo,Tiempo,Salidas,Estado,Tardanza\n";
-
-    snap.forEach(doc=>{
-
-        let a=doc.data();
-
-        let t=Math.floor((a.tiempo||0)/1000);
-        let min=Math.floor(t/60);
-        let seg=t%60;
-
-        let tiempo=min>0?`${min}m ${seg}s`:`${seg}s`;
-
-        let tardanzaSeg=Math.floor((a.tardanza||0)/1000);
-
-        let tardanza=tardanzaSeg<60?"A tiempo":
-        `${Math.floor(tardanzaSeg/60)}m ${tardanzaSeg%60}s`;
-
-        contenido+=`${a.nombre},${a.grupo},${tiempo},${a.salidas||0},${a.estado||""},${tardanza}\n`;
-    });
-
-    let blob=new Blob([contenido],{type:"text/csv"});
-    let link=document.createElement("a");
-
-    link.href=URL.createObjectURL(blob);
-    link.download="reporte.csv";
-    link.click();
-}
-
-// finalizar clase
-async function finalizarClase(){
-
-    let docClase=await db.collection("clases").doc("activa").get();
-    let claseData=docClase.data();
-
-    if(!claseData){
-        alert("No hay clase");
         return;
     }
 
-    let snap=await db.collection("clases")
-    .doc("activa").collection("alumnos").get();
+    clase = data;
+});
 
-    let alumnosData=[];
-    snap.forEach(doc=> alumnosData.push(doc.data()));
+// =============================
+// ENTRAR A CLASE
+// =============================
+function entrar(){
 
-    await db.collection("historial").add({
-        ...claseData,
-        alumnos: alumnosData,
-        fin: Date.now()
+    let n = document.getElementById("nombre").value;
+    let g = document.getElementById("grupo").value;
+    let c = document.getElementById("codigo").value;
+
+    if (!clase) {
+        alert("No hay clase activa");
+        return;
+    }
+
+    // ✅ VALIDACIÓN DOBLE CÓDIGO
+    let valido =
+        c === clase.codigoInicial ||
+        c === clase.codigoRetardo;
+
+    if (!valido) {
+        alert("Código incorrecto");
+        return;
+    }
+
+    let tardanza = Date.now() - clase.inicio;
+
+    enClase = true;
+    inicio = Date.now();
+    nombreAlumno = n;
+
+    // ✅ PANTALLA ACTIVA
+    document.body.innerHTML = `
+    <div class="pantalla">
+        <h2>📵 Estás en clase</h2>
+        <p>No uses el teléfono</p>
+        <div class="parpadeo">🔴</div>
+    </div>
+    `;
+
+    // ✅ GUARDAR EN FIREBASE
+    db.collection("clases")
+    .doc("activa")
+    .collection("alumnos")
+    .doc(n)
+    .set({
+        nombre: n,
+        grupo: g,
+        tiempo: 0,
+        salidas: 0,
+        tardanza: tardanza,
+        retardoManual: (c === clase.codigoRetardo)
     });
-
-    await db.collection("clases").doc("activa").delete();
-
-    alert("Clase finalizada ✅");
 }
 
-// historial
-db.collection("historial").onSnapshot(snap=>{
-    let html="";
-    snap.forEach(()=> html+="<div>✅ Clase guardada</div>");
-    historial.innerHTML=html;
+// =============================
+// DETECCIÓN DE SALIDAS
+// =============================
+window.addEventListener("blur", () => {
+
+    if (!enClase || clase?.pausada) return;
+
+    salidas++;
+    salidaInicio = Date.now();
 });
+
+window.addEventListener("focus", () => {
+
+    if (!enClase) return;
+
+    let tiempoSalida = Date.now() - salidaInicio;
+
+    // ✅ FILTRO INTELIGENTE (EVITA FALSOS POSITIVOS)
+    if (tiempoSalida > 20000) {
+        tiempoFuera += tiempoSalida;
+    }
+
+    salidaInicio = 0;
+});
+
+// =============================
+// GUARDADO CONTINUO (CADA 5s)
+// =============================
+setInterval(() => {
+
+    if (!enClase) return;
+
+    let tiempoTotal = Date.now() - inicio;
+    let tiempoEnApp = tiempoTotal - tiempoFuera;
+
+    // ✅ SI ESTÁ EN PAUSA → NO PENALIZA
+    if (clase?.pausada) {
+        tiempoEnApp = tiempoTotal;
+    }
+
+    db.collection("clases")
+    .doc("activa")
+    .collection("alumnos")
+    .doc(nombreAlumno)
+    .update({
+        tiempo: tiempoEnApp,
+        salidas: salidas
+    });
+
+}, 5000);
 
 </script>
 
 </body>
 </html>
+<head>

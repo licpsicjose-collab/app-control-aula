@@ -1,16 +1,15 @@
 <!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
+<html langUTF-8"><html lang="es">
 <title>Login</title>
 
 <style>
 body {
     font-family: Arial;
     text-align: center;
-    padding-top: 50px;
+    padding-top: 80px;
 }
-input, select, button {
+
+input, button {
     padding: 10px;
     margin: 5px;
 }
@@ -20,86 +19,55 @@ input, select, button {
 
 <body>
 
-<h1>Login</h1>
+<h2>Acceso Docente</h2>
 
-<select id="tipo">
-    <option value="">Selecciona tipo</option>
-    <option value="docente">Docente</option>
-    <option value="alumno">Alumno</option>
-</select><br>
+<input id="correo" placeholder="Correo"><br>
+<input id="password" type="password" placeholder="Contraseña"><br><br>
 
-<input id="usuario" placeholder="Usuario"><br>
-<input id="password" type="password" placeholder="Contraseña"><br>
+<button onclick="registrar()">Registrarse</button>
+<button onclick="entrar()">Entrar</button>
 
-<button onclick="login()">Entrar</button>
+<!-- ✅ FIREBASE (CORRECTO) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="firebase.js"></script>
 
 <script>
 
-function login() {
+// ✅ REGISTRAR USUARIO
+function registrar(){
 
-    let tipo = document.getElementById("tipo").value;
-    let usuario = document.getElementById("usuario").value.trim();
-    let password = document.getElementById("password").value;
+    let correoVal = document.getElementById("correo").value;
+    let passVal = document.getElementById("password").value;
 
-    if (!tipo || !usuario || !password) {
-        alert("Completa todos los campos");
-        return;
-    }
+    auth.createUserWithEmailAndPassword(correoVal, passVal)
+    .then(() => {
+        alert("✅ Usuario creado correctamente");
+    })
+    .catch(e => {
+        alert("❌ Error: " + e.message);
+    });
+}
 
-    // ===== DOCENTE =====
-    if (tipo === "docente") {
+// ✅ INICIAR SESIÓN
+function entrar(){
 
-        let docentes = JSON.parse(localStorage.getItem("docentes")) || [];
+    let correoVal = document.getElementById("correo").value;
+    let passVal = document.getElementById("password").value;
 
-        let encontrado = docentes.find(d => 
-            d.correo === usuario.toLowerCase() &&
-            d.password === password
-        );
-
-        if (encontrado) {
-
-            localStorage.setItem("sesion", JSON.stringify({
-                tipo: "docente",
-                usuario: encontrado
-            }));
-
-            window.location.href = "panel-docente.html";
-            return;
-
-        } else {
-            alert("Datos de docente incorrectos");
-            return;
-        }
-    }
-
-    // ===== ALUMNO =====
-    if (tipo === "alumno") {
-
-        let alumnos = JSON.parse(localStorage.getItem("alumnos")) || [];
-
-        let encontrado = alumnos.find(a =>
-            a.nombre === usuario &&
-            a.password === password
-        );
-
-        if (encontrado) {
-
-            localStorage.setItem("sesion", JSON.stringify({
-                tipo: "alumno",
-                usuario: encontrado
-            }));
-
-            window.location.href = "panel-alumno.html";
-            return;
-
-        } else {
-            alert("Datos de alumno incorrectos");
-            return;
-        }
-    }
+    auth.signInWithEmailAndPassword(correoVal, passVal)
+    .then(() => {
+        alert("✅ Login correcto");
+        window.location.href = "panel-docente.html";
+    })
+    .catch(e => {
+        alert("❌ Error: " + e.message);
+    });
 }
 
 </script>
 
 </body>
 </html>
+<head>

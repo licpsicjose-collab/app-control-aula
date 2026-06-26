@@ -3,26 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>Panel Docente</title>
-
-<style>
-body {
-    font-family: Arial;
-    text-align: center;
-}
-
-input, button {
-    padding: 10px;
-    margin: 5px;
-}
-
-.alumno {
-    border: 1px solid #ccc;
-    margin: 10px;
-    padding: 10px;
-    border-radius: 10px;
-}
-</style>
-
 </head>
 
 <body>
@@ -33,9 +13,9 @@ input, button {
 <input id="grupo" placeholder="Grupo"><br>
 <input id="materia" placeholder="Materia"><br><br>
 
-<button onclick="iniciarClase()">Iniciar Clase</button>
+<button onclick="iniciarClase()">Iniciar</button>
 
-<h2>Clase Activa</h2>
+<h2>Clase</h2>
 <div id="clase"></div>
 
 <h2>Alumnos</h2>
@@ -43,64 +23,81 @@ input, button {
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
 
-// ✅ INICIAR CLASE
+let docenteId=null;
+
+auth.onAuthStateChanged(user=>{
+    if(user){
+        docenteId=user.uid;
+        cargarClase();
+    }else{
+        location.href="login.html";
+    }
+});
+
+// INICIAR CLASE
 function iniciarClase(){
 
-    let clase = {
-        escuela: document.getElementById("escuela").value,
-        grupo: document.getElementById("grupo").value,
-        materia: document.getElementById("materia").value,
-        codigo: Math.random().toString(36).substring(2,6).toUpperCase(),
-        inicio: Date.now()
+    let clase={
+        escuela:escuela.value,
+        grupo:grupo.value,
+        materia:materia.value,
+        codigo:Math.random().toString(36).substring(2,6),
+        inicio:Date.now()
     };
 
-    db.collection("clases").doc("activa").set(clase);
+    db.collection("docentes")
+    .doc(docenteId)
+    .collection("claseActiva")
+    .doc("activo")
+    .set(clase);
 }
 
-// ✅ MOSTRAR CLASE
-db.collection("clases").doc("activa")
-.onSnapshot(doc => {
+// ESCUCHAR CLASE
+function cargarClase(){
 
-    let c = doc.data();
+    db.collection("docentes")
+    .doc(docenteId)
+    .collection("claseActiva")
+    .doc("activo")
+    .onSnapshot(doc=>{
 
-    if (!c){
-        document.getElementById("clase").innerHTML = "Sin clase";
-        return;
-    }
+        let c=doc.data();
 
-    document.getElementById("clase").innerHTML = `
-        ${c.escuela}<br>
-        ${c.grupo}<br>
-        ${c.materia}<br>
-        🔑 ${c.codigo}
-    `;
-});
+        if(!c){
+            clase.innerText="Sin clase";
+            return;
+        }
 
-// ✅ ALUMNOS
-db.collection("clases").doc("activa")
-.collection("alumnos")
-.onSnapshot(snap => {
+        clase.innerHTML=`Código: ${c.codigo}`;
 
-    let html = "";
-
-    snap.forEach(doc => {
-
-        let a = doc.data();
-
-        html += `
-        <div class="alumno">
-            ${a.nombre}<br>
-            ⏱ ${Math.floor((a.tiempo||0)/1000)}s<br>
-            🚫 ${a.salidas||0}
-        </div>`;
+        escucharAlumnos();
     });
+}
 
-    document.getElementById("alumnos").innerHTML = html;
-});
+// LISTENER ALUMNOS
+function escucharAlumnos(){
+
+    db.collection("docentes")
+    .doc(docenteId)
+    .collection("claseActiva")
+    .doc("activo")
+    .collection("alumnos")
+    .onSnapshot(snap=>{
+
+        let html="";
+        snap.forEach(doc=>{
+            let a=doc.data();
+            html+=`<div>${a.nombre}</div>`;
+        });
+
+        alumnos.innerHTML=html;
+    });
+}
 
 </script>
 

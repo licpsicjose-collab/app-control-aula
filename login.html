@@ -10,18 +10,16 @@ body {
     text-align: center;
     margin-top: 50px;
 }
-
 input, button {
     padding: 10px;
     margin: 5px;
 }
 </style>
-
 </head>
 
 <body>
 
-<h2>Iniciar sesión (Docente)</h2>
+<h2>Login Docente</h2>
 
 <input id="email" placeholder="Correo"><br>
 <input id="password" type="password" placeholder="Contraseña"><br><br>
@@ -29,44 +27,32 @@ input, button {
 <button onclick="login()">Entrar</button>
 <button onclick="registro()">Registrarse</button>
 
-<p id="mensaje"></p>
+<p id="msg"></p>
 
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
-
-// LOGIN
 function login(){
-    let email = document.getElementById("email").value;
-    let pass = document.getElementById("password").value;
+    let email = emailInput.value;
+    let pass = password.value;
 
     auth.signInWithEmailAndPassword(email, pass)
-    .then(() => {
-        document.getElementById("mensaje").innerText = "✅ Bienvenido";
-        window.location.href = "panel-docente.html";
+    .then(()=>{
+        location.href="panel-docente.html";
     })
-    .catch(error => {
-        document.getElementById("mensaje").innerText = error.message;
-    });
+    .catch(e=>msg.innerText=e.message);
 }
 
-// REGISTRO
 function registro(){
-    let email = document.getElementById("email").value;
-    let pass = document.getElementById("password").value;
+    let email = emailInput.value;
+    let pass = password.value;
 
     auth.createUserWithEmailAndPassword(email, pass)
-    .then(() => {
-        document.getElementById("mensaje").innerText = "✅ Usuario creado";
-    })
-    .catch(error => {
-        document.getElementById("mensaje").innerText = error.message;
-    });
+    .then(()=>msg.innerText="Usuario creado")
+    .catch(e=>msg.innerText=e.message);
 }
-
 </script>
 
 </body>

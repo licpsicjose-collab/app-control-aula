@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html langUTF-8"><html lang="es">
+<html lang="es">
+
+<head>
+<meta charset="UTF-8">
 <title>Alumno</title>
 
 <style>
@@ -8,7 +11,7 @@ body {
     font-family: Arial;
 }
 
-/* Pantalla activa en clase */
+/* Pantalla activa */
 .pantalla {
     background: black;
     color: white;
@@ -20,7 +23,6 @@ body {
     align-items: center;
 }
 
-/* animación simple */
 .parpadeo {
     font-size: 40px;
     animation: blink 1s infinite;
@@ -32,12 +34,10 @@ body {
     100% { opacity: 1; }
 }
 </style>
-
 </head>
 
 <body>
 
-<!-- ===== FORMULARIO ===== -->
 <div id="formulario">
 
 <h2>Entrar a clase</h2>
@@ -50,7 +50,7 @@ body {
 
 </div>
 
-<!-- ===== FIREBASE ===== -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
@@ -61,6 +61,7 @@ body {
 // VARIABLES
 // =============================
 let clase = null;
+let docenteId = null;
 let enClase = false;
 
 let inicio = 0;
@@ -71,45 +72,84 @@ let salidaInicio = 0;
 let nombreAlumno = "";
 
 // =============================
+// BUSCAR CLASE POR CÓDIGO
+// =============================
+async function buscarClasePorCodigo(codigoIngresado){
+
+    let encontrada = null;
+    let docenteEncontrado = null;
+
+    let snap = await db.collectionGroup("claseActiva").get();
+
+    snap.forEach(doc => {
+
+        let data = doc.data();
+
+        if (
+            data.codigoInicial === codigoIngresado ||
+            data.codigoRetardo === codigoIngresado
+        ) {
+            encontrada = data;
+            docenteEncontrado = doc.ref.parent.parent.id;
+        }
+
+    });
+
+    if (encontrada) {
+        clase = encontrada;
+        docenteId = docenteEncontrado;
+        escucharClase();
+        return true;
+    } else {
+        return false;
+    }
+}
+
+// =============================
 // ESCUCHAR CLASE EN TIEMPO REAL
 // =============================
-db.collection("clases").doc("activa")
-.onSnapshot(doc => {
+function escucharClase(){
 
-    let data = doc.data();
+    db.collection("docentes")
+    .doc(docenteId)
+    .collection("claseActiva")
+    .doc("activo")
+    .onSnapshot(doc => {
 
-    // ✅ SI EL DOCENTE FINALIZA CLASE
-    if (!data && enClase) {
+        let data = doc.data();
 
-        enClase = false;
+        if (!data && enClase) {
+            enClase = false;
 
-        document.body.innerHTML = `
-        <div class="pantalla">
-            <h2>✅ Clase finalizada</h2>
-            <p>Puedes cerrar esta pantalla</p>
-        </div>
-        `;
-        return;
-    }
+            document.body.innerHTML = `
+            <div class="pantalla">
+                <h2>✅ Clase finalizada</h2>
+                <p>Puedes cerrar esta pantalla</p>
+            </div>
+            `;
+            return;
+        }
 
-    clase = data;
-});
+        clase = data;
+    });
+}
 
 // =============================
 // ENTRAR A CLASE
 // =============================
-function entrar(){
+async function entrar(){
 
-    let n = document.getElementById("nombre").value;
-    let g = document.getElementById("grupo").value;
-    let c = document.getElementById("codigo").value;
+    let n = nombre.value;
+    let g = grupo.value;
+    let c = codigo.value;
 
-    if (!clase) {
-        alert("No hay clase activa");
+    let existe = await buscarClasePorCodigo(c);
+
+    if (!existe) {
+        alert("Código incorrecto o clase inexistente");
         return;
     }
 
-    // ✅ VALIDACIÓN DOBLE CÓDIGO
     let valido =
         c === clase.codigoInicial ||
         c === clase.codigoRetardo;
@@ -125,7 +165,7 @@ function entrar(){
     inicio = Date.now();
     nombreAlumno = n;
 
-    // ✅ PANTALLA ACTIVA
+    // Pantalla activa
     document.body.innerHTML = `
     <div class="pantalla">
         <h2>📵 Estás en clase</h2>
@@ -134,9 +174,11 @@ function entrar(){
     </div>
     `;
 
-    // ✅ GUARDAR EN FIREBASE
-    db.collection("clases")
-    .doc("activa")
+    // Guardar alumno en SU docente
+    db.collection("docentes")
+    .doc(docenteId)
+    .collection("claseActiva")
+    .doc("activo")
     .collection("alumnos")
     .doc(n)
     .set({
@@ -150,7 +192,7 @@ function entrar(){
 }
 
 // =============================
-// DETECCIÓN DE SALIDAS
+// DETECCIÓN SALIDAS
 // =============================
 window.addEventListener("blur", () => {
 
@@ -166,7 +208,6 @@ window.addEventListener("focus", () => {
 
     let tiempoSalida = Date.now() - salidaInicio;
 
-    // ✅ FILTRO INTELIGENTE (EVITA FALSOS POSITIVOS)
     if (tiempoSalida > 20000) {
         tiempoFuera += tiempoSalida;
     }
@@ -175,7 +216,7 @@ window.addEventListener("focus", () => {
 });
 
 // =============================
-// GUARDADO CONTINUO (CADA 5s)
+// GUARDADO CONTINUO
 // =============================
 setInterval(() => {
 
@@ -184,13 +225,14 @@ setInterval(() => {
     let tiempoTotal = Date.now() - inicio;
     let tiempoEnApp = tiempoTotal - tiempoFuera;
 
-    // ✅ SI ESTÁ EN PAUSA → NO PENALIZA
     if (clase?.pausada) {
         tiempoEnApp = tiempoTotal;
     }
 
-    db.collection("clases")
-    .doc("activa")
+    db.collection("docentes")
+    .doc(docenteId)
+    .collection("claseActiva")
+    .doc("activo")
     .collection("alumnos")
     .doc(nombreAlumno)
     .update({
@@ -204,4 +246,3 @@ setInterval(() => {
 
 </body>
 </html>
-<head>

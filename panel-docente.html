@@ -3,6 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <title>Panel Docente</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+}
+
+input, button {
+    padding: 10px;
+    margin: 5px;
+}
+
+.alumno {
+    border: 1px solid #ccc;
+    margin: 10px;
+    padding: 10px;
+    border-radius: 10px;
+}
+
+.pausa {
+    background-color: orange;
+    color: white;
+}
+
+.reanudar {
+    background-color: green;
+    color: white;
+}
+</style>
+
 </head>
 
 <body>
@@ -14,70 +44,240 @@
 <input id="materia" placeholder="Materia"><br><br>
 
 <button onclick="iniciarClase()">Iniciar Clase</button>
-<button onclick="modoRetardo()">Activar Retardos</button>
+<button onclick="activarRetardo()">Modo Retardos</button>
+<button onclick="exportarCSV()">Exportar Excel</button>
 
-<h2>Clase</h2>
+<h2>Clase Activa</h2>
 <div id="clase"></div>
 
+<div id="controlPausa"></div>
+
+<h2>Buscar alumno</h2>
+<input id="busqueda" placeholder="Nombre..." onkeyup="filtrar()">
+
+<h2>Alumnos</h2>
+<div id="alumnos"></div>
+
+<hr>
+
+<h2>Historial</h2>
+<div id="historial"></div>
+
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
 
-// generar código
-function generarCodigo() {
+let lista = [];
+
+// 🎲 generar código
+function generarCodigo(){
     return Math.random().toString(36).substring(2,6).toUpperCase();
 }
 
-// iniciar clase
-function iniciarClase() {
-
-    let escuela = document.getElementById("escuela").value;
-    let grupo = document.getElementById("grupo").value;
-    let materia = document.getElementById("materia").value;
+// 🚀 iniciar clase
+function iniciarClase(){
 
     let clase = {
-        escuela,
-        grupo,
-        materia,
+        escuela: document.getElementById("escuela").value,
+        grupo: document.getElementById("grupo").value,
+        materia: document.getElementById("materia").value,
 
         codigoInicial: generarCodigo(),
         codigoRetardo: generarCodigo(),
 
         modo: "normal",
+        pausada: false,
         inicio: Date.now()
     };
 
     db.collection("clases").doc("activa").set(clase);
 }
 
-// activar retardo
-function modoRetardo() {
-
-    db.collection("clases")
-    .doc("activa")
-    .update({
+// ⏰ activar modo retardo
+function activarRetardo(){
+    db.collection("clases").doc("activa").update({
         modo: "retardo"
     });
 }
 
-// mostrar clase
+// ⏸ pausa / reanudar
+function togglePausa(){
+
+    let ref = db.collection("clases").doc("activa");
+
+    ref.get().then(doc=>{
+        let c = doc.data();
+
+        ref.update({
+            pausada: !c.pausada
+        });
+    });
+}
+
+// 📊 mostrar clase
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
 
     let c = doc.data();
-    if (!c) return;
+
+    if (!c) {
+        document.getElementById("clase").innerHTML = "Sin clase activa";
+        document.getElementById("controlPausa").innerHTML = "";
+        return;
+    }
 
     let codigo = c.modo === "normal"
         ? c.codigoInicial
         : c.codigoRetardo;
 
     document.getElementById("clase").innerHTML = `
-        ${c.escuela} - ${c.grupo}<br>
-        Código activo: <strong>${codigo}</strong><br>
-        Modo: ${c.modo}
+        🏫 ${c.escuela}<br>
+        👥 ${c.grupo}<br>
+        📘 ${c.materia}<br>
+        🔑 Código: <strong>${codigo}</strong><br>
+        ⚙️ Modo: ${c.modo}
     `;
+
+    document.getElementById("controlPausa").innerHTML = `
+        <button class="${c.pausada?'reanudar':'pausa'}"
+        onclick="togglePausa()">
+        ${c.pausada?'Reanudar ▶️':'Pausar ⏸'}
+        </button>
+    `;
+});
+
+// 👥 escuchar alumnos
+db.collection("clases").doc("activa")
+.collection("alumnos")
+.onSnapshot(snap=>{
+
+    lista = [];
+    snap.forEach(doc => lista.push(doc.data()));
+
+    render(lista);
+});
+
+// 🔍 filtro
+function filtrar(){
+
+    let texto = document.getElementById("busqueda").value.toLowerCase();
+
+    let filtrados = lista.filter(a =>
+        a.nombre.toLowerCase().includes(texto)
+    );
+
+    render(filtrados);
+}
+
+// 😀 estados
+function setEstado(nombre, estado){
+
+    db.collection("clases")
+    .doc("activa")
+    .collection("alumnos")
+    .doc(nombre)
+    .update({
+        estado: estado
+    });
+}
+
+// 🧾 render alumnos
+function render(data){
+
+    let html = "";
+
+    data.forEach(a => {
+
+        // ⏱ tiempo en app
+        let t = Math.floor((a.tiempo || 0)/1000);
+        let min = Math.floor(t/60);
+        let seg = t % 60;
+
+        let tiempo = min > 0
+            ? `${min}m ${seg}s`
+            : `${seg}s`;
+
+        // ⏰ tardanza
+        let tardanzaSeg = Math.floor((a.tardanza || 0)/1000);
+
+        let tardanza;
+        if (tardanzaSeg < 60) {
+            tardanza = "✅ A tiempo";
+        } else {
+            let tm = Math.floor(tardanzaSeg / 60);
+            let ts = tardanzaSeg % 60;
+            tardanza = `⏰ ${tm}m ${ts}s`;
+        }
+
+        html += `
+        <div class="alumno">
+            👤 ${a.nombre}<br>
+            📚 ${a.grupo}<br>
+            ⏱ ${tiempo}<br>
+            🚫 Salidas: ${a.salidas || 0}<br>
+            ${tardanza}<br>
+            Estado: ${a.estado || "-"}<br><br>
+
+            <button onclick="setEstado('${a.nombre}','👍')">👍</button>
+            <button onclick="setEstado('${a.nombre}','😐')">😐</button>
+            <button onclick="setEstado('${a.nombre}','❌')">❌</button>
+        </div>
+        `;
+    });
+
+    document.getElementById("alumnos").innerHTML = html;
+}
+
+// 📤 exportar CSV
+async function exportarCSV(){
+
+    let snap = await db.collection("clases")
+        .doc("activa")
+        .collection("alumnos")
+        .get();
+
+    let contenido = "Nombre,Grupo,Tiempo,Salidas,Estado,Tardanza\n";
+
+    snap.forEach(doc=>{
+
+        let a = doc.data();
+
+        let t = Math.floor((a.tiempo||0)/1000);
+        let min = Math.floor(t/60);
+        let seg = t%60;
+
+        let tiempo = min>0?`${min}m ${seg}s`:`${seg}s`;
+
+        let tardanzaSeg = Math.floor((a.tardanza||0)/1000);
+
+        let tardanza = tardanzaSeg<60
+            ? "A tiempo"
+            : `${Math.floor(tardanzaSeg/60)}m ${tardanzaSeg%60}s`;
+
+        contenido += `${a.nombre},${a.grupo},${tiempo},${a.salidas||0},${a.estado||""},${tardanza}\n`;
+    });
+
+    let blob = new Blob([contenido],{type:"text/csv"});
+    let link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+    link.download = "reporte.csv";
+    link.click();
+}
+
+// 📚 historial simple
+db.collection("historial").onSnapshot(snap=>{
+
+    let html = "";
+
+    snap.forEach(()=>{
+        html += `<div>✅ Clase guardada</div>`;
+    });
+
+    document.getElementById("historial").innerHTML = html;
 });
 
 </script>

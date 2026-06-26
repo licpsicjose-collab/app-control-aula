@@ -3,17 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <title>Alumno</title>
+
+<style>
+.pantalla { background:black; color:white; height:100vh;
+display:flex; flex-direction:column; justify-content:center; align-items:center;}
+.parpadeo { animation:blink 1s infinite; font-size:40px;}
+@keyframes blink{0%{opacity:1}50%{opacity:.3}100%{opacity:1}}
+</style>
+
 </head>
 
 <body>
 
-<h1>Entrar a clase</h1>
+<div id="formulario">
 
-<input id="nombre" placeholder="Nombre"><br>
-<input id="grupo" placeholder="Grupo"><br>
-<input id="codigo" placeholder="Código"><br><br>
+<input id="nombre">
+<input id="grupo">
+<input id="codigo">
 
 <button onclick="entrar()">Entrar</button>
+
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -21,60 +31,99 @@
 
 <script>
 
-let claseActual;
+let clase, enClase=false;
+let inicio, tiempoFuera=0, salidas=0, salidaInicio=0;
+let nombreAlumno;
 
-db.collection("clases").doc("activa")
-.onSnapshot(doc => {
-    claseActual = doc.data();
+db.collection("clases").doc("activa").onSnapshot(doc=>{
+
+    let data = doc.data();
+
+    if(!data && enClase){
+        document.body.innerHTML="<h2>Clase finalizada</h2>";
+        enClase=false;
+        return;
+    }
+
+    clase=data;
 });
 
-function entrar() {
+function entrar(){
 
-    let nombre = document.getElementById("nombre").value;
-    let grupo = document.getElementById("grupo").value;
-    let codigo = document.getElementById("codigo").value;
+    let n=nombre.value;
+    let g=grupo.value;
+    let c=codigo.value;
 
-    if (!claseActual) {
-        alert("No hay clase");
-        return;
-    }
+    if(!clase) return alert("No hay clase");
 
-    // ✅ VALIDAR DOBLE CÓDIGO
-    let valido =
-        codigo === claseActual.codigoInicial ||
-        codigo === claseActual.codigoRetardo;
+    let valido = c===clase.codigoInicial || c===clase.codigoRetardo;
 
-    if (!valido) {
-        alert("Código incorrecto");
-        return;
-    }
+    if(!valido) return alert("Código incorrecto");
 
-    let horaEntrada = Date.now();
+    let tardanza = Date.now() - clase.inicio;
+    let retardo = c===clase.codigoRetardo;
 
-    let tardanza = horaEntrada - claseActual.inicio;
+    enClase=true;
+    inicio=Date.now();
+    nombreAlumno=n;
 
-    // ✅ DETECTAR SI ENTRÓ POR RETARDO
-    let retardoManual = (codigo === claseActual.codigoRetardo);
+    document.body.innerHTML=`
+    <div class="pantalla">
+        <h2>📵 En clase</h2>
+        <div class="parpadeo">🔴</div>
+    </div>`;
 
     db.collection("clases")
     .doc("activa")
     .collection("alumnos")
-    .doc(nombre)
+    .doc(n)
     .set({
-        nombre,
-        grupo,
-        tiempo: 0,
-        salidas: 0,
+        nombre:n,
+        grupo:g,
+        tiempo:0,
+        salidas:0,
+        tardanza,
+        retardoManual: retardo
+    });
+}
 
-        tardanza: tardanza,
-        retardoManual: retardoManual
+// salidas
+window.addEventListener("blur",()=>{
+    if(!enClase || clase?.pausada) return;
+    salidas++; salidaInicio=Date.now();
+});
+
+window.addEventListener("focus",()=>{
+    if(!enClase) return;
+
+    let t=Date.now()-salidaInicio;
+    if(t>20000) tiempoFuera+=t;
+
+    salidaInicio=0;
+});
+
+// guardar
+setInterval(()=>{
+
+    if(!enClase) return;
+
+    let t=Date.now()-inicio;
+    let enApp=t-tiempoFuera;
+
+    if(clase?.pausada) enApp=t;
+
+    db.collection("clases")
+    .doc("activa")
+    .collection("alumnos")
+    .doc(nombreAlumno)
+    .update({
+        tiempo:enApp,
+        salidas
     });
 
-    alert("Entrada registrada ✅");
-}
+},5000);
 
 </script>
 
 </body>
 </html>
-``

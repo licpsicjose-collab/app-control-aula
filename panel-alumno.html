@@ -8,20 +8,11 @@
 body {
     font-family: Arial;
     text-align: center;
-}
-
-/* pantalla activa */
-.pantalla-activa {
-    background: black;
+    padding-top: 80px;
+    background-color: #111;
     color: white;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
 }
 
-/* animación */
 .parpadeo {
     font-size: 50px;
     animation: blink 1s infinite;
@@ -70,16 +61,13 @@ let salidas = 0;
 let salidaInicio = 0;
 
 let nombreAlumno = "";
-
 let wakeLock = null;
 
-// escuchar clase
 db.collection("clases").doc("activa")
 .onSnapshot(doc => {
     claseActual = doc.data();
 });
 
-// entrar
 function entrar() {
 
     let nombre = document.getElementById("nombre").value;
@@ -89,16 +77,18 @@ function entrar() {
     if (!claseActual) return alert("No hay clase");
     if (codigo !== claseActual.codigo) return alert("Código incorrecto");
 
+    let horaEntrada = Date.now();
+    let tardanza = horaEntrada - claseActual.inicio;
+
     enClase = true;
     inicio = Date.now();
     nombreAlumno = nombre;
 
-    // ✅ PANTALLA ACTIVA VISUAL
     document.body.innerHTML = `
-        <div class="pantalla-activa">
+        <div style="background:black;color:white;height:100vh;
+        display:flex;flex-direction:column;justify-content:center;align-items:center;">
             <h2>📵 Estás en clase</h2>
-            <p>No uses este dispositivo para otras aplicaciones</p>
-
+            <p>No uses el teléfono</p>
             <div class="parpadeo">🔴</div>
         </div>
     `;
@@ -111,23 +101,20 @@ function entrar() {
         nombre,
         grupo,
         tiempo: 0,
-        salidas: 0
+        salidas: 0,
+        horaEntrada: horaEntrada,
+        tardanza: tardanza
     });
 }
 
-// 🔆 pantalla encendida
 async function activarPantalla() {
-
     try {
         wakeLock = await navigator.wakeLock.request('screen');
-    } catch {
-        alert("Tu dispositivo no soporta esta función");
-    }
+    } catch {}
 }
 
-// salida
+// SALIDAS
 window.addEventListener("blur", () => {
-
     if (!enClase) return;
     if (claseActual?.pausada) return;
 
@@ -135,9 +122,7 @@ window.addEventListener("blur", () => {
     salidaInicio = Date.now();
 });
 
-// regreso
 window.addEventListener("focus", () => {
-
     if (!enClase) return;
 
     let tiempoSalida = Date.now() - salidaInicio;
@@ -149,19 +134,15 @@ window.addEventListener("focus", () => {
     salidaInicio = 0;
 });
 
-// respaldo móvil
 document.addEventListener("visibilitychange", () => {
 
     if (!enClase) return;
     if (claseActual?.pausada) return;
 
     if (document.visibilityState === "hidden") {
-
         salidas++;
         salidaInicio = Date.now();
-
     } else {
-
         let tiempoSalida = Date.now() - salidaInicio;
 
         if (tiempoSalida > 20000) {
@@ -172,7 +153,7 @@ document.addEventListener("visibilitychange", () => {
     }
 });
 
-// guardado continuo
+// GUARDAR
 setInterval(() => {
 
     if (!enClase) return;

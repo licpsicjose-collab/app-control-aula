@@ -2,14 +2,15 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Login</title>
+<title>Login Docente</title>
 
 <style>
 body {
     font-family: Arial;
     text-align: center;
-    padding-top: 80px;
+    margin-top: 50px;
 }
+
 input, button {
     padding: 10px;
     margin: 5px;
@@ -20,63 +21,49 @@ input, button {
 
 <body>
 
-<h2>Acceso Docente</h2>
+<h2>Iniciar sesión (Docente)</h2>
 
-<input id="correo" placeholder="Correo"><br>
+<input id="email" placeholder="Correo"><br>
 <input id="password" type="password" placeholder="Contraseña"><br><br>
 
-<button onclick="registrar()">Registrarse</button>
-<button onclick="entrar()">Entrar</button>
+<button onclick="login()">Entrar</button>
+<button onclick="registro()">Registrarse</button>
 
-<!-- ✅ ORDEN CORRECTO DE SCRIPTS -->
+<p id="mensaje"></p>
+
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
 <script src="firebase.js"></script>
 
 <script>
 
-// ✅ REGISTRAR
-function registrar(){
+// LOGIN
+function login(){
+    let email = document.getElementById("email").value;
+    let pass = document.getElementById("password").value;
 
-    let correoVal = document.getElementById("correo").value;
-    let passVal = document.getElementById("password").value;
-
-    if (!correoVal || !passVal){
-        alert("Completa los datos");
-        return;
-    }
-
-    auth.createUserWithEmailAndPassword(correoVal, passVal)
+    auth.signInWithEmailAndPassword(email, pass)
     .then(() => {
-        alert("✅ Usuario creado correctamente");
+        document.getElementById("mensaje").innerText = "✅ Bienvenido";
+        window.location.href = "panel-docente.html";
     })
-    .catch(e => {
-        alert("❌ " + e.message);
-        console.error(e);
+    .catch(error => {
+        document.getElementById("mensaje").innerText = error.message;
     });
 }
 
-// ✅ LOGIN
-function entrar(){
+// REGISTRO
+function registro(){
+    let email = document.getElementById("email").value;
+    let pass = document.getElementById("password").value;
 
-    let correoVal = document.getElementById("correo").value;
-    let passVal = document.getElementById("password").value;
-
-    if (!correoVal || !passVal){
-        alert("Completa los datos");
-        return;
-    }
-
-    auth.signInWithEmailAndPassword(correoVal, passVal)
+    auth.createUserWithEmailAndPassword(email, pass)
     .then(() => {
-        alert("✅ Login correcto");
-        window.location.href = "panel-docente.html";
+        document.getElementById("mensaje").innerText = "✅ Usuario creado";
     })
-    .catch(e => {
-        alert("❌ " + e.message);
-        console.error(e);
+    .catch(error => {
+        document.getElementById("mensaje").innerText = error.message;
     });
 }
 

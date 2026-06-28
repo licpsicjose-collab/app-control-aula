@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Login Docente</title>
+<title>Login Test</title>
 
 <style>
 body {
@@ -20,7 +20,7 @@ input, button {
 
 <body>
 
-<h2>Acceso Docente</h2>
+<h2>Prueba Login</h2>
 
 <input id="correo" placeholder="Correo"><br>
 <input id="password" type="password" placeholder="Contraseña"><br><br>
@@ -28,64 +28,16 @@ input, button {
 <button onclick="registrar()">Registrarse</button>
 <button onclick="entrar()">Entrar</button>
 
-<!-- ✅ FIREBASE AUTH (CORRECTO) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-
 <script>
 
-// ✅ CONFIGURACIÓN
-const firebaseConfig = {
-  apiKey: "AIzaSyDRjBwW6nueplRNYL-S0sxfliC8taWNZCM",
-  authDomain: "app-clase-3a564.firebaseapp.com",
-  projectId: "app-clase-3a564"
-};
-
-// ✅ INICIALIZAR
-firebase.initializeApp(firebaseConfig);
-
-// ✅ AUTH
-const auth = firebase.auth();
-
-// ✅ REGISTRAR
+// ✅ PRUEBA SIMPLE
 function registrar(){
-
-    let c = document.getElementById("correo").value;
-    let p = document.getElementById("password").value;
-
-    if(!c || !p){
-        alert("Completa los datos");
-        return;
-    }
-
-    auth.createUserWithEmailAndPassword(c, p)
-    .then(()=>{
-        alert("✅ Usuario creado");
-    })
-    .catch(e=>{
-        alert("❌ " + e.message);
-    });
+    alert("✅ registrar funciona");
 }
 
-// ✅ LOGIN
+// ✅ PRUEBA SIMPLE
 function entrar(){
-
-    let c = document.getElementById("correo").value;
-    let p = document.getElementById("password").value;
-
-    if(!c || !p){
-        alert("Completa los datos");
-        return;
-    }
-
-    auth.signInWithEmailAndPassword(c, p)
-    .then(()=>{
-        alert("✅ Login correcto");
-        window.location.href = "panel-docente.html";
-    })
-    .catch(e=>{
-        alert("❌ " + e.message);
-    });
+    alert("✅ entrar funciona");
 }
 
 </script>

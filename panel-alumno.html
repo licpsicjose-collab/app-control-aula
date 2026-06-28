@@ -76,7 +76,7 @@ db.collection("clases").doc("activa")
 
     let data = doc.data();
 
-    // ✅ DETECTAR FIN DE CLASE
+    // ✅ si termina la clase
     if (!data && enClase) {
 
         enClase = false;
@@ -121,7 +121,7 @@ function entrar(){
     inicio = Date.now();
     nombreAlumno = n;
 
-    // ✅ PANTALLA ACTIVA (ANTI-SUSPENSIÓN)
+    // ✅ PANTALLA ACTIVA
     document.body.innerHTML = `
         <div class="pantalla">
             <h2>📵 Estás en clase</h2>
@@ -139,13 +139,15 @@ function entrar(){
         nombre: n,
         grupo: g,
         tiempo: 0,
+        tiempoFuera: 0,
         salidas: 0,
+        participaciones: 0,
         tardanza: tardanza,
         retardoManual: (c === clase.codigoRetardo)
     });
 }
 
-// ===== DETECCIÓN DE SALIDAS =====
+// ===== DETECCIÓN DE SALIDA =====
 window.addEventListener("blur", () => {
 
     if (!enClase || clase?.pausada) return;
@@ -154,13 +156,14 @@ window.addEventListener("blur", () => {
     salidaInicio = Date.now();
 });
 
+// ===== REGRESO =====
 window.addEventListener("focus", () => {
 
     if (!enClase) return;
 
     let tiempoSalida = Date.now() - salidaInicio;
 
-    // ✅ FILTRO INTELIGENTE (EVITA FALSOS POSITIVOS)
+    // ✅ filtro evita falsos eventos
     if (tiempoSalida > 20000){
         tiempoFuera += tiempoSalida;
     }
@@ -168,7 +171,7 @@ window.addEventListener("focus", () => {
     salidaInicio = 0;
 });
 
-// ===== RESPALDO MÓVIL =====
+// ===== RESPALDO EN CELULAR =====
 document.addEventListener("visibilitychange", () => {
 
     if (!enClase || clase?.pausada) return;
@@ -198,7 +201,7 @@ setInterval(() => {
     let tiempoTotal = Date.now() - inicio;
     let tiempoEnApp = tiempoTotal - tiempoFuera;
 
-    // ✅ PAUSA NO PENALIZA
+    // ✅ si está en pausa no penaliza
     if (clase?.pausada){
         tiempoEnApp = tiempoTotal;
     }
@@ -209,6 +212,7 @@ setInterval(() => {
     .doc(nombreAlumno)
     .update({
         tiempo: tiempoEnApp,
+        tiempoFuera: tiempoFuera,
         salidas: salidas
     });
 

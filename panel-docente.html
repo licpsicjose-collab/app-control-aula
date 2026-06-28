@@ -60,6 +60,24 @@ function generarCodigo(){
   return Math.random().toString(36).substring(2,6).toUpperCase();
 }
 
+// ✅ FORMATEAR TIEMPO
+function formatearTiempo(ms){
+
+    let totalSeg = Math.floor(ms / 1000);
+
+    let horas = Math.floor(totalSeg / 3600);
+    let minutos = Math.floor((totalSeg % 3600) / 60);
+    let segundos = totalSeg % 60;
+
+    if(horas > 0){
+        return `${horas}h ${minutos}m ${segundos}s`;
+    } else if(minutos > 0){
+        return `${minutos}m ${segundos}s`;
+    } else {
+        return `${segundos}s`;
+    }
+}
+
 // ✅ INICIAR CLASE
 function iniciarClase(){
 
@@ -87,6 +105,7 @@ function activarRetardo(){
 // ✅ PAUSA
 function togglePausa(){
   let ref=db.collection("clases").doc("activa");
+
   ref.get().then(doc=>{
     ref.update({pausada:!doc.data().pausada});
   });
@@ -120,7 +139,7 @@ db.collection("clases").doc("activa")
   </button>`;
 });
 
-// ✅ ALUMNOS (CORREGIDO PARA BÚSQUEDA)
+// ✅ ALUMNOS
 db.collection("clases").doc("activa")
 .collection("alumnos")
 .onSnapshot(snap=>{
@@ -129,10 +148,10 @@ db.collection("clases").doc("activa")
   aplicarFiltro();
 });
 
-// ✅ FILTRO ESTABLE
+// ✅ FILTRO
 function aplicarFiltro(){
 
-  let texto=document.getElementById("busqueda").value.toLowerCase();
+  let texto=busqueda.value.toLowerCase();
 
   let filtrados=lista.filter(a=>
     a.nombre.toLowerCase().includes(texto)
@@ -141,7 +160,7 @@ function aplicarFiltro(){
   render(filtrados);
 }
 
-// ✅ PARTICIPACIÓN ⭐
+// ✅ PARTICIPACIÓN
 function agregarParticipacion(nombre){
 
   let ref=db.collection("clases")
@@ -150,42 +169,37 @@ function agregarParticipacion(nombre){
   .doc(nombre);
 
   ref.get().then(doc=>{
-
     let actual=doc.data().participaciones||0;
 
     ref.update({
       participaciones: actual + 1
     });
-
   });
 }
 
-// ✅ ESTADO (RÚBRICA)
+// ✅ RÚBRICA
 function setEstado(n,e){
   db.collection("clases").doc("activa")
   .collection("alumnos").doc(n)
   .update({estado:e});
 }
 
-// ✅ RENDER COMPLETO
+// ✅ RENDER
 function render(data){
 
   let html="";
 
   data.forEach(a=>{
 
-    let t=Math.floor((a.tiempo||0)/1000);
-    let tiempo=Math.floor(t/60)>0?`${Math.floor(t/60)}m ${t%60}s`:`${t}s`;
-
-    let tard=Math.floor((a.tardanza||0)/1000);
-    let tardanza=tard<60?"✅ A tiempo":`${Math.floor(tard/60)}m ${tard%60}s`;
+    let tiempoDentro=formatearTiempo(a.tiempo||0);
+    let tiempoFuera=formatearTiempo(a.tiempoFuera||0);
 
     html+=`
     <div class="alumno">
       👤 ${a.nombre}<br>
-      Tiempo: <strong>${tiempo}</strong><br>
+      ⏱ Dentro: ${tiempoDentro}<br>
       🚫 Salidas: ${a.salidas||0}<br>
-      ${tardanza}<br>
+      🕒 Fuera: ${tiempoFuera}<br>
       ⭐ Participación: ${a.participaciones||0}<br>
       Estado: ${a.estado||"-"}<br><br>
 
@@ -195,7 +209,7 @@ function render(data){
       <button onclick="setEstado('${a.nombre}','❌ No trabajó')">❌</button>
 
       <br><br>
-      <button onclick="agregarParticipacion('${a.nombre}')">⭐ + participación</button>
+      <button onclick="agregarParticipacion('${a.nombre}')">⭐ +</button>
     </div>`;
   });
 
@@ -205,14 +219,14 @@ function render(data){
 // ✅ EXPORTAR
 async function exportarCSV(){
 
-  let snap=await db.collection("clases").doc("activa")
-  .collection("alumnos").get();
+  let snap=await db.collection("clases")
+  .doc("activa").collection("alumnos").get();
 
-  let contenido="Nombre,Tiempo,Salidas,Participacion,Estado\n";
+  let contenido="Nombre,TiempoDentro,TiempoFuera,Salidas,Participacion,Estado\n";
 
   snap.forEach(doc=>{
     let a=doc.data();
-    contenido+=`${a.nombre},${a.tiempo},${a.salidas},${a.participaciones||0},${a.estado||""}\n`;
+    contenido+=`${a.nombre},${a.tiempo},${a.tiempoFuera||0},${a.salidas},${a.participaciones||0},${a.estado||""}\n`;
   });
 
   let blob=new Blob([contenido]);
@@ -257,11 +271,8 @@ async function confirmarBorrado(){
 
   snap.forEach(doc=>batch.delete(doc.ref));
   await batch.commit();
-
-  alert("Historial eliminado");
 }
 
-// ✅ HISTORIAL
 db.collection("historial").onSnapshot(snap=>{
   let html="";
   snap.forEach(()=>html+="Clase guardada ✅<br>");
@@ -269,6 +280,5 @@ db.collection("historial").onSnapshot(snap=>{
 });
 
 </script>
-
 </body>
 </html>

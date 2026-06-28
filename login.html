@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Login Docente</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    padding-top: 80px;
+}
+
+input, button {
+    padding: 10px;
+    margin: 5px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h2>Acceso Docente</h2>
+
+<input id="correo" placeholder="Correo"><br>
+<input id="password" type="password" placeholder="Contraseña"><br><br>
+
+<button onclick="registrar()">Registrarse</button>
+<button onclick="entrar()">Entrar</button>
+
+<br><br>
+<button onclick="volver()">⬅ Volver</button>
+
+<!-- ✅ Firebase (solo auth aquí) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"/script>
+
+<script>
+
+// ✅ CONFIG
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_AUTH_DOMAIN",
+  projectId: "TU_PROJECT_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+// ✅ AUTH SOLO AQUÍ
+const auth = firebase.auth();
+
+// ✅ REGISTRAR
+function registrar(){
+
+    let c = document.getElementById("correo").value;
+    let p = document.getElementById("password").value;
+
+    auth.createUserWithEmailAndPassword(c, p)
+    .then(() => {
+        alert("✅ Usuario creado");
+    })
+    .catch(e => {
+        alert("❌ " + e.message);
+    });
+}
+
+// ✅ LOGIN
+function entrar(){
+
+    let c = document.getElementById("correo").value;
+    let p = document.getElementById("password").value;
+
+    auth.signInWithEmailAndPassword(c, p)
+    .then(() => {
+        alert("✅ Login correcto");
+        window.location.href = "panel-docente.html";
+    })
+    .catch(e => {
+        alert("❌ " + e.message);
+    });
+}
+
+// ✅ VOLVER
+function volver(){
+    window.location.href = "index.html";
+}
+
+</script>
+
+</body>
+</html>

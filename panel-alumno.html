@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Alumno</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+}
+
+/* pantalla activa */
+.pantalla {
+    background: black;
+    color: white;
+    height: 100vh;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* animación */
+.parpadeo {
+    font-size: 40px;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
+</style>
+
+</head>
+
+<body>
+
+<!-- ✅ FORMULARIO -->
+<div id="formulario">
+
+<h2>Entrar a clase</h2>
+
+<input id="nombre" placeholder="Nombre"><br>
+<input id="grupo" placeholder="Grupo"><br>
+<input id="codigo" placeholder="Código"><br><br>
+
+<button onclick="entrar()">Entrar</button>
+
+</div>
+
+<!-- ✅ FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase.js"></script>
+
+<script>
+
+// ===== VARIABLES =====
+let clase = null;
+let enClase = false;
+
+let inicio = 0;
+let tiempoFuera = 0;
+let salidas = 0;
+let salidaInicio = 0;
+
+let nombreAlumno = "";
+
+// ===== ESCUCHAR CLASE =====
+db.collection("clases").doc("activa")
+.onSnapshot(doc => {
+
+    let data = doc.data();
+
+    // ✅ DETECTAR FIN DE CLASE
+    if (!data && enClase) {
+
+        enClase = false;
+
+        document.body.innerHTML = `
+            <div class="pantalla">
+                <h2>✅ Clase finalizada</h2>
+                <p>Puedes cerrar esta pantalla</p>
+            </div>
+        `;
+        return;
+    }
+
+    clase = data;
+});
+
+// ===== ENTRAR =====
+function entrar(){
+
+    let n = document.getElementById("nombre").value;
+    let g = document.getElementById("grupo").value;
+    let c = document.getElementById("codigo").value;
+
+    if (!clase){
+        alert("No hay clase activa");
+        return;
+    }
+
+    // ✅ DOBLE CÓDIGO
+    let valido =
+        c === clase.codigoInicial ||
+        c === clase.codigoRetardo;
+
+    if (!valido){
+        alert("Código incorrecto");
+        return;
+    }
+
+    let tardanza = Date.now() - clase.inicio;
+
+    enClase = true;
+    inicio = Date.now();
+    nombreAlumno = n;
+
+    // ✅ PANTALLA ACTIVA (ANTI-SUSPENSIÓN)
+    document.body.innerHTML = `
+        <div class="pantalla">
+            <h2>📵 Estás en clase</h2>
+            <p>No uses el teléfono</p>
+            <div class="parpadeo">🔴</div>
+        </div>
+    `;
+
+    // ✅ GUARDAR ALUMNO
+    db.collection("clases")
+    .doc("activa")
+    .collection("alumnos")
+    .doc(n)
+    .set({
+        nombre: n,
+        grupo: g,
+        tiempo: 0,
+        salidas: 0,
+        tardanza: tardanza,
+        retardoManual: (c === clase.codigoRetardo)
+    });
+}
+
+// ===== DETECCIÓN DE SALIDAS =====
+window.addEventListener("blur", () => {
+
+    if (!enClase || clase?.pausada) return;
+
+    salidas++;
+    salidaInicio = Date.now();
+});
+
+window.addEventListener("focus", () => {
+
+    if (!enClase) return;
+
+    let tiempoSalida = Date.now() - salidaInicio;
+
+    // ✅ FILTRO INTELIGENTE (EVITA FALSOS POSITIVOS)
+    if (tiempoSalida > 20000){
+        tiempoFuera += tiempoSalida;
+    }
+
+    salidaInicio = 0;
+});
+
+// ===== RESPALDO MÓVIL =====
+document.addEventListener("visibilitychange", () => {
+
+    if (!enClase || clase?.pausada) return;
+
+    if (document.visibilityState === "hidden") {
+
+        salidas++;
+        salidaInicio = Date.now();
+
+    } else {
+
+        let tiempoSalida = Date.now() - salidaInicio;
+
+        if (tiempoSalida > 20000){
+            tiempoFuera += tiempoSalida;
+        }
+
+        salidaInicio = 0;
+    }
+});
+
+// ===== GUARDADO CONTINUO =====
+setInterval(() => {
+
+    if (!enClase) return;
+
+    let tiempoTotal = Date.now() - inicio;
+    let tiempoEnApp = tiempoTotal - tiempoFuera;
+
+    // ✅ PAUSA NO PENALIZA
+    if (clase?.pausada){
+        tiempoEnApp = tiempoTotal;
+    }
+
+    db.collection("clases")
+    .doc("activa")
+    .collection("alumnos")
+    .doc(nombreAlumno)
+    .update({
+        tiempo: tiempoEnApp,
+        salidas: salidas
+    });
+
+}, 5000);
+
+</script>
+
+</body>
+</html>

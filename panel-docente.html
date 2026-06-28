@@ -78,9 +78,25 @@ function formatearTiempo(ms){
     }
 }
 
-// ✅ INICIAR CLASE
-function iniciarClase(){
+// ✅ INICIAR CLASE (AHORA LIMPIA ALUMNOS)
+async function iniciarClase(){
 
+  // 🔴 1. BORRAR ALUMNOS ANTERIORES
+  let alumnosRef = db.collection("clases")
+    .doc("activa")
+    .collection("alumnos");
+
+  let snap = await alumnosRef.get();
+
+  let batch = db.batch();
+
+  snap.forEach(doc=>{
+    batch.delete(doc.ref);
+  });
+
+  await batch.commit();
+
+  // ✅ 2. CREAR NUEVA CLASE
   let clase={
     escuela:escuela.value,
     grupo:grupo.value,
@@ -94,7 +110,9 @@ function iniciarClase(){
     inicio:Date.now()
   };
 
-  db.collection("clases").doc("activa").set(clase);
+  await db.collection("clases").doc("activa").set(clase);
+
+  alert("✅ Clase nueva iniciada (lista limpia)");
 }
 
 // ✅ RETARDOS
@@ -219,8 +237,8 @@ function render(data){
 // ✅ EXPORTAR
 async function exportarCSV(){
 
-  let snap=await db.collection("clases")
-  .doc("activa").collection("alumnos").get();
+  let snap=await db.collection("clases").doc("activa")
+  .collection("alumnos").get();
 
   let contenido="Nombre,TiempoDentro,TiempoFuera,Salidas,Participacion,Estado\n";
 
@@ -256,6 +274,8 @@ async function finalizarClase(){
   });
 
   await db.collection("clases").doc("activa").delete();
+
+  alert("✅ Clase finalizada");
 }
 
 // ✅ BORRAR
@@ -271,8 +291,11 @@ async function confirmarBorrado(){
 
   snap.forEach(doc=>batch.delete(doc.ref));
   await batch.commit();
+
+  alert("Historial eliminado");
 }
 
+// ✅ HISTORIAL
 db.collection("historial").onSnapshot(snap=>{
   let html="";
   snap.forEach(()=>html+="Clase guardada ✅<br>");

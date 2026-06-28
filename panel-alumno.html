@@ -1,248 +1,267 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-<meta charset="UTF-8">
-<title>Alumno</title>
-
-<style>
-body {
-    margin: 0;
-    font-family: Arial;
-}
-
-/* Pantalla activa */
-.pantalla {
-    background: black;
-    color: white;
-    height: 100vh;
-
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-}
-
-.parpadeo {
-    font-size: 40px;
-    animation: blink 1s infinite;
-}
-
-@keyframes blink {
-    0% { opacity: 1; }
-    50% { opacity: 0.3; }
-    100% { opacity: 1; }
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Alumno - Control Aula</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 500px;
+            margin: 40px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        input, button {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        .info-clase {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        /* Pantalla de bloqueo cuando el docente pausa la sesión */
+        #pantalla-pausa {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 152, 0, 0.95);
+            color: white;
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
 </head>
-
 <body>
 
-<div id="formulario">
-
-<h2>Entrar a clase</h2>
-
-<input id="nombre" placeholder="Nombre"><br>
-<input id="grupo" placeholder="Grupo"><br>
-<input id="codigo" placeholder="Código"><br><br>
-
-<button onclick="entrar()">Entrar</button>
-
+<!-- Pantalla de bloqueo por pausa -->
+<div id="pantalla-pausa">
+    <span style="font-size: 50px;">⏸️</span>
+    <p>La clase ha sido pausada por el docente.</p>
+    <p style="font-size: 16px; font-weight: normal;">Tu tiempo de permanencia está congelado temporalmente.</p>
 </div>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<div class="container">
+    <h1>🎓 Registro de Alumno</h1>
+    
+    <!-- Formulario de ingreso (Se oculta al entrar) -->
+    <div id="formulario-ingreso">
+        <input id="nombreAlumno" placeholder="Tu Nombre Completo">
+        <input id="grupoAlumno" placeholder="Tu Grupo (Ej. 3°A)">
+        <input id="codigoAcceso" placeholder="Código de la Clase (4 letras)" maxlength="4" style="text-transform: uppercase;">
+        <button onclick="ingresarAClase()">Ingresar a Clase</button>
+    </div>
+
+    <!-- Panel de estadísticas en vivo del alumno (Se muestra al entrar) -->
+    <div id="panel-activo" style="display: none;">
+        <h2>✅ Estás dentro de la clase</h2>
+        
+        <div class="info-clase">
+            👤 <strong>Alumno:</strong> <span id="lblNombre">-</span><br>
+            ⏱️ <strong>Tiempo de Permanencia:</strong> <span id="lblTiempo">0s</span><br>
+            🚨 <strong>Estatus de Entrada:</strong> <span id="lblEstatus">-</span><br>
+            🚫 <strong>Salidas detectadas:</strong> <span id="lblSalidas">0</span><br>
+            🎭 <strong>Evaluación Docente:</strong> <span id="lblEstado">-</span>
+        </div>
+        
+        <button style="background-color: #dc3545; margin-top: 20px;" onclick="abandonarClase()">Salir de la Clase</button>
+    </div>
+</div>
+
+<!-- ✅ SDK DE FIREBASE (Mismo modo compatibilidad v9/v10 que el panel docente) -->
+<script src="https://gstatic.com"></script>
+<script src="https://gstatic.com"></script>
 <script src="firebase.js"></script>
 
 <script>
+// Variables de control de estado de la sesión local
+let datosAlumnoLocal = null;
+let intervaloTiempo = null;
+let escuchadorClase = null;
+let escuchadorAlumno = null;
+let clasePausada = false;
 
-// =============================
-// VARIABLES
-// =============================
-let clase = null;
-let docenteId = null;
-let enClase = false;
+// ✅ INGRESAR A CLASE Y VALIDAR CÓDIGO
+async function ingresarAClase() {
+    const nombre = document.getElementById("nombreAlumno").value.trim();
+    const grupo = document.getElementById("grupoAlumno").value.trim();
+    const codigo = document.getElementById("codigoAcceso").value.trim().toUpperCase();
 
-let inicio = 0;
-let tiempoFuera = 0;
-let salidas = 0;
-let salidaInicio = 0;
-
-let nombreAlumno = "";
-
-// =============================
-// BUSCAR CLASE POR CÓDIGO
-// =============================
-async function buscarClasePorCodigo(codigoIngresado){
-
-    let encontrada = null;
-    let docenteEncontrado = null;
-
-    let snap = await db.collectionGroup("claseActiva").get();
-
-    snap.forEach(doc => {
-
-        let data = doc.data();
-
-        if (
-            data.codigoInicial === codigoIngresado ||
-            data.codigoRetardo === codigoIngresado
-        ) {
-            encontrada = data;
-            docenteEncontrado = doc.ref.parent.parent.id;
-        }
-
-    });
-
-    if (encontrada) {
-        clase = encontrada;
-        docenteId = docenteEncontrado;
-        escucharClase();
-        return true;
-    } else {
-        return false;
+    if (!nombre || !grupo || !codigo) {
+        alert("⚠️ Por favor, completa todos los campos.");
+        return;
     }
+
+    // 1. Obtener los datos de la clase activa del docente
+    const docClase = await db.collection("clases").doc("activa").get();
+    
+    if (!docClase.exists) {
+        alert("❌ No hay ninguna clase activa en este momento. Avisa a tu profesor.");
+        return;
+    }
+
+    const claseData = docClase.data();
+    let tipoIngreso = "";
+    let tardanzaMilisegundos = 0;
+
+    // 2. Verificar cuál código coincide
+    if (codigo === claseData.codigoInicial) {
+        tipoIngreso = "A tiempo";
+        tardanzaMilisegundos = 0; 
+    } else if (codigo === claseData.codigoRetardo) {
+        tipoIngreso = "Retardo";
+        // Calcular el tiempo transcurrido desde que inició la clase en milisegundos
+        tardanzaMilisegundos = Date.now() - claseData.inicio;
+    } else {
+        alert("🔑 Código de acceso incorrecto. Verifica con tu docente.");
+        return;
+    }
+
+    // 3. Crear el registro inicial del alumno dentro de la subcolección de la clase activa
+    datosAlumnoLocal = {
+        nombre: nombre,
+        grupo: grupo,
+        tiempo: 0,         // Tiempo de permanencia acumulado en milisegundos
+        tardanza: tardanzaMilisegundos,
+        salidas: 0,
+        estado: "Presente"
+    };
+
+    // Usamos el nombre del alumno como ID del documento para que no se duplique si se desconecta y vuelve a entrar
+    await db.collection("clases").doc("activa").collection("alumnos").doc(nombre).set(datosAlumnoLocal);
+
+    // 4. Cambiar vistas de la interfaz de usuario
+    document.getElementById("formulario-ingreso").style.display = "none";
+    document.getElementById("panel-activo").style.display = "block";
+    document.getElementById("lblNombre").innerText = nombre;
+    document.getElementById("lblEstatus").innerHTML = tipoIngreso === "A tiempo" 
+        ? "<span style='color:green; font-weight:bold;'>✅ A tiempo</span>" 
+        : "<span style='color:red; font-weight:bold;'>⏰ Retardo</span>";
+
+    // 5. Encender los listeners reactivos en tiempo real
+    activarMonitoreoClase(nombre);
+    activarContadorPermanencia(nombre);
 }
 
-// =============================
-// ESCUCHAR CLASE EN TIEMPO REAL
-// =============================
-function escucharClase(){
-
-    db.collection("docentes")
-    .doc(docenteId)
-    .collection("claseActiva")
-    .doc("activo")
-    .onSnapshot(doc => {
-
-        let data = doc.data();
-
-        if (!data && enClase) {
-            enClase = false;
-
-            document.body.innerHTML = `
-            <div class="pantalla">
-                <h2>✅ Clase finalizada</h2>
-                <p>Puedes cerrar esta pantalla</p>
-            </div>
-            `;
+// ✅ ESCUCHAR CAMBIOS GENERALES DE LA CLASE (Pausa o Finalización)
+function activarMonitoreoClase(nombreAlumno) {
+    escuchadorClase = db.collection("clases").doc("activa").onSnapshot(doc => {
+        // Si el docente borra la clase (Finalizar Clase), expulsar al alumno al login
+        if (!doc.exists) {
+            finalizarSesiónPorDocente();
             return;
         }
 
-        clase = data;
+        const clase = doc.data();
+        clasePausada = clase.pausada;
+
+        // Mostrar u ocultar pantalla completa de pausa
+        const divPausa = document.getElementById("pantalla-pausa");
+        if (clasePausada) {
+            divPausa.style.display = "flex";
+        } else {
+            divPausa.style.display = "none";
+        }
+    });
+
+    // Escuchar actualizaciones de las notas/emojis del profesor hacia este alumno en específico
+    escuchadorAlumno = db.collection("clases").doc("activa").collection("alumnos").doc(nombreAlumno)
+    .onSnapshot(doc => {
+        if(doc.exists) {
+            const data = doc.data();
+            document.getElementById("lblEstado").innerText = data.estado || "Presente";
+            document.getElementById("lblSalidas").innerText = data.salidas || 0;
+        }
     });
 }
 
-// =============================
-// ENTRAR A CLASE
-// =============================
-async function entrar(){
+// ✅ MEDIR PERMANENCIA DINÁMICA (Cada 1 segundo incrementa la base de datos)
+function activarContadorPermanencia(nombreAlumno) {
+    const alumnoRef = db.collection("clases").doc("activa").collection("alumnos").doc(nombreAlumno);
 
-    let n = nombre.value;
-    let g = grupo.value;
-    let c = codigo.value;
+    intervaloTiempo = setInterval(() => {
+        // Si la clase está pausada, no sumar tiempo de permanencia
+        if (clasePausada) return;
 
-    let existe = await buscarClasePorCodigo(c);
+        datosAlumnoLocal.tiempo += 1000; // Sumar 1 segundo en milisegundos
 
-    if (!existe) {
-        alert("Código incorrecto o clase inexistente");
-        return;
-    }
+        // Actualizar visualmente la pantalla del alumno de inmediato
+        const t = Math.floor(datosAlumnoLocal.tiempo / 1000);
+        const min = Math.floor(t / 60);
+        const seg = t % 60;
+        document.getElementById("lblTiempo").innerText = min > 0 ? `${min}m ${seg}s` : `${seg}s`;
 
-    let valido =
-        c === clase.codigoInicial ||
-        c === clase.codigoRetardo;
+        // Guardar de forma silenciosa el acumulado en Firebase cada segundo
+        alumnoRef.update({
+            tiempo: datosAlumnoLocal.tiempo
+        }).catch(err => console.log("Clase cerrada o pausada al actualizar"));
 
-    if (!valido) {
-        alert("Código incorrecto");
-        return;
-    }
-
-    let tardanza = Date.now() - clase.inicio;
-
-    enClase = true;
-    inicio = Date.now();
-    nombreAlumno = n;
-
-    // Pantalla activa
-    document.body.innerHTML = `
-    <div class="pantalla">
-        <h2>📵 Estás en clase</h2>
-        <p>No uses el teléfono</p>
-        <div class="parpadeo">🔴</div>
-    </div>
-    `;
-
-    // Guardar alumno en SU docente
-    db.collection("docentes")
-    .doc(docenteId)
-    .collection("claseActiva")
-    .doc("activo")
-    .collection("alumnos")
-    .doc(n)
-    .set({
-        nombre: n,
-        grupo: g,
-        tiempo: 0,
-        salidas: 0,
-        tardanza: tardanza,
-        retardoManual: (c === clase.codigoRetardo)
-    });
+    }, 1000);
 }
 
-// =============================
-// DETECCIÓN SALIDAS
-// =============================
-window.addEventListener("blur", () => {
+// ✅ DETECTAR ABANDONO VOLUNTARIO DEL ALUMNO
+async function abandonarClase() {
+    if (!confirm("¿Seguro que deseas salir de la clase? Se detendrá tu conteo de permanencia.")) return;
+    
+    limpiarEfectosYRelojes();
 
-    if (!enClase || clase?.pausada) return;
-
-    salidas++;
-    salidaInicio = Date.now();
-});
-
-window.addEventListener("focus", () => {
-
-    if (!enClase) return;
-
-    let tiempoSalida = Date.now() - salidaInicio;
-
-    if (tiempoSalida > 20000) {
-        tiempoFuera += tiempoSalida;
+    if (datosAlumnoLocal) {
+        // Sumar una salida en la base de datos antes de salir para el reporte del docente
+        const alumnoRef = db.collection("clases").doc("activa").collection("alumnos").doc(datosAlumnoLocal.nombre);
+        const docSnap = await alumnoRef.get();
+        
+        if(docSnap.exists) {
+            const salidasActuales = docSnap.data().salidas || 0;
+            await alumnoRef.update({ 
+                salidas: salidasActuales + 1,
+                estado: "Salió anticipado"
+            });
+        }
     }
 
-    salidaInicio = 0;
-});
+    // Regresar al estado inicial
+    restaurarInterfazPantalla();
+}
 
-// =============================
-// GUARDADO CONTINUO
-// =============================
-setInterval(() => {
+// ✅ MANEJAR EXPULSIÓN AUTOMÁTICA CUANDO EL DOCENTE DA "FINALIZAR CLASE"
+function finalizarSesiónPorDocente() {
+    limpiarEfectosYRelojes();
+    alert("📢 El profesor ha dado por terminada la clase. Tu reporte ha sido guardado.");
+    restaurarInterfazPantalla();
+}
 
-    if (!enClase) return;
-
-    let tiempoTotal = Date.now() - inicio;
-    let tiempoEnApp = tiempoTotal - tiempoFuera;
-
-    if (clase?.pausada) {
-        tiempoEnApp = tiempoTotal;
-    }
-
-    db.collection("docentes")
-    .doc(docenteId)
-    .collection("claseActiva")
-    .doc("activo")
-    .collection("alumnos")
-    .doc(nombreAlumno)
-    .update({
-        tiempo: tiempoEnApp,
-        salidas: salidas
-    });
-
-}, 5000);
-
-</script>
-
-</body>
-</html>
+// Limpiador de fugas de memoria y bucles
+function limpiarEfectosYRelojes() {
+    if (intervaloTiempo) clearInterval(intervaloTiempo);
+    if (escuchadorClase) escuchadorClase();
+    if (escuchadorAlumno) escuchadorAlumno();

@@ -10,7 +10,6 @@ body {
     text-align: center;
     padding-top: 80px;
 }
-
 input, button {
     padding: 10px;
     margin: 5px;
@@ -29,25 +28,23 @@ input, button {
 <button onclick="registrar()">Registrarse</button>
 <button onclick="entrar()">Entrar</button>
 
-<br><br>
-<button onclick="volver()">⬅ Volver</button>
-
-<!-- ✅ Firebase (solo auth aquí) -->
+<!-- ✅ FIREBASE AUTH (CORRECTO) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"/script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
 <script>
 
-// ✅ CONFIG
+// ✅ CONFIGURACIÓN
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_AUTH_DOMAIN",
-  projectId: "TU_PROJECT_ID"
+  apiKey: "AIzaSyDRjBwW6nueplRNYL-S0sxfliC8taWNZCM",
+  authDomain: "app-clase-3a564.firebaseapp.com",
+  projectId: "app-clase-3a564"
 };
 
+// ✅ INICIALIZAR
 firebase.initializeApp(firebaseConfig);
 
-// ✅ AUTH SOLO AQUÍ
+// ✅ AUTH
 const auth = firebase.auth();
 
 // ✅ REGISTRAR
@@ -56,11 +53,16 @@ function registrar(){
     let c = document.getElementById("correo").value;
     let p = document.getElementById("password").value;
 
+    if(!c || !p){
+        alert("Completa los datos");
+        return;
+    }
+
     auth.createUserWithEmailAndPassword(c, p)
-    .then(() => {
+    .then(()=>{
         alert("✅ Usuario creado");
     })
-    .catch(e => {
+    .catch(e=>{
         alert("❌ " + e.message);
     });
 }
@@ -71,19 +73,19 @@ function entrar(){
     let c = document.getElementById("correo").value;
     let p = document.getElementById("password").value;
 
+    if(!c || !p){
+        alert("Completa los datos");
+        return;
+    }
+
     auth.signInWithEmailAndPassword(c, p)
-    .then(() => {
+    .then(()=>{
         alert("✅ Login correcto");
         window.location.href = "panel-docente.html";
     })
-    .catch(e => {
+    .catch(e=>{
         alert("❌ " + e.message);
     });
-}
-
-// ✅ VOLVER
-function volver(){
-    window.location.href = "index.html";
 }
 
 </script>

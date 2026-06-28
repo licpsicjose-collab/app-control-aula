@@ -79,7 +79,7 @@
 <div class="container">
     <h2>👨‍🏫 Acceso Docente</h2>
 
-    <input id="correo" type="email" placeholder="Correo Electrónico"><br>
+    <input id="correo" type="email" placeholder="Correo Electrónico">
     <input id="password" type="password" placeholder="Contraseña"><br><br>
 
     <button class="btn-principal" onclick="entrar()">Iniciar Sesión</button>
@@ -88,14 +88,26 @@
     <button class="btn-volver" onclick="volver()">⬅ Volver al Inicio</button>
 </div>
 
-<!-- ✅ SDK DE FIREBASE (Modo Compatibilidad v9/v10) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<!-- ✅ SDK DE FIREBASE CORRECTO (Modo Compatibilidad v9/v10) -->
 <script src="https://gstatic.com"></script>
-<!-- Importamos tu archivo central de configuración -->
-<script src="firebase.js"></script>
+<script src="https://gstatic.com"></script>
 
 <script>
-// El objeto 'auth' ya viene instanciado de forma segura desde tu archivo firebase.js
+// Configuración de credenciales exactas del proyecto: app-clase-3a564
+const firebaseConfig = {
+  apiKey: "AIzaSyDRjBwW6nueplRNYL-S0sxfliC8taWNZCM",
+  authDomain: "://firebaseapp.com",
+  projectId: "app-clase-3a564",
+  storageBucket: "://appspot.com",
+  messagingSenderId: "206818130286",
+  appId: "1:206818130286:web:d04f2ae584dfc3cb4e297f"
+};
+
+// Inicialización segura del servicio local de autenticación
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const auth = firebase.auth();
 
 // ✅ REGISTRAR NUEVO DOCENTE
 function registrar(){

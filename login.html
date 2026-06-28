@@ -88,12 +88,12 @@
     <button class="btn-volver" onclick="volver()">⬅ Volver al Inicio</button>
 </div>
 
-<!-- 🌐 ENLACES ESTABLES COMPATIBLES CON GITHUB PAGES -->
-<script src="https://unpkg.com"></script>
-<script src="https://unpkg.com"></script>
+<!-- 🌐 CDN DE MODO COMPATIBILIDAD INTEGRADO EN LÍNEA DIRECTA -->
+<script src="https://gstatic.com"></script>
+<script src="https://gstatic.com"></script>
 
 <script>
-// Credenciales de tu proyecto Firebase
+// Configuración de credenciales de tu consola (Proyecto: app-clase-3a564)
 const firebaseConfig = {
   apiKey: "AIzaSyDRjBwW6nueplRNYL-S0sxfliC8taWNZCM",
   authDomain: "://firebaseapp.com",
@@ -103,7 +103,7 @@ const firebaseConfig = {
   appId: "1:206818130286:web:d04f2ae584dfc3cb4e297f"
 };
 
-// Inicialización instantánea
+// Inicialización lineal inmediata (Sin retardos de ciclo de carga)
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }

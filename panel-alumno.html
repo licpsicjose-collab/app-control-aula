@@ -10,19 +10,16 @@ body {
     font-family: Arial;
 }
 
-/* pantalla activa */
 .pantalla {
     background: black;
     color: white;
     height: 100vh;
-
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
 }
 
-/* animación */
 .parpadeo {
     font-size: 40px;
     animation: blink 1s infinite;
@@ -39,20 +36,21 @@ body {
 
 <body>
 
-<!-- ✅ FORMULARIO -->
+<!-- ✅ FORMULARIO ADAPTADO PARA MULTIUSUARIO -->
 <div id="formulario">
 
 <h2>Entrar a clase</h2>
 
-<input id="nombre" placeholder="Nombre"><br>
+<input id="idDocente" placeholder="ID de Enlace Docente"><br>
+<input id="nombre" placeholder="Nombre completo"><br>
 <input id="grupo" placeholder="Grupo"><br>
-<input id="codigo" placeholder="Código"><br><br>
+<input id="codigo" placeholder="Código de acceso a clase"><br><br>
 
 <button onclick="entrar()">Entrar</button>
 
 </div>
 
-<!-- ✅ FIREBASE -->
+<!-- ✅ LIBRERÍAS DE FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
@@ -69,51 +67,67 @@ let salidas = 0;
 let salidaInicio = 0;
 
 let nombreAlumno = "";
+let targetDocenteUid = ""; // ID del maestro al que se vincula este alumno
+let unsubscribeClaseAlumno = null;
 
-// ===== ESCUCHAR CLASE =====
-db.collection("clases").doc("activa")
-.onSnapshot(doc => {
+// ===== FUNCIÓN PARA ESCUCHAR LA CLASE ESPECÍFICA DEL MAESTRO =====
+function escucharClaseMaestro(docenteId) {
+    if(unsubscribeClaseAlumno) unsubscribeClaseAlumno();
 
-    let data = doc.data();
+    unsubscribeClaseAlumno = db.collection("clases").doc(docenteId)
+    .onSnapshot(doc => {
+        let data = doc.data();
 
-    // ✅ si termina la clase
-    if (!data && enClase) {
-
-        enClase = false;
-
-        document.body.innerHTML = `
-            <div class="pantalla">
-                <h2>✅ Clase finalizada</h2>
-                <p>Puedes cerrar esta pantalla</p>
-            </div>
-        `;
-        return;
-    }
-
-    clase = data;
-});
+        // ✅ si termina la clase
+        if (!data && enClase) {
+            enClase = false;
+            document.body.innerHTML = `
+                <div class="pantalla">
+                    <h2>✅ Clase finalizada por el docente</h2>
+                    <p>Puedes cerrar esta pantalla</p>
+                </div>
+            `;
+            return;
+        }
+        clase = data;
+    });
+}
 
 // ===== ENTRAR =====
-function entrar(){
+async function entrar(){
+    let targetId = document.getElementById("idDocente").value.trim();
+    let n = document.getElementById("nombre").value.trim();
+    let g = document.getElementById("grupo").value.trim();
+    let c = document.getElementById("codigo").value.trim();
 
-    let n = document.getElementById("nombre").value;
-    let g = document.getElementById("grupo").value;
-    let c = document.getElementById("codigo").value;
-
-    if (!clase){
-        alert("No hay clase activa");
+    if(!targetId || !n || !g || !c) {
+        alert("Por favor llena todos los campos");
         return;
     }
 
-    // ✅ DOBLE CÓDIGO
+    // Buscamos temporalmente la clase de ese maestro antes de validar
+    let docRef = await db.collection("clases").doc(targetId).get();
+    let claseData = docRef.data();
+
+    if (!claseData){
+        alert("El ID del docente es incorrecto o no tiene una clase activa actualmente.");
+        return;
+    }
+
+    // ✅ DOBLE CÓDIGO VALIDACIÓN
     let valido =
-        c === clase.codigoInicial ||
-        c === clase.codigoRetardo;
+        c === claseData.codigoInicial ||
+        c === claseData.codigoRetardo;
 
     if (!valido){
-        alert("Código incorrecto");
+        alert("Código de acceso incorrecto");
         return;
     }
+
+    // Si pasa las validaciones, lo anclamos a ese maestro de por vida en esta sesión
+    targetDocenteUid = targetId;
+    clase = claseData;
+    escucharClaseMaestro(targetDocenteUid);
 
     let tardanza = Date.now() - clase.inicio;
 
@@ -121,7 +135,7 @@ function entrar(){
     inicio = Date.now();
     nombreAlumno = n;
 
-    // ✅ PANTALLA ACTIVA
+    // ✅ PANTALLA ACTIVA (Tu interfaz original)
     document.body.innerHTML = `
         <div class="pantalla">
             <h2>📵 Estás en clase</h2>
@@ -130,9 +144,9 @@ function entrar(){
         </div>
     `;
 
-    // ✅ GUARDAR ALUMNO
+    // ✅ GUARDAR ALUMNO EN EL NODO PRIVADO DE SU MAESTRO
     db.collection("clases")
-    .doc("activa")
+    .doc(targetDocenteUid)
     .collection("alumnos")
     .doc(n)
     .set({
@@ -147,67 +161,52 @@ function entrar(){
     });
 }
 
-// ===== DETECCIÓN DE SALIDA =====
+// ===== TU LÓGICA FILOSÓFICA AVANZADA (QUEDÓ TOTALMENTE INTACTA) =====
+
 window.addEventListener("blur", () => {
-
     if (!enClase || clase?.pausada) return;
-
     salidas++;
     salidaInicio = Date.now();
 });
 
-// ===== REGRESO =====
 window.addEventListener("focus", () => {
-
     if (!enClase) return;
-
     let tiempoSalida = Date.now() - salidaInicio;
-
-    // ✅ filtro evita falsos eventos
     if (tiempoSalida > 20000){
         tiempoFuera += tiempoSalida;
     }
-
     salidaInicio = 0;
 });
 
-// ===== RESPALDO EN CELULAR =====
 document.addEventListener("visibilitychange", () => {
-
     if (!enClase || clase?.pausada) return;
 
     if (document.visibilityState === "hidden") {
-
         salidas++;
         salidaInicio = Date.now();
-
     } else {
-
         let tiempoSalida = Date.now() - salidaInicio;
-
         if (tiempoSalida > 20000){
             tiempoFuera += tiempoSalida;
         }
-
         salidaInicio = 0;
     }
 });
 
-// ===== GUARDADO CONTINUO =====
+// ===== GUARDADO CONTINUO DINÁMICO =====
 setInterval(() => {
-
-    if (!enClase) return;
+    if (!enClase || !targetDocenteUid) return;
 
     let tiempoTotal = Date.now() - inicio;
     let tiempoEnApp = tiempoTotal - tiempoFuera;
 
-    // ✅ si está en pausa no penaliza
     if (clase?.pausada){
         tiempoEnApp = tiempoTotal;
     }
 
+    // Actualiza en el casillero exacto del docente asignado
     db.collection("clases")
-    .doc("activa")
+    .doc(targetDocenteUid)
     .collection("alumnos")
     .doc(nombreAlumno)
     .update({

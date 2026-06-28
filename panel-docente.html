@@ -22,6 +22,9 @@ input,button { padding:10px;margin:5px; }
 
 <h1>Panel Docente</h1>
 
+<!-- Un contenedor para mostrar si está cargando la sesión -->
+<div id="status-auth" style="background: #ffe0b2; padding: 5px; display: none;">Autenticando...</div>
+
 <input id="escuela" placeholder="Escuela"><br>
 <input id="grupo" placeholder="Grupo"><br>
 <input id="materia" placeholder="Materia"><br><br>
@@ -48,13 +51,33 @@ input,button { padding:10px;margin:5px; }
 <h2>Historial</h2>
 <div id="historial"></div>
 
+<!-- LIBRERÍAS COMPAT DE FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
 
 let lista=[];
+let docenteUid = null; // Variable global para almacenar el ID del maestro conectado
+let unsubscribeClase = null; // Para limpiar los escuchas automáticos
+let unsubscribeAlumnos = null;
+
+// PROTEGER EL PANEL Y DETECTAR USUARIO MULTIUSER
+firebase.auth().onAuthStateChanged((user) => {
+  if (user) {
+    docenteUid = user.uid; // Capturamos el ID único del maestro de Firebase Auth
+    document.getElementById("status-auth").style.display = "none";
+    
+    // Una vez que sabemos quién es, activamos los escuchas de SU clase e historial
+    inicializarEscuchasDocente();
+  } else {
+    // Si no está logueado, lo mandamos de patitas al login para proteger el sistema
+    alert("Acceso denegado. Por favor inicia sesión.");
+    window.location.href = "login.html";
+  }
+});
 
 function generarCodigo(){
   return Math.random().toString(36).substring(2,6).toUpperCase();
@@ -62,9 +85,7 @@ function generarCodigo(){
 
 // ✅ FORMATEAR TIEMPO
 function formatearTiempo(ms){
-
     let totalSeg = Math.floor(ms / 1000);
-
     let horas = Math.floor(totalSeg / 3600);
     let minutos = Math.floor((totalSeg % 3600) / 60);
     let segundos = totalSeg % 60;
@@ -78,117 +99,129 @@ function formatearTiempo(ms){
     }
 }
 
-// ✅ INICIAR CLASE (AHORA LIMPIA ALUMNOS)
+// ✅ INICIAR CLASE (LIMPIA ALUMNOS EN SU PROPIO ID)
 async function iniciarClase(){
+  if (!docenteUid) return;
 
-  // 🔴 1. BORRAR ALUMNOS ANTERIORES
+  // 🔴 1. BORRAR ALUMNOS ANTERIORES DE ESTE DOCENTE EN ESPECÍFICO
   let alumnosRef = db.collection("clases")
-    .doc("activa")
+    .doc(docenteUid)
     .collection("alumnos");
 
   let snap = await alumnosRef.get();
-
   let batch = db.batch();
 
   snap.forEach(doc=>{
     batch.delete(doc.ref);
   });
-
   await batch.commit();
 
-  // ✅ 2. CREAR NUEVA CLASE
-  let clase={
-    escuela:escuela.value,
-    grupo:grupo.value,
-    materia:materia.value,
-
-    codigoInicial:generarCodigo(),
-    codigoRetardo:generarCodigo(),
-
-    modo:"normal",
-    pausada:false,
-    inicio:Date.now()
+  // ✅ 2. CREAR NUEVA CLASE CON EL ID DEL DOCENTE
+  let claseData ={
+    docenteId: docenteUid, // Guardamos la relación por seguridad
+    escuela: escuela.value,
+    grupo: grupo.value,
+    materia: materia.value,
+    codigoInicial: generarCodigo(),
+    codigoRetardo: generarCodigo(),
+    modo: "normal",
+    pausada: false,
+    inicio: Date.now()
   };
 
-  await db.collection("clases").doc("activa").set(clase);
-
-  alert("✅ Clase nueva iniciada (lista limpia)");
+  await db.collection("clases").doc(docenteUid).set(claseData);
+  alert("✅ Clase nueva iniciada (tu lista está limpia)");
 }
 
 // ✅ RETARDOS
 function activarRetardo(){
-  db.collection("clases").doc("activa").update({modo:"retardo"});
+  if (!docenteUid) return;
+  db.collection("clases").doc(docenteUid).update({modo:"retardo"});
 }
 
 // ✅ PAUSA
 function togglePausa(){
-  let ref=db.collection("clases").doc("activa");
+  if (!docenteUid) return;
+  let ref = db.collection("clases").doc(docenteUid);
 
   ref.get().then(doc=>{
     ref.update({pausada:!doc.data().pausada});
   });
 }
 
-// ✅ MOSTRAR CLASE
-db.collection("clases").doc("activa")
-.onSnapshot(doc=>{
+// ENCAPSULAMOS LOS SNAPSHOTS PARA QUE SOLO ESCUCHEN CUANDO EL AUTH ESTÉ LISTO
+function inicializarEscuchasDocente() {
+  
+  // Si ya había escuchas activos, los cerramos para no duplicar memoria
+  if(unsubscribeClase) unsubscribeClase();
+  if(unsubscribeAlumnos) unsubscribeAlumnos();
 
-  let c=doc.data();
+  // ✅ MOSTRAR CLASE FILTRADO POR DOCENTE
+  unsubscribeClase = db.collection("clases").doc(docenteUid)
+  .onSnapshot(doc=>{
+    let c = doc.data();
 
-  if(!c){
-    clase.innerHTML="Sin clase";
-    controlPausa.innerHTML="";
-    return;
-  }
+    if(!c){
+      clase.innerHTML="Sin clase activa";
+      controlPausa.innerHTML="";
+      return;
+    }
 
-  let codigo=c.modo==="normal"?c.codigoInicial:c.codigoRetardo;
+    let codigo = c.modo==="normal" ? c.codigoInicial : c.codigoRetardo;
 
-  clase.innerHTML=`
-  ${c.escuela}<br>
-  ${c.grupo}<br>
-  ${c.materia}<br>
-  🔑 ${codigo}<br>
-  ${c.modo}
-  `;
+    clase.innerHTML=`
+    <b>ID de enlace docente:</b> ${docenteUid}<br>
+    ${c.escuela}<br>
+    ${c.grupo}<br>
+    ${c.materia}<br>
+    🔑 Código Aula: ${codigo}<br>
+    Modo: ${c.modo}
+    `;
 
-  controlPausa.innerHTML=`
-  <button onclick="togglePausa()">
-  ${c.pausada?'Reanudar':'Pausar'}
-  </button>`;
-});
+    controlPausa.innerHTML=`
+    <button onclick="togglePausa()">
+    ${c.pausada?'Reanudar':'Pausar'}
+    </button>`;
+  });
 
-// ✅ ALUMNOS
-db.collection("clases").doc("activa")
-.collection("alumnos")
-.onSnapshot(snap=>{
-  lista=[];
-  snap.forEach(doc=>lista.push(doc.data()));
-  aplicarFiltro();
-});
+  // ✅ ALUMNOS DE ESTE DOCENTE
+  unsubscribeAlumnos = db.collection("clases").doc(docenteUid)
+  .collection("alumnos")
+  .onSnapshot(snap=>{
+    lista=[];
+    snap.forEach(doc=>lista.push(doc.data()));
+    aplicarFiltro();
+  });
+
+  // ✅ HISTORIAL FILTRADO SOLO PARA ESTE DOCENTE
+  db.collection("historial")
+  .where("docenteId", "==", docenteUid)
+  .onSnapshot(snap=>{
+    let html="";
+    snap.forEach(()=>html+="Clase guardada en tu historial ✅<br>");
+    historial.innerHTML=html;
+  });
+}
 
 // ✅ FILTRO
 function aplicarFiltro(){
-
   let texto=busqueda.value.toLowerCase();
-
   let filtrados=lista.filter(a=>
     a.nombre.toLowerCase().includes(texto)
   );
-
   render(filtrados);
 }
 
 // ✅ PARTICIPACIÓN
 function agregarParticipacion(nombre){
-
+  if (!docenteUid) return;
   let ref=db.collection("clases")
-  .doc("activa")
+  .doc(docenteUid)
   .collection("alumnos")
   .doc(nombre);
 
   ref.get().then(doc=>{
     let actual=doc.data().participaciones||0;
-
     ref.update({
       participaciones: actual + 1
     });
@@ -197,18 +230,16 @@ function agregarParticipacion(nombre){
 
 // ✅ RÚBRICA
 function setEstado(n,e){
-  db.collection("clases").doc("activa")
+  if (!docenteUid) return;
+  db.collection("clases").doc(docenteUid)
   .collection("alumnos").doc(n)
   .update({estado:e});
 }
 
 // ✅ RENDER
 function render(data){
-
   let html="";
-
   data.forEach(a=>{
-
     let tiempoDentro=formatearTiempo(a.tiempo||0);
     let tiempoFuera=formatearTiempo(a.tiempoFuera||0);
 
@@ -230,14 +261,13 @@ function render(data){
       <button onclick="agregarParticipacion('${a.nombre}')">⭐ +</button>
     </div>`;
   });
-
   alumnos.innerHTML=html;
 }
 
 // ✅ EXPORTAR
 async function exportarCSV(){
-
-  let snap=await db.collection("clases").doc("activa")
+  if (!docenteUid) return;
+  let snap=await db.collection("clases").doc(docenteUid)
   .collection("alumnos").get();
 
   let contenido="Nombre,TiempoDentro,TiempoFuera,Salidas,Participacion,Estado\n";
@@ -249,58 +279,55 @@ async function exportarCSV(){
 
   let blob=new Blob([contenido]);
   let link=document.createElement("a");
-
   link.href=URL.createObjectURL(blob);
   link.download="reporte.csv";
   link.click();
 }
 
-// ✅ FINALIZAR
+// ✅ FINALIZAR CLASE
 async function finalizarClase(){
+  if (!docenteUid) return;
 
-  let docClase=await db.collection("clases").doc("activa").get();
+  let docClase=await db.collection("clases").doc(docenteUid).get();
   let claseData=docClase.data();
 
-  let snap=await db.collection("clases").doc("activa")
+  if(!claseData) return;
+
+  let snap=await db.collection("clases").doc(docenteUid)
   .collection("alumnos").get();
 
   let alumnos=[];
   snap.forEach(doc=>alumnos.push(doc.data()));
 
+  // Guardamos en el historial vinculando el ID de este docente
   await db.collection("historial").add({
     ...claseData,
+    docenteId: docenteUid,
     alumnos,
     fin:Date.now()
   });
 
-  await db.collection("clases").doc("activa").delete();
-
-  alert("✅ Clase finalizada");
+  await db.collection("clases").doc(docenteUid).delete();
+  alert("✅ Clase finalizada y guardada en tu cuenta");
 }
 
-// ✅ BORRAR
+// ✅ BORRAR HISTORIAL PROPIO
 async function confirmarBorrado(){
-
-  if(!confirm("¿Eliminar historial?"))return;
+  if (!docenteUid) return;
+  if(!confirm("¿Eliminar TU historial?"))return;
 
   let t=prompt("Escribe BORRAR");
   if(t!=="BORRAR")return;
 
-  let snap=await db.collection("historial").get();
+  // Solo borra el historial que le pertenezca a este docente
+  let snap=await db.collection("historial").where("docenteId", "==", docenteUid).get();
   let batch=db.batch();
 
   snap.forEach(doc=>batch.delete(doc.ref));
   await batch.commit();
 
-  alert("Historial eliminado");
+  alert("Tu historial ha sido eliminado");
 }
-
-// ✅ HISTORIAL
-db.collection("historial").onSnapshot(snap=>{
-  let html="";
-  snap.forEach(()=>html+="Clase guardada ✅<br>");
-  historial.innerHTML=html;
-});
 
 </script>
 </body>

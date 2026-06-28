@@ -93,7 +93,10 @@
 <script src="https://gstatic.com"></script>
 
 <script>
-// Configuración de credenciales exactas del proyecto: app-clase-3a564
+// Variable global para controlar la autenticación
+let auth = null;
+
+// Configuración de tu proyecto en Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDRjBwW6nueplRNYL-S0sxfliC8taWNZCM",
   authDomain: "://firebaseapp.com",
@@ -103,14 +106,23 @@ const firebaseConfig = {
   appId: "1:206818130286:web:d04f2ae584dfc3cb4e297f"
 };
 
-// Inicialización segura del servicio local de autenticación
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-const auth = firebase.auth();
+// 🔥 ESPERAR A QUE EL NAVEGADOR CARGUE LOS SCRIPTS EXTERNOS DE FIREBASE
+window.onload = function() {
+    if (typeof firebase !== 'undefined') {
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        auth = firebase.auth();
+        console.log("🚀 Firebase Auth inicializado correctamente.");
+    } else {
+        console.error("❌ No se pudo conectar con los servidores de Firebase. Verifica tu conexión a internet.");
+    }
+};
 
 // ✅ REGISTRAR NUEVO DOCENTE
 function registrar(){
+    if (!auth) { alert("⚠️ El sistema sigue conectándose a Firebase. Espera un segundo."); return; }
+
     const c = document.getElementById("correo").value.trim();
     const p = document.getElementById("password").value;
 
@@ -130,6 +142,8 @@ function registrar(){
 
 // ✅ INICIAR SESIÓN (LOGIN)
 function entrar(){
+    if (!auth) { alert("⚠️ El sistema sigue conectándose a Firebase. Espera un segundo."); return; }
+
     const c = document.getElementById("correo").value.trim();
     const p = document.getElementById("password").value;
 

@@ -10,16 +10,19 @@ body {
     font-family: Arial;
 }
 
+/* pantalla activa */
 .pantalla {
     background: black;
     color: white;
     height: 100vh;
+
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
 }
 
+/* animación */
 .parpadeo {
     font-size: 40px;
     animation: blink 1s infinite;
@@ -36,21 +39,19 @@ body {
 
 <body>
 
-<!-- ✅ FORMULARIO ADAPTADO PARA MULTIUSUARIO -->
 <div id="formulario">
 
 <h2>Entrar a clase</h2>
 
-<input id="idDocente" placeholder="ID de Enlace Docente"><br>
-<input id="nombre" placeholder="Nombre completo"><br>
+<input id="idDocente" placeholder="Código de Enlace Docente (5 letras)"><br>
+<input id="nombre" placeholder="Nombre"><br>
 <input id="grupo" placeholder="Grupo"><br>
-<input id="codigo" placeholder="Código de acceso a clase"><br><br>
+<input id="codigo" placeholder="Código"><br><br>
 
 <button onclick="entrar()">Entrar</button>
 
 </div>
 
-<!-- ✅ LIBRERÍAS DE FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
@@ -67,10 +68,10 @@ let salidas = 0;
 let salidaInicio = 0;
 
 let nombreAlumno = "";
-let targetDocenteUid = ""; // ID del maestro al que se vincula este alumno
+let targetDocenteUid = ""; 
 let unsubscribeClaseAlumno = null;
 
-// ===== FUNCIÓN PARA ESCUCHAR LA CLASE ESPECÍFICA DEL MAESTRO =====
+// ===== ESCUCHAR CLASE =====
 function escucharClaseMaestro(docenteId) {
     if(unsubscribeClaseAlumno) unsubscribeClaseAlumno();
 
@@ -78,12 +79,11 @@ function escucharClaseMaestro(docenteId) {
     .onSnapshot(doc => {
         let data = doc.data();
 
-        // ✅ si termina la clase
         if (!data && enClase) {
             enClase = false;
             document.body.innerHTML = `
                 <div class="pantalla">
-                    <h2>✅ Clase finalizada por el docente</h2>
+                    <h2>✅ Clase finalizada</h2>
                     <p>Puedes cerrar esta pantalla</p>
                 </div>
             `;
@@ -93,38 +93,46 @@ function escucharClaseMaestro(docenteId) {
     });
 }
 
-// ===== ENTRAR =====
+// ===== ENTRAR TRADUCIENDO CÓDIGO CORTO =====
 async function entrar(){
-    let targetId = document.getElementById("idDocente").value.trim();
-    let n = document.getElementById("nombre").value.trim();
-    let g = document.getElementById("grupo").value.trim();
-    let c = document.getElementById("codigo").value.trim();
+    let codigoCorto = document.getElementById("idDocente").value.trim().toUpperCase();
+    let n = document.getElementById("nombre").value;
+    let g = document.getElementById("grupo").value;
+    let c = document.getElementById("codigo").value;
 
-    if(!targetId || !n || !g || !c) {
-        alert("Por favor llena todos los campos");
+    if(!codigoCorto || !n || !g || !c) {
+        alert("Completa todos los campos");
         return;
     }
 
-    // Buscamos temporalmente la clase de ese maestro antes de validar
+    // MAPEO: Buscar el UID real usando el código corto de 5 dígitos
+    let mapeoRef = await db.collection("mapeo_codigos").doc(codigoCorto).get();
+    
+    if(!mapeoRef.exists) {
+        alert("El código de enlace docente no existe.");
+        return;
+    }
+
+    let targetId = mapeoRef.data().docenteUid;
+
     let docRef = await db.collection("clases").doc(targetId).get();
     let claseData = docRef.data();
 
     if (!claseData){
-        alert("El ID del docente es incorrecto o no tiene una clase activa actualmente.");
+        alert("El docente no tiene una clase activa");
         return;
     }
 
-    // ✅ DOBLE CÓDIGO VALIDACIÓN
+    // ✅ DOBLE CÓDIGO
     let valido =
         c === claseData.codigoInicial ||
         c === claseData.codigoRetardo;
 
     if (!valido){
-        alert("Código de acceso incorrecto");
+        alert("Código incorrecto");
         return;
     }
 
-    // Si pasa las validaciones, lo anclamos a ese maestro de por vida en esta sesión
     targetDocenteUid = targetId;
     clase = claseData;
     escucharClaseMaestro(targetDocenteUid);
@@ -135,7 +143,7 @@ async function entrar(){
     inicio = Date.now();
     nombreAlumno = n;
 
-    // ✅ PANTALLA ACTIVA (Tu interfaz original)
+    // ✅ PANTALLA ACTIVA
     document.body.innerHTML = `
         <div class="pantalla">
             <h2>📵 Estás en clase</h2>
@@ -144,7 +152,7 @@ async function entrar(){
         </div>
     `;
 
-    // ✅ GUARDAR ALUMNO EN EL NODO PRIVADO DE SU MAESTRO
+    // ✅ GUARDAR ALUMNO
     db.collection("clases")
     .doc(targetDocenteUid)
     .collection("alumnos")
@@ -161,14 +169,14 @@ async function entrar(){
     });
 }
 
-// ===== TU LÓGICA FILOSÓFICA AVANZADA (QUEDÓ TOTALMENTE INTACTA) =====
-
+// ===== DETECCIÓN DE SALIDA =====
 window.addEventListener("blur", () => {
     if (!enClase || clase?.pausada) return;
     salidas++;
     salidaInicio = Date.now();
 });
 
+// ===== REGRESO =====
 window.addEventListener("focus", () => {
     if (!enClase) return;
     let tiempoSalida = Date.now() - salidaInicio;
@@ -178,6 +186,7 @@ window.addEventListener("focus", () => {
     salidaInicio = 0;
 });
 
+// ===== RESPALDO EN CELULAR =====
 document.addEventListener("visibilitychange", () => {
     if (!enClase || clase?.pausada) return;
 
@@ -193,7 +202,7 @@ document.addEventListener("visibilitychange", () => {
     }
 });
 
-// ===== GUARDADO CONTINUO DINÁMICO =====
+// ===== GUARDADO CONTINUO =====
 setInterval(() => {
     if (!enClase || !targetDocenteUid) return;
 
@@ -204,7 +213,6 @@ setInterval(() => {
         tiempoEnApp = tiempoTotal;
     }
 
-    // Actualiza en el casillero exacto del docente asignado
     db.collection("clases")
     .doc(targetDocenteUid)
     .collection("alumnos")

@@ -39,11 +39,11 @@ body {
 
 <body>
 
+<!-- ✅ FORMULARIO -->
 <div id="formulario">
 
 <h2>Entrar a clase</h2>
 
-<input id="idDocente" placeholder="Código de Enlace Docente (5 letras)"><br>
 <input id="nombre" placeholder="Nombre"><br>
 <input id="grupo" placeholder="Grupo"><br>
 <input id="codigo" placeholder="Código"><br><br>
@@ -52,6 +52,7 @@ body {
 
 </div>
 
+<!-- ✅ FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
@@ -68,74 +69,51 @@ let salidas = 0;
 let salidaInicio = 0;
 
 let nombreAlumno = "";
-let targetDocenteUid = ""; 
-let unsubscribeClaseAlumno = null;
 
 // ===== ESCUCHAR CLASE =====
-function escucharClaseMaestro(docenteId) {
-    if(unsubscribeClaseAlumno) unsubscribeClaseAlumno();
+db.collection("clases").doc("activa")
+.onSnapshot(doc => {
 
-    unsubscribeClaseAlumno = db.collection("clases").doc(docenteId)
-    .onSnapshot(doc => {
-        let data = doc.data();
+    let data = doc.data();
 
-        if (!data && enClase) {
-            enClase = false;
-            document.body.innerHTML = `
-                <div class="pantalla">
-                    <h2>✅ Clase finalizada</h2>
-                    <p>Puedes cerrar esta pantalla</p>
-                </div>
-            `;
-            return;
-        }
-        clase = data;
-    });
-}
+    // ✅ si termina la clase
+    if (!data && enClase) {
 
-// ===== ENTRAR TRADUCIENDO CÓDIGO CORTO =====
-async function entrar(){
-    let codigoCorto = document.getElementById("idDocente").value.trim().toUpperCase();
+        enClase = false;
+
+        document.body.innerHTML = `
+            <div class="pantalla">
+                <h2>✅ Clase finalizada</h2>
+                <p>Puedes cerrar esta pantalla</p>
+            </div>
+        `;
+        return;
+    }
+
+    clase = data;
+});
+
+// ===== ENTRAR =====
+function entrar(){
+
     let n = document.getElementById("nombre").value;
     let g = document.getElementById("grupo").value;
     let c = document.getElementById("codigo").value;
 
-    if(!codigoCorto || !n || !g || !c) {
-        alert("Completa todos los campos");
-        return;
-    }
-
-    // MAPEO: Buscar el UID real usando el código corto de 5 dígitos
-    let mapeoRef = await db.collection("mapeo_codigos").doc(codigoCorto).get();
-    
-    if(!mapeoRef.exists) {
-        alert("El código de enlace docente no existe.");
-        return;
-    }
-
-    let targetId = mapeoRef.data().docenteUid;
-
-    let docRef = await db.collection("clases").doc(targetId).get();
-    let claseData = docRef.data();
-
-    if (!claseData){
-        alert("El docente no tiene una clase activa");
+    if (!clase){
+        alert("No hay clase activa");
         return;
     }
 
     // ✅ DOBLE CÓDIGO
     let valido =
-        c === claseData.codigoInicial ||
-        c === claseData.codigoRetardo;
+        c === clase.codigoInicial ||
+        c === clase.codigoRetardo;
 
     if (!valido){
         alert("Código incorrecto");
         return;
     }
-
-    targetDocenteUid = targetId;
-    clase = claseData;
-    escucharClaseMaestro(targetDocenteUid);
 
     let tardanza = Date.now() - clase.inicio;
 
@@ -154,7 +132,7 @@ async function entrar(){
 
     // ✅ GUARDAR ALUMNO
     db.collection("clases")
-    .doc(targetDocenteUid)
+    .doc("activa")
     .collection("alumnos")
     .doc(n)
     .set({
@@ -171,50 +149,65 @@ async function entrar(){
 
 // ===== DETECCIÓN DE SALIDA =====
 window.addEventListener("blur", () => {
+
     if (!enClase || clase?.pausada) return;
+
     salidas++;
     salidaInicio = Date.now();
 });
 
 // ===== REGRESO =====
 window.addEventListener("focus", () => {
+
     if (!enClase) return;
+
     let tiempoSalida = Date.now() - salidaInicio;
+
+    // ✅ filtro evita falsos eventos
     if (tiempoSalida > 20000){
         tiempoFuera += tiempoSalida;
     }
+
     salidaInicio = 0;
 });
 
 // ===== RESPALDO EN CELULAR =====
 document.addEventListener("visibilitychange", () => {
+
     if (!enClase || clase?.pausada) return;
 
     if (document.visibilityState === "hidden") {
+
         salidas++;
         salidaInicio = Date.now();
+
     } else {
+
         let tiempoSalida = Date.now() - salidaInicio;
+
         if (tiempoSalida > 20000){
             tiempoFuera += tiempoSalida;
         }
+
         salidaInicio = 0;
     }
 });
 
 // ===== GUARDADO CONTINUO =====
 setInterval(() => {
-    if (!enClase || !targetDocenteUid) return;
+
+    if (!enClase) return;
 
     let tiempoTotal = Date.now() - inicio;
     let tiempoEnApp = tiempoTotal - tiempoFuera;
 
+    // ✅ si está en pausa no penaliza
     if (clase?.pausada){
         tiempoEnApp = tiempoTotal;
     }
 
     db.collection("clases")
-    .doc(targetDocenteUid)
+    .doc("activa")
     .collection("alumnos")
     .doc(nombreAlumno)
     .update({

@@ -2,104 +2,17 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Panel Docente Dashboard</title>
+<title>Panel Docente</title>
 
 <style>
-body { 
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-    background-color: #f8fafc; 
-    color: #1e293b;
-    margin: 0;
-    padding: 20px;
-}
-
-.container {
-    max-width: 900px;
-    margin: 0 auto;
-}
-
-.header {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    color: white;
-    padding: 30px;
-    border-radius: 16px;
-    margin-bottom: 24px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
-.card {
-    background: white;
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-    border: 1px solid #e2e8f0;
-}
-
-input {
-    padding: 10px;
-    margin: 6px;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    font-size: 14px;
-    width: 200px;
-}
-
-#busqueda {
-    width: 100%;
-    max-width: 400px;
-    box-sizing: border-box;
-    margin-bottom: 15px;
-}
-
-button { 
-    padding: 10px 16px;
-    margin: 4px; 
-    font-size: 14px;
-    font-weight: 500;
-    border-radius: 6px; 
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-primary { background-color: #2563eb; color: white; }
-.btn-primary:hover { background-color: #1d4ed8; }
-
-.btn-warning { background-color: #f59e0b; color: white; }
-.btn-warning:hover { background-color: #d97706; }
-
-.btn-success { background-color: #10b981; color: white; }
-.btn-success:hover { background-color: #059669; }
-
-.btn-danger { background-color: #ef4444; color: white; }
-.btn-danger:hover { background-color: #dc2626; }
-
-.grid-alumnos {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
-}
+body { font-family: Arial; text-align:center; }
+input,button { padding:10px;margin:5px; }
 
 .alumno {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  padding: 16px;
-  border-radius: 10px;
-  text-align: left;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.01);
-}
-
-.badge-codigo {
-    background: #e0f2fe;
-    color: #0369a1;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-weight: bold;
-    font-size: 18px;
-    display: inline-block;
-    margin-top: 5px;
+  border:1px solid #ccc;
+  margin:10px;
+  padding:10px;
+  border-radius:10px;
 }
 </style>
 
@@ -107,263 +20,288 @@ button {
 
 <body>
 
-<div class="container">
+<h1>Panel Docente</h1>
 
-  <div class="header">
-      <h1 style="margin:0; font-size: 28px;">🏫 Panel de Control Docente</h1>
-      <div id="display-codigo-docente" style="margin-top:10px; font-size:14px; opacity:0.9;">Cargando Código de Enlace...</div>
-  </div>
+<input id="escuela" placeholder="Escuela"><br>
+<input id="grupo" placeholder="Grupo"><br>
+<input id="materia" placeholder="Materia"><br><br>
 
-  <div id="status-auth" style="background: #ffe0b2; padding: 10px; display: none; border-radius:8px; margin-bottom:15px;">Autenticando...</div>
+<button onclick="iniciarClase()">Iniciar Clase</button>
+<button onclick="activarRetardo()">Modo Retardos</button>
+<button onclick="exportarCSV()">Exportar Excel</button>
+<button onclick="finalizarClase()">Finalizar Clase</button>
+<button onclick="confirmarBorrado()">🗑 Borrar historial</button>
 
-  <div class="card">
-      <h3>Configurar Nueva Clase</h3>
-      <input id="escuela" placeholder="Escuela">
-      <input id="grupo" placeholder="Grupo">
-      <input id="materia" placeholder="Materia"><br><br>
+<h2>Clase Activa</h2>
+<div id="clase"></div>
 
-      <button class="btn-primary" onclick="iniciarClase()">Iniciar Clase</button>
-      <button class="btn-warning" onclick="activarRetardo()">Modo Retardos</button>
-      <button class="btn-success" onclick="exportarCSV()">Exportar Excel</button>
-      <button class="btn-danger" onclick="finalizarClase()">Finalizar Clase</button>
-      <button class="btn-danger" style="background-color:#64748b;" onclick="confirmarBorrado()">🗑 Borrar historial</button>
-  </div>
+<div id="controlPausa"></div>
 
-  <div class="card" style="background: #f1f5f9;">
-      <h3 style="margin-top:0;">📡 Monitoreo de Clase Activa</h3>
-      <div id="clase" style="font-size: 15px; line-height: 1.5;">Sin clase activa</div>
-      <div id="controlPausa" style="margin-top:10px;"></div>
-  </div>
+<h2>Buscar alumno</h2>
+<input id="busqueda" onkeyup="aplicarFiltro()">
 
-  <div class="card">
-      <h3>Filtro de Alumnos</h3>
-      <input id="busqueda" placeholder="🔍 Escribe el nombre del alumno para buscar..." onkeyup="aplicarFiltro()">
-      
-      <h3 style="border-bottom: 2px solid #f1f5f9; padding-bottom:8px; margin-top:20px;">Estudiantes Conectados</h3>
-      <div id="alumnos" class="grid-alumnos"></div>
-  </div>
+<h2>Alumnos</h2>
+<div id="alumnos"></div>
 
-  <div class="card">
-      <h3>Historial Reciente</h3>
-      <div id="historial" style="color: #64748b; font-size: 14px;"></div>
-  </div>
+<hr>
 
-</div>
+<h2>Historial</h2>
+<div id="historial"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
+
 let lista=[];
-let docenteUid = null;
-let codigoEnlaceDocente = "No asignado";
-let unsubscribeClase = null;
-let unsubscribeAlumnos = null;
-
-firebase.auth().onAuthStateChanged((user) => {
-  if (user) {
-    docenteUid = user.uid;
-    document.getElementById("status-auth").style.display = "none";
-    
-    // Obtener el código corto de 5 letras de este maestro
-    db.collection("mapeo_codigos").where("docenteUid", "==", docenteUid).get()
-    .then(snap => {
-        if(!snap.empty) {
-            codigoEnlaceDocente = snap.docs[0].id;
-            document.getElementById("display-codigo-docente").innerHTML = `Tu Código de Enlace para Alumnos: <span class="badge-codigo">${codigoEnlaceDocente}</span>`;
-        }
-    });
-
-    inicializarEscuchasDocente();
-  } else {
-    alert("Acceso denegado. Por favor inicia sesión.");
-    window.location.href = "login.html";
-  }
-});
 
 function generarCodigo(){
   return Math.random().toString(36).substring(2,6).toUpperCase();
 }
 
+// ✅ FORMATEAR TIEMPO
 function formatearTiempo(ms){
+
     let totalSeg = Math.floor(ms / 1000);
+
     let horas = Math.floor(totalSeg / 3600);
-    let minutes = Math.floor((totalSeg % 3600) / 60);
+    let minutos = Math.floor((totalSeg % 3600) / 60);
     let segundos = totalSeg % 60;
-    if(horas > 0) return `${horas}h ${minutes}m ${segundos}s`;
-    if(minutes > 0) return `${minutes}m ${segundos}s`;
-    return `${segundos}s`;
+
+    if(horas > 0){
+        return `${horas}h ${minutos}m ${segundos}s`;
+    } else if(minutos > 0){
+        return `${minutos}m ${segundos}s`;
+    } else {
+        return `${segundos}s`;
+    }
 }
 
+// ✅ INICIAR CLASE (AHORA LIMPIA ALUMNOS)
 async function iniciarClase(){
-  if (!docenteUid) return;
 
-  let alumnosRef = db.collection("clases").doc(docenteUid).collection("alumnos");
+  // 🔴 1. BORRAR ALUMNOS ANTERIORES
+  let alumnosRef = db.collection("clases")
+    .doc("activa")
+    .collection("alumnos");
+
   let snap = await alumnosRef.get();
+
   let batch = db.batch();
-  snap.forEach(doc=> batch.delete(doc.ref));
+
+  snap.forEach(doc=>{
+    batch.delete(doc.ref);
+  });
+
   await batch.commit();
 
-  let claseData ={
-    docenteId: docenteUid,
-    escuela: escuela.value,
-    grupo: grupo.value,
-    materia: materia.value,
-    codigoInicial: generarCodigo(),
-    codigoRetardo: generarCodigo(),
-    modo: "normal",
-    pausada: false,
-    inicio: Date.now()
+  // ✅ 2. CREAR NUEVA CLASE
+  let clase={
+    escuela:escuela.value,
+    grupo:grupo.value,
+    materia:materia.value,
+
+    codigoInicial:generarCodigo(),
+    codigoRetardo:generarCodigo(),
+
+    modo:"normal",
+    pausada:false,
+    inicio:Date.now()
   };
 
-  await db.collection("clases").doc(docenteUid).set(claseData);
-  alert("✅ Clase nueva iniciada con éxito");
+  await db.collection("clases").doc("activa").set(clase);
+
+  alert("✅ Clase nueva iniciada (lista limpia)");
 }
 
+// ✅ RETARDOS
 function activarRetardo(){
-  if (!docenteUid) return;
-  db.collection("clases").doc(docenteUid).update({modo:"retardo"});
+  db.collection("clases").doc("activa").update({modo:"retardo"});
 }
 
+// ✅ PAUSA
 function togglePausa(){
-  if (!docenteUid) return;
-  let ref = db.collection("clases").doc(docenteUid);
-  ref.get().then(doc=> ref.update({pausada:!doc.data().pausada}));
-}
+  let ref=db.collection("clases").doc("activa");
 
-function inicializarEscuchasDocente() {
-  if(unsubscribeClase) unsubscribeClase();
-  if(unsubscribeAlumnos) unsubscribeAlumnos();
-
-  unsubscribeClase = db.collection("clases").doc(docenteUid)
-  .onSnapshot(doc=>{
-    let c = doc.data();
-    if(!c){
-      clase.innerHTML="Sin clase activa";
-      controlPausa.innerHTML="";
-      return;
-    }
-    let codigo = c.modo==="normal" ? c.codigoInicial : c.codigoRetardo;
-
-    clase.innerHTML = `
-    <b>🏫 Escuela:</b> ${c.escuela} | <b>👥 Grupo:</b> ${c.grupo} | <b>📚 Materia:</b> ${c.materia}<br>
-    <span style="font-size:18px;">🔑 Código de Acceso a esta clase: <b style="color:#2563eb;">${codigo}</b></span> (${c.modo})
-    `;
-
-    controlPausa.innerHTML=`
-    <button class="btn-primary" style="background-color:#475569;" onclick="togglePausa()">
-    ${c.pausada?'▶ Reanudar Clase':'⏸ Pausar Conteo'}
-    </button>`;
-  });
-
-  unsubscribeAlumnos = db.collection("clases").doc(docenteUid)
-  .collection("alumnos")
-  .onSnapshot(snap=>{
-    lista=[];
-    snap.forEach(doc=>lista.push(doc.data()));
-    aplicarFiltro();
-  });
-
-  db.collection("historial").where("docenteId", "==", docenteUid)
-  .onSnapshot(snap=>{
-    let html="";
-    snap.forEach(()=>html+="Clase archivada correctamente ✅<br>");
-    historial.innerHTML=html;
+  ref.get().then(doc=>{
+    ref.update({pausada:!doc.data().pausada});
   });
 }
 
+// ✅ MOSTRAR CLASE
+db.collection("clases").doc("activa")
+.onSnapshot(doc=>{
+
+  let c=doc.data();
+
+  if(!c){
+    clase.innerHTML="Sin clase";
+    controlPausa.innerHTML="";
+    return;
+  }
+
+  let codigo=c.modo==="normal"?c.codigoInicial:c.codigoRetardo;
+
+  clase.innerHTML=`
+  ${c.escuela}<br>
+  ${c.grupo}<br>
+  ${c.materia}<br>
+  🔑 ${codigo}<br>
+  ${c.modo}
+  `;
+
+  controlPausa.innerHTML=`
+  <button onclick="togglePausa()">
+  ${c.pausada?'Reanudar':'Pausar'}
+  </button>`;
+});
+
+// ✅ ALUMNOS
+db.collection("clases").doc("activa")
+.collection("alumnos")
+.onSnapshot(snap=>{
+  lista=[];
+  snap.forEach(doc=>lista.push(doc.data()));
+  aplicarFiltro();
+});
+
+// ✅ FILTRO
 function aplicarFiltro(){
+
   let texto=busqueda.value.toLowerCase();
-  let filtrados=lista.filter(a=> a.nombre.toLowerCase().includes(texto));
+
+  let filtrados=lista.filter(a=>
+    a.nombre.toLowerCase().includes(texto)
+  );
+
   render(filtrados);
 }
 
+// ✅ PARTICIPACIÓN
 function agregarParticipacion(nombre){
-  if (!docenteUid) return;
-  let ref=db.collection("clases").doc(docenteUid).collection("alumnos").doc(nombre);
+
+  let ref=db.collection("clases")
+  .doc("activa")
+  .collection("alumnos")
+  .doc(nombre);
+
   ref.get().then(doc=>{
-    ref.update({ participaciones: (doc.data().participaciones||0) + 1 });
+    let actual=doc.data().participaciones||0;
+
+    ref.update({
+      participaciones: actual + 1
+    });
   });
 }
 
+// ✅ RÚBRICA
 function setEstado(n,e){
-  if (!docenteUid) return;
-  db.collection("clases").doc(docenteUid).collection("alumnos").doc(n).update({estado:e});
+  db.collection("clases").doc("activa")
+  .collection("alumnos").doc(n)
+  .update({estado:e});
 }
 
+// ✅ RENDER
 function render(data){
+
   let html="";
+
   data.forEach(a=>{
+
     let tiempoDentro=formatearTiempo(a.tiempo||0);
     let tiempoFuera=formatearTiempo(a.tiempoFuera||0);
-    let AlertaColor = a.salidas > 3 ? 'color:#ef4444; font-weight:bold;' : '';
 
     html+=`
     <div class="alumno">
-      <div style="font-size:16px; font-weight:bold; color:#0f172a; margin-bottom:8px;">👤 ${a.nombre}</div>
-      <div style="font-size:13px; color:#475569; line-height:1.4;">
-        ⏱ <b>En la app:</b> ${tiempoDentro}<br>
-        🚫 <span style="${AlertaColor}"><b>Salidas:</b> ${a.salidas||0}</span><br>
-        🕒 <b>Fuera de app:</b> ${tiempoFuera}<br>
-        ⭐ <b>Participaciones:</b> ${a.participaciones||0}<br>
-        <b>Estado:</b> <span style="font-weight:bold; color:#2563eb;">${a.estado||"-"}</span>
-      </div><br>
-      <div style="display:flex; gap:4px; flex-wrap:wrap;">
-        <button style="padding:4px 8px; font-size:12px;" class="btn-secondary" onclick="setEstado('${a.nombre}','😄 Excelente')">😄</button>
-        <button style="padding:4px 8px; font-size:12px;" class="btn-secondary" onclick="setEstado('${a.nombre}','👍 Bien')">👍</button>
-        <button style="padding:4px 8px; font-size:12px;" class="btn-secondary" onclick="setEstado('${a.nombre}','😐 Regular')">😐</button>
-        <button style="padding:4px 8px; font-size:12px;" class="btn-secondary" onclick="setEstado('${a.nombre}','❌ No trabajó')">❌</button>
-        <button style="padding:4px 12px; font-size:12px;" class="btn-warning" onclick="agregarParticipacion('${a.nombre}')">⭐ +</button>
-      </div>
+      👤 ${a.nombre}<br>
+      ⏱ Dentro: ${tiempoDentro}<br>
+      🚫 Salidas: ${a.salidas||0}<br>
+      🕒 Fuera: ${tiempoFuera}<br>
+      ⭐ Participación: ${a.participaciones||0}<br>
+      Estado: ${a.estado||"-"}<br><br>
+
+      <button onclick="setEstado('${a.nombre}','😄 Excelente')">😄</button>
+      <button onclick="setEstado('${a.nombre}','👍 Bien')">👍</button>
+      <button onclick="setEstado('${a.nombre}','😐 Regular')">😐</button>
+      <button onclick="setEstado('${a.nombre}','❌ No trabajó')">❌</button>
+
+      <br><br>
+      <button onclick="agregarParticipacion('${a.nombre}')">⭐ +</button>
     </div>`;
   });
+
   alumnos.innerHTML=html;
 }
 
+// ✅ EXPORTAR
 async function exportarCSV(){
-  if (!docenteUid) return;
-  let snap=await db.collection("clases").doc(docenteUid).collection("alumnos").get();
+
+  let snap=await db.collection("clases").doc("activa")
+  .collection("alumnos").get();
+
   let contenido="Nombre,TiempoDentro,TiempoFuera,Salidas,Participacion,Estado\n";
+
   snap.forEach(doc=>{
     let a=doc.data();
     contenido+=`${a.nombre},${a.tiempo},${a.tiempoFuera||0},${a.salidas},${a.participaciones||0},${a.estado||""}\n`;
   });
+
   let blob=new Blob([contenido]);
   let link=document.createElement("a");
+
   link.href=URL.createObjectURL(blob);
   link.download="reporte.csv";
   link.click();
 }
 
+// ✅ FINALIZAR
 async function finalizarClase(){
-  if (!docenteUid) return;
-  let docClase=await db.collection("clases").doc(docenteUid).get();
-  let claseData=docClase.data();
-  if(!claseData) return;
 
-  let snap=await db.collection("clases").doc(docenteUid).collection("alumnos").get();
+  let docClase=await db.collection("clases").doc("activa").get();
+  let claseData=docClase.data();
+
+  let snap=await db.collection("clases").doc("activa")
+  .collection("alumnos").get();
+
   let alumnos=[];
   snap.forEach(doc=>alumnos.push(doc.data()));
 
-  await db.collection("historial").add({ ...claseData, docenteId: docenteUid, alumnos, fin:Date.now() });
-  await db.collection("clases").doc(docenteUid).delete();
-  alert("✅ Clase finalizada e historial archivado");
+  await db.collection("historial").add({
+    ...claseData,
+    alumnos,
+    fin:Date.now()
+  });
+
+  await db.collection("clases").doc("activa").delete();
+
+  alert("✅ Clase finalizada");
 }
 
+// ✅ BORRAR
 async function confirmarBorrado(){
-  if (!docenteUid) return;
-  if(!confirm("¿Eliminar TU historial?"))return;
+
+  if(!confirm("¿Eliminar historial?"))return;
+
   let t=prompt("Escribe BORRAR");
   if(t!=="BORRAR")return;
 
-  let snap=await db.collection("historial").where("docenteId", "==", docenteUid).get();
+  let snap=await db.collection("historial").get();
   let batch=db.batch();
+
   snap.forEach(doc=>batch.delete(doc.ref));
   await batch.commit();
+
   alert("Historial eliminado");
 }
+
+// ✅ HISTORIAL
+db.collection("historial").onSnapshot(snap=>{
+  let html="";
+  snap.forEach(()=>html+="Clase guardada ✅<br>");
+  historial.innerHTML=html;
+});
+
 </script>
 </body>
 </html>

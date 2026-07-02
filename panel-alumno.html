@@ -2,64 +2,125 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Alumno</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zona de Clase - Alumno</title>
 
 <style>
 body {
     margin: 0;
-    font-family: Arial;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #000000;
+    color: #ffffff;
+    overflow: hidden;
 }
 
-/* pantalla activa */
-.pantalla {
-    background: black;
-    color: white;
+.pantalla-login {
+    background: #111827;
     height: 100vh;
-
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
-/* animación */
+.form-box {
+    background: #1f2937;
+    padding: 30px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 340px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+.form-box h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    text-align: center;
+    color: #3b82f6;
+    font-size: 22px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid #4b5563;
+    border-radius: 6px;
+    background: #374151;
+    color: white;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+input:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+button {
+    width: 100%;
+    padding: 14px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background: #2563eb;
+}
+
+/* Pantalla de bloqueo en clase */
+.pantalla-clase {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+}
+
 .parpadeo {
-    font-size: 40px;
-    animation: blink 1s infinite;
+    font-size: 50px;
+    animation: blink 1.5s infinite;
+    margin: 20px 0;
+}
+
+.marcador-estrellas {
+    font-size: 24px;
+    background: #1e1b4b;
+    border: 2px solid #4338ca;
+    padding: 10px 20px;
+    border-radius: 50px;
+    margin-top: 20px;
+    color: #f59e0b;
+    font-weight: bold;
 }
 
 @keyframes blink {
     0% { opacity: 1; }
-    50% { opacity: 0.3; }
+    50% { opacity: 0.2; }
     100% { opacity: 1; }
 }
 </style>
-
 </head>
-
 <body>
 
-<!-- ✅ FORMULARIO -->
-<div id="formulario">
+<div id="vista-app">
+    </div>
 
-<h2>Entrar a clase</h2>
-
-<input id="nombre" placeholder="Nombre"><br>
-<input id="grupo" placeholder="Grupo"><br>
-<input id="codigo" placeholder="Código"><br><br>
-
-<button onclick="entrar()">Entrar</button>
-
-</div>
-
-<!-- ✅ FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
 <script>
-
-// ===== VARIABLES =====
 let clase = null;
 let enClase = false;
 
@@ -69,156 +130,268 @@ let salidas = 0;
 let salidaInicio = 0;
 
 let nombreAlumno = "";
+let grupoAlumno = "";
+let documentoAlumnoId = "";
+let targetDocenteUid = "";
+let unsubscribeClaseAlumno = null;
+let unsubscribeEstrellas = null;
 
-// ===== ESCUCHAR CLASE =====
-db.collection("clases").doc("activa")
-.onSnapshot(doc => {
+// Pintar formulario inicial
+mostrarFormulario();
 
-    let data = doc.data();
+// ✅ REENGANCHE AUTOMÁTICO: Revisa si el alumno ya estaba en clase activa antes de que se apagara el cel
+comprobarSesionExistente();
 
-    // ✅ si termina la clase
-    if (!data && enClase) {
-
-        enClase = false;
-
-        document.body.innerHTML = `
-            <div class="pantalla">
-                <h2>✅ Clase finalizada</h2>
-                <p>Puedes cerrar esta pantalla</p>
+function mostrarFormulario() {
+    document.getElementById("vista-app").innerHTML = `
+        <div class="pantalla-login">
+            <div class="form-box">
+                <h2>Entrar a Clase</h2>
+                <input id="idDocente" placeholder="Código Docente (5 letras)">
+                <input id="nombre" placeholder="Tu Nombre Completo">
+                <input id="grupo" placeholder="Tu Grupo (Ej: 3-A)">
+                <input id="codigo" placeholder="Código de Acceso de la Sesión">
+                <button onclick="entrar()">Conectar</button>
             </div>
-        `;
-        return;
-    }
-
-    clase = data;
-});
-
-// ===== ENTRAR =====
-function entrar(){
-
-    let n = document.getElementById("nombre").value;
-    let g = document.getElementById("grupo").value;
-    let c = document.getElementById("codigo").value;
-
-    if (!clase){
-        alert("No hay clase activa");
-        return;
-    }
-
-    // ✅ DOBLE CÓDIGO
-    let valido =
-        c === clase.codigoInicial ||
-        c === clase.codigoRetardo;
-
-    if (!valido){
-        alert("Código incorrecto");
-        return;
-    }
-
-    let tardanza = Date.now() - clase.inicio;
-
-    enClase = true;
-    inicio = Date.now();
-    nombreAlumno = n;
-
-    // ✅ PANTALLA ACTIVA
-    document.body.innerHTML = `
-        <div class="pantalla">
-            <h2>📵 Estás en clase</h2>
-            <p>No uses el teléfono</p>
-            <div class="parpadeo">🔴</div>
         </div>
     `;
+}
 
-    // ✅ GUARDAR ALUMNO
-    db.collection("clases")
-    .doc("activa")
-    .collection("alumnos")
-    .doc(n)
-    .set({
-        nombre: n,
-        grupo: g,
-        tiempo: 0,
-        tiempoFuera: 0,
-        salidas: 0,
-        participaciones: 0,
-        tardanza: tardanza,
-        retardoManual: (c === clase.codigoRetardo)
+function comprobarSesionExistente() {
+    let sesionGuardada = localStorage.getItem("sesion_clase_activa");
+    if (sesionGuardada) {
+        let datos = JSON.parse(sesionGuardada);
+        // Verificar si la clase sigue existiendo en el servidor de manera fresca
+        db.collection("clases").doc(datos.targetId).get({ source: "server" })
+        .then(doc => {
+            if (doc.exists) {
+                // Sigue activa, reconectar de inmediato
+                targetDocenteUid = datos.targetId;
+                nombreAlumno = datos.nombre;
+                grupoAlumno = datos.grupo;
+                documentoAlumnoId = datos.docId;
+                inicio = datos.inicio;
+                tiempoFuera = datos.tiempoFuera || 0;
+                salidas = datos.salidas || 0;
+                enClase = true;
+
+                activarPantallaBloqueo();
+                escucharClaseMaestro(targetDocenteUid);
+                escucharEstrellasTiempoReal();
+            } else {
+                // La clase ya caducó en el servidor, limpiar memoria
+                localStorage.removeItem("sesion_clase_activa");
+            }
+        }).catch(() => {
+            localStorage.removeItem("sesion_clase_activa");
+        });
+    }
+}
+
+function escucharClaseMaestro(docenteId) {
+    if(unsubscribeClaseAlumno) unsubscribeClaseAlumno();
+
+    unsubscribeClaseAlumno = db.collection("clases").doc(docenteId)
+    .onSnapshot(doc => {
+        let data = doc.data();
+        if (!data && enClase) {
+            enClase = false;
+            reportarAFirebase();
+            localStorage.removeItem("sesion_clase_activa");
+            if(unsubscribeEstrellas) unsubscribeEstrellas();
+            
+            document.getElementById("vista-app").innerHTML = `
+                <div class="pantalla-clase">
+                    <h2>✅ Clase Finalizada</h2>
+                    <p style="color: #9ca3af;">El profesor ha cerrado la sesión. Tus métricas se guardaron.</p>
+                </div>
+            `;
+            return;
+        }
+        clase = data;
     });
 }
 
-// ===== DETECCIÓN DE SALIDA =====
-window.addEventListener("blur", () => {
+// ✅ SECCIÓN 8: Escuchar las estrellas del alumno en tiempo real sin gastar más datos
+function escucharEstrellasTiempoReal() {
+    if(unsubscribeEstrellas) unsubscribeEstrellas();
+    
+    unsubscribeEstrellas = db.collection("clases").doc(targetDocenteUid)
+    .collection("alumnos").doc(documentoAlumnoId)
+    .onSnapshot(doc => {
+        let data = doc.data();
+        if(data) {
+            let numEstrellas = data.participaciones || 0;
+            let estrellasVisuales = "⭐".repeat(numEstrellas) || "Ninguna aún";
+            let el = document.getElementById("contador-estrellas-visual");
+            if(el) {
+                el.innerHTML = `Mis Participaciones:<br><span style="font-size:28px;">${estrellasVisuales}</span>`;
+            }
+        }
+    });
+}
 
-    if (!enClase || clase?.pausada) return;
+async function entrar(){
+    let codigoCorto = document.getElementById("idDocente").value.trim().toUpperCase();
+    let n = document.getElementById("nombre").value.trim();
+    let g = document.getElementById("grupo").value.trim();
+    let c = document.getElementById("codigo").value.trim();
 
-    salidas++;
-    salidaInicio = Date.now();
-});
-
-// ===== REGRESO =====
-window.addEventListener("focus", () => {
-
-    if (!enClase) return;
-
-    let tiempoSalida = Date.now() - salidaInicio;
-
-    // ✅ filtro evita falsos eventos
-    if (tiempoSalida > 20000){
-        tiempoFuera += tiempoSalida;
+    if(!codigoCorto || !n || !g || !c) {
+        alert("Por favor completa todos los campos.");
+        return;
     }
 
-    salidaInicio = 0;
-});
-
-// ===== RESPALDO EN CELULAR =====
-document.addEventListener("visibilitychange", () => {
-
-    if (!enClase || clase?.pausada) return;
-
-    if (document.visibilityState === "hidden") {
-
-        salidas++;
-        salidaInicio = Date.now();
-
-    } else {
-
-        let tiempoSalida = Date.now() - salidaInicio;
-
-        if (tiempoSalida > 20000){
-            tiempoFuera += tiempoSalida;
+    // ✅ SOLUCIÓN iPHONE: Forzar petición limpia al servidor saltándose la caché agresiva
+    try {
+        let mapeoRef = await db.collection("mapeo_codigos").doc(codigoCorto).get({ source: "server" });
+        if(!mapeoRef.exists) {
+            alert("El Código Docente no es válido.");
+            return;
         }
 
-        salidaInicio = 0;
+        let targetId = mapeoRef.data().docenteUid;
+        let docRef = await db.collection("clases").doc(targetId).get({ source: "server" });
+        let claseData = docRef.data();
+
+        if (!claseData){
+            alert("El docente no tiene ninguna clase activa en este momento.");
+            return;
+        }
+
+        let valido = c === claseData.codigoInicial || c === claseData.codigoRetardo;
+        if (!valido){
+            alert("Código de acceso de sesión incorrecto.");
+            return;
+        }
+
+        targetDocenteUid = targetId;
+        clase = claseData;
+        
+        enClase = true;
+        inicio = Date.now();
+        nombreAlumno = n;
+        grupoAlumno = g;
+        
+        // ✅ CONTROL ANTI-DUPLICADOS: Combina Nombre y Grupo en el ID de documento
+        documentoAlumnoId = `${n}_${g}`.replace(/\s+/g, '_'); 
+
+        let tardanza = Date.now() - clase.inicio;
+
+        // Guardar estado local para prevenir cierres por botón de suspensión
+        localStorage.setItem("sesion_clase_activa", JSON.stringify({
+            targetId: targetDocenteUid,
+            nombre: n,
+            grupo: g,
+            docId: documentoAlumnoId,
+            inicio: inicio
+        }));
+
+        activarPantallaBloqueo();
+        escucharClaseMaestro(targetDocenteUid);
+        escucharEstrellasTiempoReal();
+
+        // Registro de entrada inicial
+        db.collection("clases")
+        .doc(targetDocenteUid)
+        .collection("alumnos")
+        .doc(documentoAlumnoId)
+        .set({
+            nombre: n,
+            grupo: g,
+            tiempo: 0,
+            tiempoFuera: 0,
+            salidas: 0,
+            participaciones: 0,
+            tardanza: tardanza,
+            retardoManual: (c === clase.codigoRetardo),
+            ultimaActualizacion: Date.now()
+        });
+
+    } catch(err) {
+        alert("Error de conexión. Revisa tus datos móviles.");
     }
-});
+}
 
-// ===== GUARDADO CONTINUO =====
-setInterval(() => {
+function activarPantallaBloqueo() {
+    document.getElementById("vista-app").innerHTML = `
+        <div class="pantalla-clase">
+            <h2 style="color:#ef4444; margin:0;">📵 Modo de Atención Activo</h2>
+            <p style="color:#9ca3af; font-size:14px;">No salgas de esta pantalla ni bloquees el teléfono</p>
+            <div class="parpadeo">🔴</div>
+            <div id="contador-estrellas-visual" class="marcador-estrellas">
+                Mis Participaciones:<br>Ninguna aún
+            </div>
+        </div>
+    `;
+}
 
-    if (!enClase) return;
+function reportarAFirebase() {
+    if (!enClase || !targetDocenteUid) return;
 
     let tiempoTotal = Date.now() - inicio;
     let tiempoEnApp = tiempoTotal - tiempoFuera;
 
-    // ✅ si está en pausa no penaliza
     if (clase?.pausada){
         tiempoEnApp = tiempoTotal;
     }
 
     db.collection("clases")
-    .doc("activa")
+    .doc(targetDocenteUid)
     .collection("alumnos")
-    .doc(nombreAlumno)
+    .doc(documentoAlumnoId)
     .update({
         tiempo: tiempoEnApp,
         tiempoFuera: tiempoFuera,
-        salidas: salidas
-    });
+        salidas: salidas,
+        ultimaActualizacion: Date.now()
+    }).catch(() => {});
+}
 
-}, 5000);
+// ===== DETECCIONES MEJORADAS (ANTI-FALSOS POSITIVOS DE 45 SEG) =====
+window.addEventListener("blur", () => {
+    if (!enClase || clase?.pausada) return;
+    salidaInicio = Date.now();
+});
+
+window.addEventListener("focus", () => {
+    if (!enClase || !salidaInicio) return;
+    let tiempoSalida = Date.now() - salidaInicio;
+    
+    // ✅ TOLERANCIA PEDAGÓGICA: Solo penaliza si estuvo fuera más de 45 segundos reales
+    if (tiempoSalida > 45000){
+        salidas++;
+        tiempoFuera += tiempoSalida;
+        reportarAFirebase();
+    }
+    salidaInicio = 0;
+});
+
+document.addEventListener("visibilitychange", () => {
+    if (!enClase || clase?.pausada) return;
+
+    if (document.visibilityState === "hidden") {
+        salidaInicio = Date.now();
+    } else {
+        if (!salidaInicio) return;
+        let tiempoSalida = Date.now() - salidaInicio;
+        
+        if (tiempoSalida > 45000){
+            salidas++;
+            tiempoFuera += tiempoSalida;
+            reportarAFirebase();
+        }
+        salidaInicio = 0;
+    }
+});
+
+// Respaldo preventivo lento cada 60 segundos (Ahorro radical de batería y dinero)
+setInterval(() => {
+    if(enClase && salidaInicio === 0) {
+        reportarAFirebase();
+    }
+}, 60000);
 
 </script>
-
 </body>
 </html>

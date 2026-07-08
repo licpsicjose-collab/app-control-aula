@@ -109,6 +109,40 @@ button:hover {
     50% { opacity: 0.2; }
     100% { opacity: 1; }
 }
+
+/* ✅ MEJORA 2: Pantalla visible cuando la clase está pausada */
+.pantalla-pausada {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+}
+
+.pantalla-pausada h2 {
+    color: #f59e0b;
+    font-size: 30px;
+    margin: 0 0 10px 0;
+}
+
+.icono-pausa {
+    font-size: 50px;
+    margin: 10px 0;
+}
+
+/* ✅ MEJORA 7: Evaluación visible para el alumno */
+.marcador-evaluacion {
+    font-size: 22px;
+    background: #1e1b4b;
+    border: 2px solid #4338ca;
+    padding: 10px 20px;
+    border-radius: 50px;
+    margin-top: 14px;
+    color: #ffffff;
+    font-weight: bold;
+}
 </style>
 </head>
 <body>
@@ -135,6 +169,7 @@ let documentoAlumnoId = "";
 let targetDocenteUid = "";
 let unsubscribeClaseAlumno = null;
 let unsubscribeEstrellas = null;
+let pausadaAnterior = false; // ✅ MEJORA 2: control para detectar transición de pausa
 
 // Pintar formulario inicial
 mostrarFormulario();
@@ -149,6 +184,10 @@ function mostrarFormulario() {
                 <h2>Entrar a Clase</h2>
                 <input id="idDocente" placeholder="Código Docente (5 letras)">
                 <input id="nombre" placeholder="Tu Nombre Completo">
+                <div style="font-size:12px; color:#9ca3af; margin:-6px 0 12px 2px;">
+                    Formato sugerido: No. Lista + Primer Apellido + Nombre(s)<br>
+                    Ej. 05 Perez Juan, 12 Garcia Maria Fernanda
+                </div>
                 <input id="grupo" placeholder="Tu Grupo (Ej: 3-A)">
                 <input id="codigo" placeholder="Código de Acceso de la Sesión">
                 <button onclick="entrar()">Conectar</button>
@@ -209,6 +248,20 @@ function escucharClaseMaestro(docenteId) {
             return;
         }
         clase = data;
+
+        // ✅ MEJORA 2: Alternar pantalla de pausa solo cuando cambia el estado
+        if (enClase) {
+            let pausadaActual = !!data?.pausada;
+            if (pausadaActual !== pausadaAnterior) {
+                pausadaAnterior = pausadaActual;
+                if (pausadaActual) {
+                    activarPantallaPausa();
+                } else {
+                    activarPantallaBloqueo();
+                    escucharEstrellasTiempoReal();
+                }
+            }
+        }
     });
 }
 
@@ -226,6 +279,12 @@ function escucharEstrellasTiempoReal() {
             let el = document.getElementById("contador-estrellas-visual");
             if(el) {
                 el.innerHTML = `Mis Participaciones:<br><span style="font-size:28px;">${estrellasVisuales}</span>`;
+            }
+
+            // ✅ MEJORA 7: Actualiza evaluación en tiempo real
+            let elEval = document.getElementById("evaluacion-visual");
+            if(elEval) {
+                elEval.innerHTML = textoEvaluacion(data.estado);
             }
         }
     });
@@ -259,7 +318,12 @@ async function entrar(){
             return;
         }
 
-        let valido = c === claseData.codigoInicial || c === claseData.codigoRetardo;
+        // ✅ MEJORA 1: Retardos reales. En modo normal solo vale el código normal;
+        // en modo retardo solo vale el código de retardo.
+        let modoActual = claseData.modo || "normal";
+        let valido = (modoActual === "retardo")
+            ? (c === claseData.codigoRetardo)
+            : (c === claseData.codigoInicial);
         if (!valido){
             alert("Código de acceso de sesión incorrecto.");
             return;
@@ -313,6 +377,17 @@ async function entrar(){
     }
 }
 
+// ✅ MEJORA 2: Pantalla visible de "CLASE PAUSADA"
+function activarPantallaPausa() {
+    document.getElementById("vista-app").innerHTML = `
+        <div class="pantalla-pausada">
+            <div class="icono-pausa">⏸️</div>
+            <h2>CLASE PAUSADA</h2>
+            <p style="color:#9ca3af; font-size:14px;">El profesor pausó la sesión. No se está contando tiempo ni salidas.</p>
+        </div>
+    `;
+}
+
 function activarPantallaBloqueo() {
     document.getElementById("vista-app").innerHTML = `
         <div class="pantalla-clase">
@@ -322,8 +397,16 @@ function activarPantallaBloqueo() {
             <div id="contador-estrellas-visual" class="marcador-estrellas">
                 Mis Participaciones:<br>Ninguna aún
             </div>
+            <div id="evaluacion-visual" class="marcador-evaluacion">
+                Sin evaluación
+            </div>
         </div>
     `;
+}
+
+// ✅ MEJORA 7: El campo "estado" ya se guarda con emoji y texto (ej. "😄 Excelente")
+function textoEvaluacion(estado) {
+    return estado ? estado : "Sin evaluación";
 }
 
 function reportarAFirebase() {

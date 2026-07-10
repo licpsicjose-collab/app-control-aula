@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Acceso Docente</title>
+
+<style>
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f6f9;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.login-card {
+    background: white;
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    text-align: center;
+    width: 100%;
+    max-width: 360px;
+}
+
+h2 {
+    color: #1e293b;
+    margin-bottom: 24px;
+    font-weight: 600;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+input:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.btn-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+button {
+    flex: 1;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #2563eb;
+}
+
+.btn-secondary {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
+.btn-secondary:hover {
+    background-color: #e2e8f0;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="login-card">
+    <h2>Control de Aula</h2>
+    <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">Acceso exclusivo para Docentes</p>
+    
+    <input id="correo" type="email" placeholder="Correo electrónico"><br>
+    <input id="password" type="password" placeholder="Contraseña"><br><br>
+
+    <div class="btn-container">
+        <button class="btn-secondary" onclick="registrar()">Registrarse</button>
+        <button class="btn-primary" onclick="entrar()">Entrar</button>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDRjBwW6nueplRNYL-S0sxfliC8taWNZCM",
+  authDomain: "app-clase-3a564.firebaseapp.com",
+  projectId: "app-clase-3a564"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// FUNCIÓN AUXILIAR PARA GENERAR CÓDIGO CORTO DE DOCENTE (5 CARACTERES)
+function generarCodigoCortoDocente() {
+    return Math.random().toString(36).substring(2,7).toUpperCase();
+}
+
+// ✅ REGISTRAR + ASIGNACIÓN AUTOMÁTICA DE CÓDIGO CORTO
+async function registrar(){
+    let c = document.getElementById("correo").value;
+    let p = document.getElementById("password").value;
+
+    if(!c || !p){
+        alert("Completa los datos");
+        return;
+    }
+
+    try {
+        let userCredential = await auth.createUserWithEmailAndPassword(c, p);
+        let uid = userCredential.user.uid;
+
+        // Intentar asignar un código corto único de 5 dígitos
+        let codigoAsignado = "";
+        let esUnico = false;
+        
+        while (!esUnico) {
+            let intentoCodigo = generarCodigoCortoDocente();
+            let docRef = await db.collection("mapeo_codigos").doc(intentoCodigo).get();
+            if (!docRef.exists) {
+                codigoAsignado = intentoCodigo;
+                esUnico = true;
+            }
+        }
+
+        // Guardar el mapeo en Firestore
+        await db.collection("mapeo_codigos").doc(codigoAsignado).set({
+            docenteUid: uid,
+            correo: c
+        });
+
+        alert("✅ Cuenta creada con éxito. Tu Código de Enlace Docente es: " + codigoAsignado);
+        window.location.href = "panel-docente.html";
+
+    } catch (e) {
+        alert("❌ " + e.message);
+    }
+}
+
+// ✅ LOGIN
+function entrar(){
+    let c = document.getElementById("correo").value;
+    let p = document.getElementById("password").value;
+
+    if(!c || !p){
+        alert("Completa los datos");
+        return;
+    }
+
+    auth.signInWithEmailAndPassword(c, p)
+    .then(()=>{
+        window.location.href = "panel-docente.html";
+    })
+    .catch(e=>{
+        alert("❌ " + e.message);
+    });
+}
+</script>
+
+</body>
+</html>

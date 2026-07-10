@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Docente</title>
+<style>
+    body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f3f4f6;
+        color: #1f2937;
+    }
+    header {
+        background-color: #1e3a8a;
+        color: white;
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    .container {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .grid-config {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    input, select {
+        padding: 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .btn {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.2s;
+    }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-success { background: #16a34a; color: white; }
+    .btn-success:hover { background: #15803d; }
+    
+    .codigo-box {
+        background: #fecdd3;
+        border: 2px dashed #f43f5e;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .codigo-grande {
+        font-size: 32px;
+        font-weight: bold;
+        color: #be123c;
+        letter-spacing: 2px;
+    }
+    
+    /* Grid de alumnos optimizado */
+    .grid-alumnos {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+    }
+    .tarjeta-alumno {
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border-left: 5px solid #3b82f6;
+        position: relative;
+    }
+    .tarjeta-alumno.retardo { border-left-color: #f59e0b; }
+    .tarjeta-alumno h3 { margin: 0 0 8px 0; font-size: 18px; color: #111827; }
+    .grupo-tag {
+        background: #e5e7eb;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .metricas {
+        font-size: 13px;
+        color: #4b5563;
+        margin: 10px 0;
+        line-height: 1.6;
+    }
+    .alerta-salida {
+        color: #dc2626;
+        font-weight: bold;
+    }
+    .acciones-alumno {
+        display: flex;
+        gap: 6px;
+        margin-top: 12px;
+        align-items: center;
+    }
+    .btn-emoji {
+        font-size: 18px;
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 6px 10px;
+        cursor: pointer;
+    }
+    .btn-emoji:hover { background: #e5e7eb; }
+    
+    .estado-actual {
+        font-size: 12px;
+        font-style: italic;
+        color: #2563eb;
+        margin-top: 4px;
+    }
+
+    /* ✅ MEJORA 2: Indicador visual de pausa */
+    .indicador-pausa {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: bold;
+        margin-left: 10px;
+    }
+    .indicador-pausa.activa { background: #dcfce7; color: #15803d; }
+    .indicador-pausa.pausada { background: #fef3c7; color: #b45309; }
+
+    /* ✅ MEJORA 1: Aviso visual de modo retardo */
+    .aviso-retardo {
+        background: #fff7ed;
+        border: 1px solid #f59e0b;
+        color: #b45309;
+        padding: 8px;
+        border-radius: 6px;
+        font-size: 13px;
+        margin-top: 10px;
+        font-weight: bold;
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <h2>Panel del Docente</h2>
+    <div id="info-usuario">Cargando sesión...</div>
+</header>
+
+<div class="container">
+    <!-- Bloque de configuración con memoria local -->
+    <div class="grid-config" id="modulo-config">
+        <div>
+            <label>Escuela:</label>
+            <input id="escuela" placeholder="Ej: Secundaria 4">
+        </div>
+        <div>
+            <label>Materia:</label>
+            <input id="materia" placeholder="Ej: Ciencias Sociales II">
+        </div>
+        <div>
+            <label>Grupo:</label>
+            <input id="grupoClase" placeholder="Ej: 3-A">
+        </div>
+        <div style="display: flex; align-items: flex-end; gap: 8px;">
+            <button class="btn btn-primary" onclick="iniciarClase()" id="btn-control-clase">Iniciar Clase</button>
+        </div>
+    </div>
+
+    <!-- Panel de Códigos Activos -->
+    <div id="zona-codigos" style="display:none;">
+        <div class="codigo-box">
+            <div>Tu Código de Enlace Docente (Para buscarte):</div>
+            <div class="codigo-grande" id="txt-codigo-maestro">-----</div>
+            <div style="margin-top:10px; font-size:14px; color:#4b5563;" id="linea-codigos">
+                Código de Entrada Normal: <strong id="c-inicial" style="color:green;">...</strong> | 
+                Código de Entrada Retardo: <strong id="c-retardo" style="color:orange;">...</strong>
+            </div>
+
+            <!-- ✅ MEJORA 1: Aviso visible cuando el modo retardo está activo -->
+            <div class="aviso-retardo" id="aviso-modo-retardo" style="display:none;">
+                ⏰ Modo Retardo activo: solo el código de retardo permite entrar.
+            </div>
+
+            <div style="margin-top:12px;">
+                <span>Estado de la sesión:</span>
+                <span class="indicador-pausa activa" id="indicador-estado-clase">EN CURSO</span>
+            </div>
+
+            <div style="margin-top:12px;">
+                <button class="btn btn-danger" onclick="finalizarClase()">Finalizar y Archivar Clase</button>
+                <button class="btn btn-success" onclick="exportarCSV()">📥 Exportar Reporte (Excel)</button>
+                <button class="btn btn-primary" onclick="activarRetardo()" id="btn-activar-retardo">Activar Retardo</button>
+                <button class="btn btn-primary" onclick="pausarClase()" id="btn-pausar" style="background:#f59e0b;">⏸️ Pausar</button>
+                <button class="btn btn-primary" onclick="reanudarClase()" id="btn-reanudar" style="background:#16a34a; display:none;">▶️ Reanudar</button>
+            </div>
+        </div>
+        
+        <div>
+            <input type="text" id="buscador" placeholder="🔍 Buscar alumno por nombre..." oninput="renderAlumnos()">
+        </div>
+
+        <!-- Listado dinámico de alumnos -->
+        <div class="grid-alumnos" id="contenedor-alumnos"></div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="firebase.js"></script>
+
+<script>
+let docenteUid = null;
+let codigoDocenteCorto = "";
+let claseActivaRef = null;
+let listaAlumnosGlobal = [];
+let unsubscribeAlumnos = null;
+let datosClaseActual = null; // ✅ Guarda el último snapshot de la clase (modo, pausada, escuela, materia, grupo)
+
+// Revisar autenticación del maestro
+firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+        docenteUid = user.uid;
+        document.getElementById("info-usuario").innerText = user.email;
+        cargarConfiguracionLocal();
+        obtenerCodigoDocente();
+        verificarClaseActiva();
+    } else {
+        window.location.href = "login.html";
+    }
+});
+
+// ✅ TRADUCTOR DE TIEMPO HUMANO: Convierte milisegundos a formato inteligible "X min Y seg"
+function formatearTiempoHumano(ms) {
+    if (!ms || ms < 0) return "0 min 0 seg";
+    let totalSegundos = Math.floor(ms / 1000);
+    let minutos = Math.floor(totalSegundos / 60);
+    let segundos = totalSegundos % 60;
+    return `${minutos} min ${segundos} seg`;
+}
+
+// ✅ MEMORIA UX DOCENTE: Carga los datos de la última clase impartida
+function cargarConfiguracionLocal() {
+    let con = localStorage.getItem("config_docente_previa");
+    if(con) {
+        let d = JSON.parse(con);
+        document.getElementById("escuela").value = d.escuela || "";
+        document.getElementById("materia").value = d.materia || "";
+        document.getElementById("grupoClase").value = d.grupo || "";
+    }
+}
+
+async function obtenerCodigoDocente() {
+    // Busca el código de 5 letras asignado a este UID
+    let snap = await db.collection("mapeo_codigos").where("docenteUid", "==", docenteUid).get({ source: "server" });
+    if (!snap.empty) {
+        codigoDocenteCorto = snap.docs[0].id;
+        document.getElementById("txt-codigo-maestro").innerText = codigoDocenteCorto;
+    }
+}
+
+async function verificarClaseActiva() {
+    claseActivaRef = db.collection("clases").doc(docenteUid);
+    claseActivaRef.onSnapshot(doc => {
+        if(doc.exists) {
+            let d = doc.data();
+            datosClaseActual = d;
+            document.getElementById("c-inicial").innerText = d.codigoInicial;
+            document.getElementById("c-retardo").innerText = d.codigoRetardo;
+            document.getElementById("modulo-config").style.display = "none";
+            document.getElementById("zona-codigos").style.display = "block";
+            actualizarUIModoYPausa(d);
+            escucharAlumnos();
+        } else {
+            datosClaseActual = null;
+            document.getElementById("modulo-config").style.display = "grid";
+            document.getElementById("zona-codigos").style.display = "none";
+            if(unsubscribeAlumnos) unsubscribeAlumnos();
+        }
+    });
+}
+
+// ✅ MEJORA 1 y 2: refleja modo retardo y estado de pausa en la interfaz existente
+function actualizarUIModoYPausa(d) {
+    let modo = d.modo || "normal";
+    let lineaCodigos = document.getElementById("linea-codigos");
+    let avisoRetardo = document.getElementById("aviso-modo-retardo");
+    let btnRetardo = document.getElementById("btn-activar-retardo");
+
+    if (modo === "retardo") {
+        // Cuando el modo retardo está activo: mostrar únicamente el código retardo
+        lineaCodigos.innerHTML = `Código de Entrada Retardo: <strong id="c-retardo" style="color:orange;">${d.codigoRetardo}</strong>`;
+        avisoRetardo.style.display = "block";
+        btnRetardo.style.display = "none";
+    } else {
+        lineaCodigos.innerHTML = `Código de Entrada Normal: <strong id="c-inicial" style="color:green;">${d.codigoInicial}</strong> | 
+                Código de Entrada Retardo: <strong id="c-retardo" style="color:orange;">${d.codigoRetardo}</strong>`;
+        avisoRetardo.style.display = "none";
+        btnRetardo.style.display = "inline-block";
+    }
+
+    let indicador = document.getElementById("indicador-estado-clase");
+    let btnPausar = document.getElementById("btn-pausar");
+    let btnReanudar = document.getElementById("btn-reanudar");
+
+    if (d.pausada) {
+        indicador.innerText = "PAUSADA";
+        indicador.className = "indicador-pausa pausada";
+        btnPausar.style.display = "none";
+        btnReanudar.style.display = "inline-block";
+    } else {
+        indicador.innerText = "EN CURSO";
+        indicador.className = "indicador-pausa activa";
+        btnPausar.style.display = "inline-block";
+        btnReanudar.style.display = "none";
+    }
+}
+
+// ✅ MEJORA 1: Activa el modo retardo (la infraestructura de códigos ya existía)
+function activarRetardo() {
+    claseActivaRef.update({ modo: "retardo" });
+}
+
+// ✅ MEJORA 2: Pausar/Reanudar usando el campo "pausada" que ya se guardaba en Firebase
+function pausarClase() {
+    claseActivaRef.update({ pausada: true });
+}
+
+function reanudarClase() {
+    claseActivaRef.update({ pausada: false });
+}
+
+function iniciarClase() {
+    let esc = document.getElementById("escuela").value.trim();
+    let mat = document.getElementById("materia").value.trim();
+    let grp = document.getElementById("grupoClase").value.trim();
+
+    if(!esc || !mat || !grp) {
+        alert("Por favor llena los datos de la clase actual.");
+        return;
+    }
+
+    // Guardar en localStorage para la siguiente clase
+    localStorage.setItem("config_docente_previa", JSON.stringify({ escuela: esc, materia: mat, grupo: grp }));
+
+    let cIn = Math.floor(1000 + Math.random() * 9000).toString();
+    let cRet = Math.floor(1000 + Math.random() * 9000).toString();
+
+    claseActivaRef.set({
+        escuela: esc,
+        materia: mat,
+        grupoClase: grp,
+        codigoInicial: cIn,
+        codigoRetardo: cRet,
+        inicio: Date.now(),
+        pausada: false,
+        modo: "normal"
+    });
+}
+
+function escucharAlumnos() {
+    if(unsubscribeAlumnos) unsubscribeAlumnos();
+
+    unsubscribeAlumnos = claseActivaRef.collection("alumnos")
+    .onSnapshot(snap => {
+        listaAlumnosGlobal = [];
+        snap.forEach(doc => {
+            listaAlumnosGlobal.push(doc.data());
+        });
+        renderAlumnos();
+    });
+}
+
+// ✅ MEJORA 3: Orden exclusivamente sobre el campo "nombre" (no existe ni se crea un campo separado).
+// Si el nombre inicia con número de lista (ej. "05 Perez Juan"), se extrae ese número del propio texto.
+function extraerNumeroInicial(nombre) {
+    let match = (nombre || "").trim().match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
+}
+
+function compararAlumnos(a, b) {
+    let numA = extraerNumeroInicial(a.nombre);
+    let numB = extraerNumeroInicial(b.nombre);
+
+    if (numA !== null && numB !== null) {
+        return numA - numB;
+    }
+
+    // Respaldo: si no hay número inicial, ordenar con localeCompare sobre "nombre"
+    return (a.nombre || "").localeCompare(b.nombre || "", 'es', { sensitivity: 'base' });
+}
+
+function renderAlumnos() {
+    let html = "";
+    let busqueda = document.getElementById("buscador").value.toLowerCase();
+    let contenedor = document.getElementById("contenedor-alumnos");
+
+    let filtrados = listaAlumnosGlobal.filter(a => a.nombre.toLowerCase().includes(busqueda));
+    filtrados.sort(compararAlumnos); // ✅ MEJORA 3: aplicado antes del renderizado
+
+    if(filtrados.length === 0) {
+        contenedor.innerHTML = "<p style='color:#6b7280;'>No hay alumnos conectados con ese criterio.</p>";
+        return;
+    }
+
+    filtrados.forEach(a => {
+        let esRetardo = a.retardoManual;
+        let claseTarjeta = esRetardo ? "tarjeta-alumno retardo" : "tarjeta-alumno";
+        
+        // Traducir los milisegundos a texto legible en pantalla
+        let tPermanencia = formatearTiempoHumano(a.tiempo);
+        let tFuera = formatearTiempoHumano(a.tiempoFuera);
+
+        let estrellas = "⭐".repeat(a.participaciones || 0);
+
+        html += `
+            <div class="${claseTarjeta}">
+                <h3>${a.nombre} <span class="grupo-tag">${a.grupo}</span></h3>
+                <div class="estado-actual">Estatus: ${a.estado || 'Sin evaluación'}</div>
+                <div class="metricas">
+                    ⏱️ <strong>Permanencia neta:</strong> ${tPermanencia}<br>
+                    🚪 <strong>Salidas de la App:</strong> <span class="${a.salidas > 1 ? 'alerta-salida' : ''}">${a.salidas}</span><br>
+                    ⏳ <strong>Tiempo total fuera:</strong> ${tFuera}<br>
+                    🏅 <strong>Participaciones:</strong> ${estrellas || 'Ninguna'}
+                </div>
+                <div class="acciones-alumno">
+                    <button class="btn-emoji" onclick="setEstado('${a.nombre}','${a.grupo}','😄 Excelente')">😄</button>
+                    <button class="btn-emoji" onclick="setEstado('${a.nombre}','${a.grupo}','👍 Bien')">👍</button>
+                    <button class="btn-emoji" onclick="setEstado('${a.nombre}','${a.grupo}','😐 Regular')">😐</button>
+                    <button class="btn-emoji" onclick="setEstado('${a.nombre}','${a.grupo}','❌ No trabajó')">❌</button>
+                    <button class="btn btn-primary" style="padding:6px 10px;" onclick="agregarParticipacion('${a.nombre}','${a.grupo}')">⭐ +</button>
+                </div>
+            </div>
+        `;
+    });
+    contenedor.innerHTML = html;
+}
+
+function agregarParticipacion(nombre, grupo){
+    let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_');
+    let ref = claseActivaRef.collection("alumnos").doc(alumnoDocId);
+    
+    ref.get().then(doc => {
+        if(doc.exists) {
+            ref.update({ participaciones: (doc.data().participaciones || 0) + 1 });
+        }
+    });
+}
+
+function setEstado(nombre, grupo, estadoSeleccionado){
+    let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_');
+    claseActivaRef.collection("alumnos").doc(alumnoDocId).update({ estado: estadoSeleccionado });
+}
+
+// ✅ MEJORA 6: Limpia acentos y caracteres especiales para nombres de archivo seguros
+function limpiarTexto(str) {
+    if (!str) return "SinDato";
+    return str.toString().trim()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // quita acentos
+        .replace(/[^a-zA-Z0-9]+/g, "_") // reemplaza cualquier caracter especial
+        .replace(/_+/g, "_")
+        .replace(/^_|_$/g, "");
+}
+
+function fechaHoyTexto() {
+    let hoy = new Date();
+    let mes = String(hoy.getMonth() + 1).padStart(2, '0');
+    let dia = String(hoy.getDate()).padStart(2, '0');
+    return `${hoy.getFullYear()}-${mes}-${dia}`;
+}
+
+// ✅ EXPORTACIÓN EN FORMATO COMPRENSIBLE MINUTOS/SEGUNDOS
+function exportarCSV() {
+    if (listaAlumnosGlobal.length === 0) {
+        alert("No hay datos de alumnos para exportar.");
+        return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+    csvContent += "Nombre,Grupo,Permanencia,Num Salidas,Tiempo Fuera,Participaciones,Evaluacion\n";
+
+    listaAlumnosGlobal.forEach(a => {
+        let permanenciaStr = formatearTiempoHumano(a.tiempo).replace(/,/g, '');
+        let fueraStr = formatearTiempoHumano(a.tiempoFuera).replace(/,/g, '');
+        let fila = `"${a.nombre}","${a.grupo}","${permanenciaStr}",${a.salidas},"${fueraStr}",${a.participaciones || 0},"${a.estado || 'Sin evaluar'}"\n`;
+        csvContent += fila;
+    });
+
+    let escuelaTxt = limpiarTexto(datosClaseActual?.escuela);
+    let materiaTxt = limpiarTexto(datosClaseActual?.materia);
+    let grupoTxt = limpiarTexto(datosClaseActual?.grupoClase);
+    let nombreArchivo = `${escuelaTxt}_${materiaTxt}_${grupoTxt}_${fechaHoyTexto()}.csv`;
+
+    let encodedUri = encodeURI(csvContent);
+    let link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", nombreArchivo);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// ✅ ARCHIVADO PRIVADO SEGURO
+async function finalizarClase() {
+    if (listaAlumnosGlobal.length > 0) {
+        let seguro = confirm("⚠️ ¿Ya descargaste el reporte en Excel? Si finalizas la clase sin exportar, perderás las métricas de esta sesión.");
+        if (!seguro) return;
+    }
+
+    let infoClase = await claseActivaRef.get();
+    let dataClase = infoClase.data();
+
+    // Guardar en historial maestro incluyendo el filtro estricto del docenteUid
+    let historialRef = db.collection("historial").doc();
+    await historialRef.set({
+        ...dataClase,
+        docenteId: docenteUid,
+        fechaFin: Date.now()
+    });
+
+    // Mover registros de alumnos al historial interno
+    for (let al of listaAlumnosGlobal) {
+        let idAlumno = `${al.nombre}_${al.grupo}`.replace(/\s+/g, '_');
+        await historialRef.collection("alumnos").doc(idAlumno).set(al);
+        // Limpieza de la celda activa
+        await claseActivaRef.collection("alumnos").doc(idAlumno).delete();
+    }
+
+    // Borrar la sesión activa del servidor
+    await claseActivaRef.delete();
+    alert("Clase guardada en el historial de forma segura.");
+}
+</script>
+</body>
+</html>

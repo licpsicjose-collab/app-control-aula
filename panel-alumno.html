@@ -441,8 +441,8 @@ window.addEventListener("focus", () => {
     if (!enClase || !salidaInicio) return;
     let tiempoSalida = Date.now() - salidaInicio;
     
-    // ✅ TOLERANCIA PEDAGÓGICA: Solo penaliza si estuvo fuera más de 45 segundos reales
-    if (tiempoSalida > 45000){
+    // ✅ TOLERANCIA PEDAGÓGICA: Solo penaliza si estuvo fuera más de 5 segundos reales
+    if (tiempoSalida > 5000){
         salidas++;
         tiempoFuera += tiempoSalida;
         reportarAFirebase();
@@ -459,7 +459,7 @@ document.addEventListener("visibilitychange", () => {
         if (!salidaInicio) return;
         let tiempoSalida = Date.now() - salidaInicio;
         
-        if (tiempoSalida > 45000){
+        if (tiempoSalida > 5000){
             salidas++;
             tiempoFuera += tiempoSalida;
             reportarAFirebase();

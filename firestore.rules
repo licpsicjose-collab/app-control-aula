@@ -28,8 +28,18 @@ service cloud.firestore {
       allow list: if request.auth != null
                   && resource.data.docenteUid == request.auth.uid;
 
-      // Nadie escribe esta colección desde el cliente.
-      allow create, update, delete: if false;
+      // ✅ CORRECCIÓN: registro inicial de un docente autenticado (login.html):
+      // db.collection("mapeo_codigos").doc(codigoAsignado).set({docenteUid, correo})
+      // Solo puede crear el mapeo de su propio uid; al ser "create" (no "update"),
+      // no puede sobrescribir un código ya asignado a otro docente.
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasOnly(['docenteUid', 'correo'])
+                    && request.resource.data.keys().hasAll(['docenteUid', 'correo'])
+                    && request.resource.data.docenteUid == request.auth.uid
+                    && request.resource.data.correo is string;
+
+      // Nadie modifica ni borra un mapeo ya asignado desde el cliente.
+      allow update, delete: if false;
     }
 
     // ==========================================================================

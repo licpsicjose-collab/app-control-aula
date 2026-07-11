@@ -1,0 +1,163 @@
+rules_version = '2';
+
+// ============================================================================
+// CONTROL DE AULA — Reglas de Firestore para producción
+// Compatible con: Version_6_Congelada y Version_7_Desarrollo
+// Arquitectura: sin cambios. Colecciones: sin cambios. Firebase Auth: sin cambios.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================================================
+    // mapeo_codigos/{codigoCorto}
+    // Relaciona el código docente de 5 letras con el UID del docente.
+    // Escrito por un proceso administrativo externo (no existe ninguna escritura
+    // a esta colección en panel-docente.html ni panel-alumno.html).
+    // ==========================================================================
+    match /mapeo_codigos/{codigoCorto} {
+
+      // El alumno (sin autenticación) necesita resolver su código de 5 letras
+      // al UID del docente: db.collection("mapeo_codigos").doc(codigoCorto).get()
+      allow get: if true;
+
+      // El docente necesita encontrar SU PROPIO código:
+      // .where("docenteUid","==",docenteUid).get()
+      // Se permite listar/consultar solo si el documento devuelto pertenece
+      // al UID autenticado que hace la consulta.
+      allow list: if request.auth != null
+                  && resource.data.docenteUid == request.auth.uid;
+
+      // Nadie escribe esta colección desde el cliente.
+      allow create, update, delete: if false;
+    }
+
+    // ==========================================================================
+    // clases/{docenteUid}
+    // Documento único de la clase activa de cada docente.
+    // ==========================================================================
+    match /clases/{docenteUid} {
+
+      // Lectura pública requerida por la arquitectura actual: el alumno
+      // (sin autenticación) necesita leer este documento para validar el
+      // código de acceso y el modo/pausa de la clase.
+      // Ver "Riesgos residuales" en el documento adjunto.
+      allow read: if true;
+
+      // Solo el propio docente autenticado puede crear/actualizar su clase,
+      // y solo con el conjunto de campos que ya usa la aplicación
+      // (iniciarClase, activarRetardo, pausarClase, reanudarClase).
+      allow create, update: if request.auth != null
+                            && request.auth.uid == docenteUid
+                            && request.resource.data.keys().hasOnly([
+                                 'escuela', 'materia', 'grupoClase',
+                                 'codigoInicial', 'codigoRetardo',
+                                 'inicio', 'pausada', 'modo'
+                               ]);
+
+      // Solo el propio docente puede finalizar (borrar) su clase activa.
+      allow delete: if request.auth != null && request.auth.uid == docenteUid;
+
+      // ========================================================================
+      // clases/{docenteUid}/alumnos/{alumnoId}
+      // ========================================================================
+      match /alumnos/{alumnoId} {
+
+        // El alumno lee su propio documento por ID (onSnapshot puntual).
+        // El docente necesita listar toda la subcolección (onSnapshot de la
+        // colección completa en escucharAlumnos()).
+        allow get: if true;
+        allow list: if request.auth != null && request.auth.uid == docenteUid;
+
+        // Creación inicial del registro del alumno (entrar() en panel-alumno.html).
+        // Sin autenticación por diseño de la arquitectura actual.
+        // Se restringe el esquema exacto de campos y se exige que las métricas
+        // inicien en cero, para que un cliente no pueda "nacer" con
+        // participaciones o tiempo ya acumulado.
+        allow create: if request.resource.data.keys().hasOnly([
+                            'nombre', 'grupo', 'tiempo', 'tiempoFuera', 'salidas',
+                            'participaciones', 'tardanza', 'retardoManual',
+                            'ultimaActualizacion'
+                          ])
+                          && request.resource.data.keys().hasAll([
+                            'nombre', 'grupo', 'tiempo', 'tiempoFuera', 'salidas',
+                            'participaciones', 'tardanza', 'retardoManual',
+                            'ultimaActualizacion'
+                          ])
+                          && request.resource.data.nombre is string
+                          && request.resource.data.grupo is string
+                          && request.resource.data.tiempo == 0
+                          && request.resource.data.tiempoFuera == 0
+                          && request.resource.data.salidas == 0
+                          && request.resource.data.participaciones == 0
+                          && request.resource.data.retardoManual is bool;
+
+        // Actualización: dos caminos posibles, mutuamente excluyentes por campo.
+        allow update: if
+          // Camino A — el propio alumno reporta sus métricas de tiempo
+          // (reportarAFirebase() en panel-alumno.html). Sin autenticación,
+          // pero limitado estrictamente a estos 4 campos.
+          ( request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['tiempo', 'tiempoFuera', 'salidas', 'ultimaActualizacion'])
+            && request.resource.data.tiempo is number
+            && request.resource.data.tiempoFuera is number
+            && request.resource.data.salidas is number
+          )
+          ||
+          // Camino B — el docente registra participación o evaluación
+          // (agregarParticipacion() / setEstado() en panel-docente.html).
+          // Requiere autenticación y ser el dueño de la clase.
+          ( request.auth != null
+            && request.auth.uid == docenteUid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['participaciones', 'estado', 'ultimaActualizacion'])
+          );
+
+        // Solo el docente borra alumnos (limpieza dentro de finalizarClase()).
+        allow delete: if request.auth != null && request.auth.uid == docenteUid;
+      }
+    }
+
+    // ==========================================================================
+    // historial/{registroId}
+    // Clases finalizadas y archivadas (finalizarClase() en panel-docente.html).
+    // ==========================================================================
+    match /historial/{registroId} {
+
+      // Solo el docente autenticado puede archivar, y solo bajo su propio
+      // docenteId (finalizarClase hace historialRef.set({...docenteId})).
+      allow create: if request.auth != null
+                      && request.resource.data.docenteId == request.auth.uid;
+
+      // Lectura privada por docente (no hay lectura de historial en el
+      // código actual, pero se deja preparada para uso futuro, respetando
+      // el requisito de historial privado).
+      allow read: if request.auth != null
+                    && resource.data.docenteId == request.auth.uid;
+
+      // El historial no se edita ni se borra desde el cliente.
+      allow update, delete: if false;
+
+      // ========================================================================
+      // historial/{registroId}/alumnos/{alumnoId}
+      // ========================================================================
+      match /alumnos/{alumnoId} {
+
+        allow create: if request.auth != null
+                        && get(/databases/$(database)/documents/historial/$(registroId)).data.docenteId == request.auth.uid;
+
+        allow read: if request.auth != null
+                      && get(/databases/$(database)/documents/historial/$(registroId)).data.docenteId == request.auth.uid;
+
+        allow update, delete: if false;
+      }
+    }
+
+    // ==========================================================================
+    // Cualquier otra colección o documento no contemplado arriba: denegado.
+    // ==========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

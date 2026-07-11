@@ -99,6 +99,13 @@ button {
         <button class="btn-secondary" onclick="registrar()">Registrarse</button>
         <button class="btn-primary" onclick="entrar()">Entrar</button>
     </div>
+
+    <p style="margin-top:16px; font-size:13px;">
+        <a href="#" onclick="recuperarPassword(); return false;" style="color:#3b82f6; text-decoration:underline;">
+            ¿Olvidaste tu contraseña?
+        </a>
+    </p>
+    <p id="mensaje-recuperacion" style="font-size:13px; margin-top:4px;"></p>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -178,6 +185,35 @@ function entrar(){
     })
     .catch(e=>{
         alert("❌ " + e.message);
+    });
+}
+
+// ✅ RECUPERACIÓN DE CONTRASEÑA (V7.2) — usa exclusivamente Firebase Auth nativo,
+// reutiliza el campo de correo ya existente en el formulario, sin backend propio.
+function recuperarPassword(){
+    let c = document.getElementById("correo").value.trim();
+    let mensaje = document.getElementById("mensaje-recuperacion");
+
+    if(!c){
+        mensaje.style.color = "#b91c1c";
+        mensaje.innerText = "Escribe tu correo electrónico arriba antes de continuar.";
+        return;
+    }
+
+    auth.sendPasswordResetEmail(c)
+    .then(() => {
+        mensaje.style.color = "#15803d";
+        mensaje.innerText = "Se ha enviado un correo para restablecer tu contraseña.";
+    })
+    .catch((e) => {
+        mensaje.style.color = "#b91c1c";
+        if (e.code === "auth/user-not-found") {
+            mensaje.innerText = "El correo no está registrado.";
+        } else if (e.code === "auth/invalid-email") {
+            mensaje.innerText = "El formato del correo no es válido.";
+        } else {
+            mensaje.innerText = "❌ " + e.message;
+        }
     });
 }
 </script>

@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Zona de Clase - Alumno</title>
 
+<!-- ✅ V7.4 — PWA: manifest, favicon e íconos (no afecta lógica ni Firebase) -->
+<link rel="manifest" href="manifest-alumno.json">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zona de Clase">
+
 <style>
 body {
     margin: 0;
@@ -404,9 +415,22 @@ function activarPantallaBloqueo() {
     `;
 }
 
+// ✅ MITIGACIÓN XSS (V7.3): escapa el valor antes de insertarlo como HTML,
+// por si "estado" llegara a contener marcado o script (defensa en profundidad,
+// aunque hoy el docente solo asigna uno de 4 valores fijos).
+function escaparHTML(texto) {
+    if (texto === undefined || texto === null) return "";
+    return String(texto)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 // ✅ MEJORA 7: El campo "estado" ya se guarda con emoji y texto (ej. "😄 Excelente")
 function textoEvaluacion(estado) {
-    return estado ? estado : "Sin evaluación";
+    return estado ? escaparHTML(estado) : "Sin evaluación";
 }
 
 function reportarAFirebase() {

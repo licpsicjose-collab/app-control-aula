@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Docente</title>
+
+<!-- ✅ V7.4 — PWA: manifest, favicon e íconos (no afecta lógica ni Firebase) -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
+<meta name="theme-color" content="#1e3a8a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Control de Aula">
 <style>
     body {
         margin: 0;
@@ -407,6 +418,20 @@ function compararAlumnos(a, b) {
     return (a.nombre || "").localeCompare(b.nombre || "", 'es', { sensitivity: 'base' });
 }
 
+// ✅ MITIGACIÓN XSS (V7.3): escapa cualquier valor antes de insertarlo como HTML.
+// Convierte los caracteres especiales de HTML en sus entidades equivalentes,
+// de modo que <script>, comillas, y similares se muestren como texto literal
+// en vez de ejecutarse o romper la estructura del marcado.
+function escaparHTML(texto) {
+    if (texto === undefined || texto === null) return "";
+    return String(texto)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 function renderAlumnos() {
     let html = "";
     let busqueda = document.getElementById("buscador").value.toLowerCase();
@@ -432,8 +457,8 @@ function renderAlumnos() {
 
         html += `
             <div class="${claseTarjeta}">
-                <h3>${a.nombre} <span class="grupo-tag">${a.grupo}</span></h3>
-                <div class="estado-actual">Estatus: ${a.estado || 'Sin evaluación'}</div>
+                <h3>${escaparHTML(a.nombre)} <span class="grupo-tag">${escaparHTML(a.grupo)}</span></h3>
+                <div class="estado-actual">Estatus: ${escaparHTML(a.estado) || 'Sin evaluación'}</div>
                 <div class="metricas">
                     ⏱️ <strong>Permanencia neta:</strong> ${tPermanencia}<br>
                     🚪 <strong>Salidas de la App:</strong> <span class="${a.salidas > 1 ? 'alerta-salida' : ''}">${a.salidas}</span><br>
@@ -441,16 +466,33 @@ function renderAlumnos() {
                     🏅 <strong>Participaciones:</strong> ${estrellas || 'Ninguna'}
                 </div>
                 <div class="acciones-alumno">
-                    <button class="btn-emoji" onclick="setEstado('${a.nombre}','${a.grupo}','😄 Excelente')">😄</button>
-                    <button class="btn-emoji" onclick="setEstado('${a.nombre}','${a.grupo}','👍 Bien')">👍</button>
-                    <button class="btn-emoji" onclick="setEstado('${a.nombre}','${a.grupo}','😐 Regular')">😐</button>
-                    <button class="btn-emoji" onclick="setEstado('${a.nombre}','${a.grupo}','❌ No trabajó')">❌</button>
-                    <button class="btn btn-primary" style="padding:6px 10px;" onclick="agregarParticipacion('${a.nombre}','${a.grupo}')">⭐ +</button>
+                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="😄 Excelente">😄</button>
+                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="👍 Bien">👍</button>
+                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="😐 Regular">😐</button>
+                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="❌ No trabajó">❌</button>
+                    <button class="btn btn-primary" style="padding:6px 10px;" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-accion="participacion">⭐ +</button>
                 </div>
             </div>
         `;
     });
     contenedor.innerHTML = html;
+    adjuntarEventosAcciones(contenedor); // ✅ V7.3: vincula los botones sin usar onclick con datos del usuario
+}
+
+// ✅ MITIGACIÓN XSS (V7.3): vincula los botones de evaluación/participación
+// leyendo los valores desde data-* (texto plano, nunca ejecutado como código),
+// en vez de concatenarlos dentro de un atributo onclick="...".
+function adjuntarEventosAcciones(contenedor) {
+    contenedor.querySelectorAll('.btn-emoji').forEach(btn => {
+        btn.addEventListener('click', () => {
+            setEstado(btn.dataset.nombre, btn.dataset.grupo, btn.dataset.estado);
+        });
+    });
+    contenedor.querySelectorAll('[data-accion="participacion"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            agregarParticipacion(btn.dataset.nombre, btn.dataset.grupo);
+        });
+    });
 }
 
 function agregarParticipacion(nombre, grupo){
@@ -486,6 +528,20 @@ function fechaHoyTexto() {
     return `${hoy.getFullYear()}-${mes}-${dia}`;
 }
 
+// ✅ MITIGACIÓN CSV INJECTION (V7.3): si un valor controlado por el alumno
+// comienza con =, +, - o @, Excel/Sheets podría interpretarlo como una fórmula
+// al abrir el archivo. Se antepone un apóstrofe para forzar que se trate como
+// texto plano. También se escapan las comillas internas para no romper el
+// formato de campo CSV.
+function sanitizarCSV(valor) {
+    let texto = (valor === undefined || valor === null) ? "" : String(valor);
+    texto = texto.replace(/"/g, '""');
+    if (/^[=+\-@]/.test(texto)) {
+        texto = "'" + texto;
+    }
+    return texto;
+}
+
 // ✅ EXPORTACIÓN EN FORMATO COMPRENSIBLE MINUTOS/SEGUNDOS
 function exportarCSV() {
     if (listaAlumnosGlobal.length === 0) {
@@ -499,7 +555,10 @@ function exportarCSV() {
     listaAlumnosGlobal.forEach(a => {
         let permanenciaStr = formatearTiempoHumano(a.tiempo).replace(/,/g, '');
         let fueraStr = formatearTiempoHumano(a.tiempoFuera).replace(/,/g, '');
-        let fila = `"${a.nombre}","${a.grupo}","${permanenciaStr}",${a.salidas},"${fueraStr}",${a.participaciones || 0},"${a.estado || 'Sin evaluar'}"\n`;
+        let nombreSeguro = sanitizarCSV(a.nombre);
+        let grupoSeguro = sanitizarCSV(a.grupo);
+        let estadoSeguro = sanitizarCSV(a.estado || 'Sin evaluar');
+        let fila = `"${nombreSeguro}","${grupoSeguro}","${permanenciaStr}",${a.salidas},"${fueraStr}",${a.participaciones || 0},"${estadoSeguro}"\n`;
         csvContent += fila;
     });
 

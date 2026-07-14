@@ -2,6 +2,13 @@
 
 ## [V7.4.0] — PWA básica instalable (sin Service Worker, sin offline)
 
+### Adenda — integración de index.html (página selectora de rol)
+Se compartió `index.html` (página raíz que ofrece "Entrar como docente" / "Entrar como alumno", nunca vista antes de esta adenda). Se integró con el mismo patrón que los otros 3 archivos:
+- Nuevo `manifest-inicio.json` — tercer manifest, con `start_url: "./index.html"` (esta página es neutral, no pertenece a un solo rol, así que el ícono instalado desde aquí regresa al selector, no directo a un rol específico).
+- Etiquetas `<link rel="manifest">`, favicon, `apple-touch-icon`, `theme-color` y meta tags `apple-mobile-web-app-*` agregadas dentro de `<head>`.
+- Verificado: JSON válido, las 5 rutas de íconos existen, sintaxis JS intacta, `diff` contra el original confirma que **únicamente** se agregaron líneas dentro de `<head>` — cero cambios a los botones `docente()`/`alumno()` ni a la navegación.
+- El proyecto ahora tiene 3 manifests: `manifest.json` (docente), `manifest-alumno.json` (alumno), `manifest-inicio.json` (selector de rol) — cada uno con su propio `start_url`, mismo set de íconos compartido.
+
 ### Contexto de versionado
 - `Version_7_3_Estable` se congeló como copia de solo lectura (permisos 444/555) del contenido final de V7.3.
 - `Version_7_4_Desarrollo` se creó a partir de esa copia; todo el trabajo de esta entrada ocurrió exclusivamente ahí.

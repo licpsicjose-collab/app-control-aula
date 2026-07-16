@@ -164,13 +164,143 @@
         margin-top: 10px;
         font-weight: bold;
     }
+
+    /* ✅ V8 — ONBOARDING: overlay oscuro de fondo */
+    .tour-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        z-index: 9998;
+        display: none;
+    }
+
+    /* ✅ V8 — ONBOARDING: caja que "recorta" el overlay alrededor del elemento resaltado */
+    .tour-spotlight {
+        position: fixed;
+        border-radius: 10px;
+        box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55);
+        z-index: 9999;
+        transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+        pointer-events: none;
+        display: none;
+    }
+
+    /* ✅ V8 — ONBOARDING: tarjeta con el mensaje y los controles del paso */
+    .tour-tarjeta {
+        position: fixed;
+        z-index: 10000;
+        background: white;
+        border-radius: 12px;
+        padding: 18px 20px;
+        max-width: min(340px, 90vw);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+        display: none;
+    }
+    .tour-tarjeta h4 {
+        margin: 0 0 8px 0;
+        color: #1e3a8a;
+        font-size: 16px;
+    }
+    .tour-tarjeta p {
+        margin: 0 0 14px 0;
+        font-size: 14px;
+        color: #374151;
+        line-height: 1.4;
+    }
+    .tour-tarjeta .tour-progreso {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-bottom: 10px;
+    }
+    .tour-acciones {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .tour-acciones button {
+        padding: 8px 12px;
+        font-size: 13px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+    .tour-btn-omitir { background: none; color: #6b7280; }
+    .tour-btn-anterior { background: #f1f5f9; color: #475569; }
+    .tour-btn-siguiente { background: #2563eb; color: white; }
+
+    /* Centrada: para pasos sin elemento visible que resaltar (bienvenida, cierre, o fallback) */
+    .tour-tarjeta.tour-centrada {
+        left: 50% !important;
+        top: 50% !important;
+        transform: translate(-50%, -50%);
+    }
+
+    @media (max-width: 480px) {
+        .tour-tarjeta { padding: 14px 16px; }
+    }
+
+    /* ✅ V8 (actualización) — Pantalla introductoria de privacidad, previa al Paso 1 */
+    .tour-privacidad {
+        position: fixed;
+        z-index: 10001;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border-radius: 14px;
+        padding: 24px 26px;
+        max-width: min(420px, 92vw);
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 16px 40px rgba(0,0,0,0.3);
+        display: none;
+    }
+    .tour-privacidad h3 {
+        margin: 0 0 12px 0;
+        color: #1e3a8a;
+        font-size: 18px;
+    }
+    .tour-privacidad p {
+        font-size: 14px;
+        color: #374151;
+        line-height: 1.5;
+        margin: 0 0 12px 0;
+    }
+    .tour-privacidad ul {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 14px 0;
+    }
+    .tour-privacidad ul li {
+        font-size: 14px;
+        color: #1f2937;
+        margin-bottom: 6px;
+        line-height: 1.4;
+    }
+    .tour-privacidad .tour-btn-continuar {
+        width: 100%;
+        padding: 12px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+    }
 </style>
 </head>
 <body>
 
 <header>
     <h2>Panel del Docente</h2>
-    <div id="info-usuario">Cargando sesión...</div>
+    <div style="display:flex; align-items:center; gap:14px;">
+        <button id="btn-ver-recorrido" onclick="iniciarRecorrido(true)" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">❓ Ver recorrido nuevamente</button>
+        <div id="info-usuario">Cargando sesión...</div>
+    </div>
 </header>
 
 <div class="container">
@@ -215,7 +345,7 @@
 
             <div style="margin-top:12px;">
                 <button class="btn btn-danger" onclick="finalizarClase()">Finalizar y Archivar Clase</button>
-                <button class="btn btn-success" onclick="exportarCSV()">📥 Exportar Reporte (Excel)</button>
+                <button class="btn btn-success" id="btn-exportar-csv" onclick="exportarCSV()">📥 Exportar Reporte (Excel)</button>
                 <button class="btn btn-primary" onclick="activarRetardo()" id="btn-activar-retardo">Activar Retardo</button>
                 <button class="btn btn-primary" onclick="pausarClase()" id="btn-pausar" style="background:#f59e0b;">⏸️ Pausar</button>
                 <button class="btn btn-primary" onclick="reanudarClase()" id="btn-reanudar" style="background:#16a34a; display:none;">▶️ Reanudar</button>
@@ -605,6 +735,240 @@ async function finalizarClase() {
     await claseActivaRef.delete();
     alert("Clase guardada en el historial de forma segura.");
 }
+
+// ============================================================
+// ✅ V8 — ONBOARDING INTERACTIVO PARA DOCENTES
+// No modifica Firebase, Firestore, autenticación ni ninguna
+// función de negocio existente. Solo lee/escribe la clave
+// "tutorialVisto" en localStorage (independiente de
+// "config_docente_previa", que ya usaba la app).
+// ============================================================
+
+const pasosRecorrido = [
+    {
+        titulo: "Bienvenida a Control de Aula",
+        mensaje: "Control de Aula te ayuda a dar seguimiento en tiempo real a la permanencia, participación y evaluación de tus alumnos durante la clase. Este recorrido rápido te muestra lo esencial.",
+        target: null
+    },
+    {
+        titulo: "Código Docente",
+        mensaje: "Comparte este código con tus alumnos para que puedan localizar tu clase.",
+        target: "txt-codigo-maestro"
+    },
+    {
+        titulo: "Iniciar Clase",
+        mensaje: "Aquí puedes comenzar una nueva sesión.",
+        target: "btn-control-clase"
+    },
+    {
+        titulo: "Panel de alumnos",
+        mensaje: "Aquí aparecerán los estudiantes conectados.",
+        target: "contenedor-alumnos"
+    },
+    {
+        titulo: "Participaciones",
+        mensaje: "Registra intervenciones durante la clase.",
+        target: null,
+        targetDinamico: ".acciones-alumno"
+    },
+    {
+        titulo: "Evaluaciones",
+        mensaje: "Puedes asignar una valoración rápida del desempeño.",
+        target: null,
+        targetDinamico: ".acciones-alumno"
+    },
+    {
+        titulo: "Exportar CSV",
+        mensaje: "Genera reportes descargables de la sesión.",
+        target: "btn-exportar-csv"
+    },
+    {
+        titulo: "¡Listo!",
+        mensaje: "¡Listo! Ya conoces las funciones principales de Control de Aula.",
+        target: null
+    }
+];
+
+let pasoActualRecorrido = 0;
+
+// Punto de entrada: se llama automáticamente la primera vez, o manualmente
+// desde "❓ Ver recorrido nuevamente" (forzado=true no altera localStorage).
+// ✅ Actualización: ahora muestra primero la pantalla de Privacidad y Funcionamiento;
+// el recorrido de 8 pasos ya existente no se modificó, solo se pospuso su inicio.
+function iniciarRecorrido(forzado) {
+    if (!forzado && localStorage.getItem("tutorialVisto") === "true") return;
+    mostrarPantallaPrivacidad();
+}
+
+// ✅ V8 (actualización) — Pantalla introductoria de privacidad
+function mostrarPantallaPrivacidad() {
+    document.getElementById("tour-overlay").style.display = "block";
+    document.getElementById("tour-spotlight").style.display = "none";
+    document.getElementById("tour-tarjeta").style.display = "none";
+    document.getElementById("tour-privacidad").style.display = "block";
+}
+
+// Se llama al presionar "Continuar" en la pantalla de privacidad;
+// a partir de aquí, inicia el recorrido normal ya existente (Paso 1 de 8), sin cambios.
+function continuarDesdePrivacidad() {
+    document.getElementById("tour-privacidad").style.display = "none";
+    pasoActualRecorrido = 0;
+    mostrarPasoRecorrido(0);
+}
+
+function elementoVisible(id) {
+    let el = document.getElementById(id);
+    if (!el) return null;
+    // offsetParent es null si el elemento (o un ancestro) tiene display:none
+    if (el.offsetParent === null) return null;
+    return el;
+}
+
+function elementoVisibleDinamico(selector) {
+    let el = document.querySelector(selector);
+    if (!el || el.offsetParent === null) return null;
+    return el;
+}
+
+function mostrarPasoRecorrido(indice) {
+    let paso = pasosRecorrido[indice];
+    let overlay = document.getElementById("tour-overlay");
+    let spotlight = document.getElementById("tour-spotlight");
+    let tarjeta = document.getElementById("tour-tarjeta");
+
+    overlay.style.display = "block";
+
+    // Resolver el elemento objetivo real (si aplica), con fallback seguro
+    // si el elemento no existe todavía o está oculto (ej. no hay clase activa).
+    let elObjetivo = null;
+    if (paso.target) {
+        elObjetivo = elementoVisible(paso.target);
+    } else if (paso.targetDinamico) {
+        elObjetivo = elementoVisibleDinamico(paso.targetDinamico);
+    }
+
+    document.getElementById("tour-progreso").innerText = `Paso ${indice + 1} de ${pasosRecorrido.length}`;
+    document.getElementById("tour-titulo").innerText = paso.titulo;
+    document.getElementById("tour-mensaje").innerText = paso.mensaje;
+
+    document.getElementById("tour-btn-anterior").style.display = (indice === 0) ? "none" : "inline-block";
+    document.getElementById("tour-btn-siguiente").innerText = (indice === pasosRecorrido.length - 1) ? "Finalizar" : "Siguiente";
+
+    if (elObjetivo) {
+        // Modo "spotlight": recorta el overlay alrededor del elemento real
+        let rect = elObjetivo.getBoundingClientRect();
+        let margen = 8;
+        spotlight.style.display = "block";
+        spotlight.style.top = (rect.top - margen) + "px";
+        spotlight.style.left = (rect.left - margen) + "px";
+        spotlight.style.width = (rect.width + margen * 2) + "px";
+        spotlight.style.height = (rect.height + margen * 2) + "px";
+
+        tarjeta.classList.remove("tour-centrada");
+        tarjeta.style.display = "block";
+
+        // Posicionar la tarjeta debajo del elemento si hay espacio, si no, arriba
+        let espacioAbajo = window.innerHeight - rect.bottom;
+        let tarjetaAlto = tarjeta.offsetHeight || 160;
+        if (espacioAbajo > tarjetaAlto + 20) {
+            tarjeta.style.top = (rect.bottom + margen + 8) + "px";
+        } else {
+            tarjeta.style.top = Math.max(12, rect.top - margen - tarjetaAlto - 8) + "px";
+        }
+        let left = rect.left;
+        let maxLeft = window.innerWidth - tarjeta.offsetWidth - 12;
+        tarjeta.style.left = Math.max(12, Math.min(left, maxLeft)) + "px";
+    } else {
+        // Modo centrado: paso sin elemento (bienvenida/cierre) o elemento no visible
+        // todavía (ej. el docente no ha iniciado clase). El recorrido nunca se rompe.
+        spotlight.style.display = "none";
+        tarjeta.classList.add("tour-centrada");
+        tarjeta.style.display = "block";
+    }
+}
+
+function siguientePasoRecorrido() {
+    if (pasoActualRecorrido >= pasosRecorrido.length - 1) {
+        finalizarRecorrido();
+        return;
+    }
+    pasoActualRecorrido++;
+    mostrarPasoRecorrido(pasoActualRecorrido);
+}
+
+function pasoAnteriorRecorrido() {
+    if (pasoActualRecorrido === 0) return;
+    pasoActualRecorrido--;
+    mostrarPasoRecorrido(pasoActualRecorrido);
+}
+
+function omitirRecorrido() {
+    cerrarRecorrido();
+    localStorage.setItem("tutorialVisto", "true");
+}
+
+function finalizarRecorrido() {
+    cerrarRecorrido();
+    localStorage.setItem("tutorialVisto", "true");
+}
+
+function cerrarRecorrido() {
+    document.getElementById("tour-overlay").style.display = "none";
+    document.getElementById("tour-spotlight").style.display = "none";
+    document.getElementById("tour-tarjeta").style.display = "none";
+}
+
+// Reposicionar el paso actual si el usuario rota el dispositivo o cambia el tamaño
+// de la ventana mientras el recorrido está abierto (compatibilidad móvil).
+window.addEventListener("resize", () => {
+    if (document.getElementById("tour-overlay").style.display === "block") {
+        mostrarPasoRecorrido(pasoActualRecorrido);
+    }
+});
+
+// Disparo automático: solo la primera vez, después de confirmar la sesión docente.
+firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+        setTimeout(() => iniciarRecorrido(false), 700);
+    }
+});
 </script>
+<!-- ✅ V8 — ONBOARDING: estructura del recorrido interactivo (oculta por defecto) -->
+<div class="tour-overlay" id="tour-overlay"></div>
+
+<!-- ✅ V8 (actualización) — Pantalla introductoria de privacidad, previa al Paso 1 -->
+<div class="tour-privacidad" id="tour-privacidad">
+    <h3>🔒 Privacidad y Funcionamiento</h3>
+    <p>Control de Aula fue diseñado para apoyar el uso académico de dispositivos durante actividades de aprendizaje.</p>
+    <p>La herramienta ayuda a reducir distracciones asociadas al uso no académico del dispositivo durante una sesión de trabajo, cuando así lo determine el docente.</p>
+    <p><strong>Control de Aula:</strong></p>
+    <ul>
+        <li>✅ No solicita permisos especiales del dispositivo.</li>
+        <li>✅ No accede a fotografías.</li>
+        <li>✅ No accede a contactos.</li>
+        <li>✅ No accede a llamadas.</li>
+        <li>✅ No accede a mensajes.</li>
+        <li>✅ No accede a la ubicación GPS.</li>
+        <li>✅ No modifica configuraciones del equipo.</li>
+        <li>✅ Funciona utilizando únicamente las capacidades normales del navegador web.</li>
+    </ul>
+    <p>La plataforma no fue diseñada como una herramienta de vigilancia, sino como un apoyo para promover el uso académico de los dispositivos durante actividades educativas.</p>
+    <button class="tour-btn-continuar" onclick="continuarDesdePrivacidad()">Continuar</button>
+</div>
+
+<div class="tour-spotlight" id="tour-spotlight"></div>
+<div class="tour-tarjeta" id="tour-tarjeta">
+    <div class="tour-progreso" id="tour-progreso">Paso 1 de 8</div>
+    <h4 id="tour-titulo">Título</h4>
+    <p id="tour-mensaje">Mensaje</p>
+    <div class="tour-acciones">
+        <button class="tour-btn-omitir" onclick="omitirRecorrido()">Omitir tutorial</button>
+        <div>
+            <button class="tour-btn-anterior" id="tour-btn-anterior" onclick="pasoAnteriorRecorrido()">Anterior</button>
+            <button class="tour-btn-siguiente" id="tour-btn-siguiente" onclick="siguientePasoRecorrido()">Siguiente</button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

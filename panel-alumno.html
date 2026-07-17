@@ -153,6 +153,81 @@ button:hover {
     color: #ffffff;
     font-weight: bold;
 }
+
+/* ✅ V8 — ONBOARDING ALUMNO: overlay de fondo (todos los pasos son centrados, ningún elemento a resaltar) */
+.guia-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 9998;
+    display: none;
+}
+
+.guia-tarjeta {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    background: #1f2937;
+    color: #ffffff;
+    border-radius: 14px;
+    padding: 22px 22px;
+    max-width: min(360px, 90vw);
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+    display: none;
+}
+.guia-tarjeta h3 {
+    margin: 0 0 10px 0;
+    color: #60a5fa;
+    font-size: 18px;
+}
+.guia-tarjeta p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #e5e7eb;
+    margin: 0 0 10px 0;
+}
+.guia-tarjeta ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px 0;
+}
+.guia-tarjeta ul li {
+    font-size: 13px;
+    color: #e5e7eb;
+    margin-bottom: 6px;
+}
+.guia-progreso {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-bottom: 10px;
+}
+.guia-acciones {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+.guia-acciones button {
+    padding: 8px 12px;
+    font-size: 13px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+}
+.guia-btn-omitir { background: none; color: #9ca3af; }
+.guia-btn-anterior { background: #374151; color: #e5e7eb; }
+.guia-btn-siguiente { background: #3b82f6; color: white; }
+
+@media (max-width: 480px) {
+    .guia-tarjeta { padding: 16px; }
+}
 </style>
 </head>
 <body>
@@ -201,6 +276,11 @@ function mostrarFormulario() {
                 <input id="grupo" placeholder="Tu Grupo (Ej: 3-A)">
                 <input id="codigo" placeholder="Código de Acceso de la Sesión">
                 <button onclick="entrar()">Conectar</button>
+                <p style="margin-top:14px; font-size:12px;">
+                    <a href="#" onclick="iniciarGuiaAlumno(true); return false;" style="color:#60a5fa; text-decoration:underline;">
+                        ❓ Ver guía nuevamente
+                    </a>
+                </p>
             </div>
         </div>
     `;
@@ -498,6 +578,133 @@ setInterval(() => {
     }
 }, 60000);
 
+// ============================================================
+// ✅ V8 — ONBOARDING INTERACTIVO PARA ALUMNOS
+// No modifica Firebase, Firestore, reglas, participaciones,
+// evaluaciones, historial, exportación ni ninguna función de
+// negocio existente. Solo lee/escribe "tutorialAlumnoVisto" en
+// localStorage (independiente de "sesion_clase_activa").
+// ============================================================
+
+const pasosGuiaAlumno = [
+    {
+        titulo: "👋 Bienvenido a Control de Aula",
+        mensajeHTML: "<p>Esta herramienta apoya las actividades académicas propuestas por tu docente durante la sesión de clase.</p>"
+    },
+    {
+        titulo: "🔒 Privacidad y funcionamiento",
+        mensajeHTML: `
+            <p><strong>Control de Aula:</strong></p>
+            <ul>
+                <li>✅ No solicita permisos especiales.</li>
+                <li>✅ No accede a fotografías.</li>
+                <li>✅ No accede a contactos.</li>
+                <li>✅ No accede a llamadas.</li>
+                <li>✅ No accede a mensajes.</li>
+                <li>✅ No accede a la ubicación GPS.</li>
+                <li>✅ No modifica configuraciones del dispositivo.</li>
+                <li>✅ Funciona únicamente mediante las capacidades normales del navegador.</li>
+            </ul>
+        `
+    },
+    {
+        titulo: "📚 Uso académico del dispositivo",
+        mensajeHTML: `
+            <p>La herramienta ayuda a promover el uso académico del dispositivo durante actividades de aprendizaje.</p>
+            <p>Puede ayudar a identificar interrupciones relacionadas con actividades ajenas a la sesión académica cuando así lo determine el docente.</p>
+            <p>La plataforma no fue diseñada como una herramienta de vigilancia.</p>
+        `
+    },
+    {
+        titulo: "📝 Datos para ingresar",
+        mensajeHTML: `
+            <p>Para entrar a una actividad necesitarás:</p>
+            <ul>
+                <li>✅ Código Docente</li>
+                <li>✅ Nombre</li>
+                <li>✅ Grupo</li>
+                <li>✅ Código de Acceso</li>
+            </ul>
+        `
+    },
+    {
+        titulo: "✅ Todo listo",
+        mensajeHTML: `
+            <p>Ya puedes comenzar tu actividad.</p>
+            <p>Si la clase continúa activa, tu sesión podrá recuperarse automáticamente en caso de cierre accidental del navegador.</p>
+        `
+    }
+];
+
+let pasoActualGuiaAlumno = 0;
+
+// Punto de entrada: automático la primera vez, o manual desde "❓ Ver guía nuevamente"
+// (forzado=true no altera localStorage).
+function iniciarGuiaAlumno(forzado) {
+    if (!forzado && localStorage.getItem("tutorialAlumnoVisto") === "true") return;
+    pasoActualGuiaAlumno = 0;
+    document.getElementById("guia-overlay").style.display = "block";
+    mostrarPasoGuiaAlumno(0);
+}
+
+function mostrarPasoGuiaAlumno(indice) {
+    let paso = pasosGuiaAlumno[indice];
+    document.getElementById("guia-overlay").style.display = "block";
+    document.getElementById("guia-tarjeta").style.display = "block";
+    document.getElementById("guia-progreso").innerText = `Paso ${indice + 1} de ${pasosGuiaAlumno.length}`;
+    document.getElementById("guia-titulo").innerText = paso.titulo;
+    document.getElementById("guia-mensaje").innerHTML = paso.mensajeHTML; // contenido fijo definido arriba, no proviene del usuario
+    document.getElementById("guia-btn-anterior").style.display = (indice === 0) ? "none" : "inline-block";
+    document.getElementById("guia-btn-siguiente").innerText = (indice === pasosGuiaAlumno.length - 1) ? "Finalizar" : "Siguiente";
+}
+
+function siguientePasoGuiaAlumno() {
+    if (pasoActualGuiaAlumno >= pasosGuiaAlumno.length - 1) {
+        finalizarGuiaAlumno();
+        return;
+    }
+    pasoActualGuiaAlumno++;
+    mostrarPasoGuiaAlumno(pasoActualGuiaAlumno);
+}
+
+function pasoAnteriorGuiaAlumno() {
+    if (pasoActualGuiaAlumno === 0) return;
+    pasoActualGuiaAlumno--;
+    mostrarPasoGuiaAlumno(pasoActualGuiaAlumno);
+}
+
+function omitirGuiaAlumno() {
+    cerrarGuiaAlumno();
+    localStorage.setItem("tutorialAlumnoVisto", "true");
+}
+
+function finalizarGuiaAlumno() {
+    cerrarGuiaAlumno();
+    localStorage.setItem("tutorialAlumnoVisto", "true");
+}
+
+function cerrarGuiaAlumno() {
+    document.getElementById("guia-overlay").style.display = "none";
+    document.getElementById("guia-tarjeta").style.display = "none";
+}
+
+// Disparo automático: solo la primera vez, tras cargar la pantalla de entrada.
+setTimeout(() => iniciarGuiaAlumno(false), 500);
 </script>
+<!-- ✅ V8 — ONBOARDING ALUMNO: estructura de la guía interactiva (oculta por defecto) -->
+<div class="guia-overlay" id="guia-overlay"></div>
+<div class="guia-tarjeta" id="guia-tarjeta">
+    <div class="guia-progreso" id="guia-progreso">Paso 1 de 5</div>
+    <h3 id="guia-titulo">Título</h3>
+    <div id="guia-mensaje">Mensaje</div>
+    <div class="guia-acciones">
+        <button class="guia-btn-omitir" onclick="omitirGuiaAlumno()">Omitir</button>
+        <div>
+            <button class="guia-btn-anterior" id="guia-btn-anterior" onclick="pasoAnteriorGuiaAlumno()">Anterior</button>
+            <button class="guia-btn-siguiente" id="guia-btn-siguiente" onclick="siguientePasoGuiaAlumno()">Siguiente</button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

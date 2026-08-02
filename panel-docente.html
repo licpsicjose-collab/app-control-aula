@@ -318,6 +318,14 @@
             <label>Grupo:</label>
             <input id="grupoClase" placeholder="Ej: 3-A">
         </div>
+        <div>
+            <label>Sensibilidad de detección:</label>
+            <select id="sensibilidad">
+                <option value="alta">Alta (3 segundos)</option>
+                <option value="normal" selected>Normal (5 segundos)</option>
+                <option value="baja">Baja (10 segundos)</option>
+            </select>
+        </div>
         <div style="display: flex; align-items: flex-end; gap: 8px;">
             <button class="btn btn-primary" onclick="iniciarClase()" id="btn-control-clase">Iniciar Clase</button>
         </div>
@@ -333,7 +341,7 @@
                 Código de Entrada Retardo: <strong id="c-retardo" style="color:orange;">...</strong>
             </div>
 
-            <!-- ✅ MEJORA 1: Aviso visible cuando el modo retardo está activo -->
+            <!-- ✅ Aviso visible cuando el modo retardo está activo -->
             <div class="aviso-retardo" id="aviso-modo-retardo" style="display:none;">
                 ⏰ Modo Retardo activo: solo el código de retardo permite entrar.
             </div>
@@ -437,7 +445,7 @@ async function verificarClaseActiva() {
     });
 }
 
-// ✅ MEJORA 1 y 2: refleja modo retardo y estado de pausa en la interfaz existente
+// ✅ Restaurado (V8.3, revisión): refleja modo retardo y estado de pausa en la interfaz
 function actualizarUIModoYPausa(d) {
     let modo = d.modo || "normal";
     let lineaCodigos = document.getElementById("linea-codigos");
@@ -473,7 +481,11 @@ function actualizarUIModoYPausa(d) {
     }
 }
 
-// ✅ MEJORA 1: Activa el modo retardo (la infraestructura de códigos ya existía)
+// ✅ Restaurado (V8.3, revisión): activa el modo retardo manualmente.
+// El "retardo automático por tiempo" de la entrega anterior fue cancelado
+// por decisión explícita: los dos códigos son un mecanismo anti-suplantación
+// (evitan que un alumno ausente reciba el código normal por WhatsApp/redes
+// después de iniciada la clase), no solo una marca de tardanza.
 function activarRetardo() {
     claseActivaRef.update({ modo: "retardo" });
 }
@@ -491,6 +503,7 @@ function iniciarClase() {
     let esc = document.getElementById("escuela").value.trim();
     let mat = document.getElementById("materia").value.trim();
     let grp = document.getElementById("grupoClase").value.trim();
+    let sensibilidad = document.getElementById("sensibilidad").value; // ✅ Sensibilidad configurable — se conserva
 
     if(!esc || !mat || !grp) {
         alert("Por favor llena los datos de la clase actual.");
@@ -511,7 +524,8 @@ function iniciarClase() {
         codigoRetardo: cRet,
         inicio: Date.now(),
         pausada: false,
-        modo: "normal"
+        modo: "normal",
+        sensibilidad: sensibilidad
     });
 }
 
@@ -761,6 +775,16 @@ const pasosRecorrido = [
         target: "btn-control-clase"
     },
     {
+        titulo: "¿Por qué existen dos códigos?",
+        mensaje: "<strong>Código de Entrada Normal</strong><br>Permite el acceso durante los primeros minutos de la actividad.<br><br><strong>Código de Entrada por Retardo</strong><br>Permite incorporar alumnos que llegaron tarde, sin que el código inicial continúe funcionando.<br><br><strong>Beneficio:</strong><br>Evita que alumnos que no estuvieron presentes al inicio puedan obtener posteriormente el código normal mediante mensajes o redes sociales para registrarse como si hubieran asistido desde el principio.",
+        target: "linea-codigos"
+    },
+    {
+        titulo: "¿Cuándo utilizar el modo retardo?",
+        mensaje: "Utilice el modo retardo cuando un alumno se incorpore después de la fase inicial de acceso.<br><br>El alumno seguirá formando parte de la misma clase, pero su ingreso quedará identificado correctamente como tardío.",
+        target: "btn-activar-retardo"
+    },
+    {
         titulo: "Panel de alumnos",
         mensaje: "Aquí aparecerán los estudiantes conectados.",
         target: "contenedor-alumnos"
@@ -849,7 +873,7 @@ function mostrarPasoRecorrido(indice) {
 
     document.getElementById("tour-progreso").innerText = `Paso ${indice + 1} de ${pasosRecorrido.length}`;
     document.getElementById("tour-titulo").innerText = paso.titulo;
-    document.getElementById("tour-mensaje").innerText = paso.mensaje;
+    document.getElementById("tour-mensaje").innerHTML = paso.mensaje;
 
     document.getElementById("tour-btn-anterior").style.display = (indice === 0) ? "none" : "inline-block";
     document.getElementById("tour-btn-siguiente").innerText = (indice === pasosRecorrido.length - 1) ? "Finalizar" : "Siguiente";
@@ -958,7 +982,7 @@ firebase.auth().onAuthStateChanged(user => {
 
 <div class="tour-spotlight" id="tour-spotlight"></div>
 <div class="tour-tarjeta" id="tour-tarjeta">
-    <div class="tour-progreso" id="tour-progreso">Paso 1 de 8</div>
+    <div class="tour-progreso" id="tour-progreso">Paso 1 de 10</div>
     <h4 id="tour-titulo">Título</h4>
     <p id="tour-mensaje">Mensaje</p>
     <div class="tour-acciones">

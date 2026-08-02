@@ -408,8 +408,10 @@ async function entrar(){
             return;
         }
 
-        // ✅ MEJORA 1: Retardos reales. En modo normal solo vale el código normal;
-        // en modo retardo solo vale el código de retardo.
+        // ✅ Restaurado (V8.3, revisión): dos códigos distintos, mecanismo
+        // anti-suplantación — evita que un alumno ausente al inicio obtenga
+        // el código normal por un compañero (WhatsApp/redes) después de
+        // iniciada la clase, y se registre como si hubiera asistido desde el principio.
         let modoActual = claseData.modo || "normal";
         let valido = (modoActual === "retardo")
             ? (c === claseData.codigoRetardo)
@@ -534,7 +536,18 @@ function reportarAFirebase() {
     }).catch(() => {});
 }
 
-// ===== DETECCIONES MEJORADAS (ANTI-FALSOS POSITIVOS DE 45 SEG) =====
+// ✅ V8.2 — OBJETIVO 1: umbral de detección configurable por clase (campo
+// "sensibilidad" en el documento de la clase, ya sincronizado en la variable
+// "clase" vía escucharClaseMaestro). Si la clase no define este campo
+// (compatibilidad con clases creadas antes de V8.2), se conserva en 5000ms,
+// el mismo valor que ya usaba la aplicación.
+function obtenerUmbralSalida() {
+    let mapa = { alta: 3000, normal: 5000, baja: 10000 };
+    let valor = clase && clase.sensibilidad ? mapa[clase.sensibilidad] : undefined;
+    return valor || 5000;
+}
+
+// ===== DETECCIONES MEJORADAS (ANTI-FALSOS POSITIVOS, UMBRAL SEGÚN SENSIBILIDAD) =====
 window.addEventListener("blur", () => {
     if (!enClase || clase?.pausada) return;
     salidaInicio = Date.now();
@@ -544,8 +557,8 @@ window.addEventListener("focus", () => {
     if (!enClase || !salidaInicio) return;
     let tiempoSalida = Date.now() - salidaInicio;
     
-    // ✅ TOLERANCIA PEDAGÓGICA: Solo penaliza si estuvo fuera más de 5 segundos reales
-    if (tiempoSalida > 5000){
+    // ✅ TOLERANCIA PEDAGÓGICA: Solo penaliza si excede el umbral configurado por el docente
+    if (tiempoSalida > obtenerUmbralSalida()){
         salidas++;
         tiempoFuera += tiempoSalida;
         reportarAFirebase();
@@ -562,7 +575,7 @@ document.addEventListener("visibilitychange", () => {
         if (!salidaInicio) return;
         let tiempoSalida = Date.now() - salidaInicio;
         
-        if (tiempoSalida > 5000){
+        if (tiempoSalida > obtenerUmbralSalida()){
             salidas++;
             tiempoFuera += tiempoSalida;
             reportarAFirebase();

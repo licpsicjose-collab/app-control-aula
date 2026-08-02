@@ -57,12 +57,13 @@ service cloud.firestore {
       // Solo el propio docente autenticado puede crear/actualizar su clase,
       // y solo con el conjunto de campos que ya usa la aplicación
       // (iniciarClase, activarRetardo, pausarClase, reanudarClase).
+      // ✅ V8.3 (revisión): se agrega 'sensibilidad' — único campo nuevo autorizado.
       allow create, update: if request.auth != null
                             && request.auth.uid == docenteUid
                             && request.resource.data.keys().hasOnly([
                                  'escuela', 'materia', 'grupoClase',
                                  'codigoInicial', 'codigoRetardo',
-                                 'inicio', 'pausada', 'modo'
+                                 'inicio', 'pausada', 'modo', 'sensibilidad'
                                ]);
 
       // Solo el propio docente puede finalizar (borrar) su clase activa.

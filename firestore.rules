@@ -10,6 +10,31 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ==========================================================================
+    // Función auxiliar: ¿el usuario autenticado es administrador?
+    // Un admin es cualquier UID con un documento en admins/{uid}. Esa
+    // colección se gestiona EXCLUSIVAMENTE desde la consola de Firebase o el
+    // Admin SDK (nunca desde el cliente — allow read/write: if false más
+    // abajo), por lo que exists() aquí es seguro: las reglas de seguridad
+    // evalúan exists()/get() con acceso interno, sin pasar por las propias
+    // reglas de la colección referenciada.
+    // ==========================================================================
+    function esAdmin() {
+      return request.auth != null
+             && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // ==========================================================================
+    // admins/{uid}
+    // Lista de administradores con acceso a panel-admin.html (V8.5). Un
+    // documento por UID admin (contenido irrelevante para las reglas, solo
+    // importa que exista). Se agrega/quita manualmente desde la consola de
+    // Firebase — nunca hay una ruta de escritura desde el cliente.
+    // ==========================================================================
+    match /admins/{uid} {
+      allow read, write: if false;
+    }
+
+    // ==========================================================================
     // mapeo_codigos/{codigoCorto}
     // Relaciona el código docente de 5 letras con el UID del docente.
     // Escrito por un proceso administrativo externo (no existe ninguna escritura
@@ -172,20 +197,81 @@ service cloud.firestore {
     // otro docente. Esquema cerrado de campos.
     // ==========================================================================
     match /metricas_docentes/{docenteUid} {
-      allow read, write: if request.auth != null
-                          && request.auth.uid == docenteUid
-                          && request.resource.data.keys().hasOnly([
-                               'escuela', 'primerUso', 'ultimaActividad',
-                               'ultimaClaseEn', 'totalClases', 'gruposVistos',
-                               'onboardingDocente', 'onboardingDocentePasoOmitido'
-                             ]);
+      // ✅ V8.5 — panel-admin.html: un administrador (admins/{uid}) puede
+      // leer las métricas de cualquier docente, además del propio docente
+      // sobre sus datos. La escritura sigue siendo exclusiva del docente
+      // dueño, con el mismo esquema cerrado de antes — sin cambios ahí.
+      allow read: if (request.auth != null && request.auth.uid == docenteUid) || esAdmin();
+
+      allow write: if request.auth != null
+                   && request.auth.uid == docenteUid
+                   && request.resource.data.keys().hasOnly([
+                        'escuela', 'primerUso', 'ultimaActividad',
+                        'ultimaClaseEn', 'totalClases', 'gruposVistos',
+                        'onboardingDocente', 'onboardingDocentePasoOmitido'
+                      ]);
 
       // ✅ Corrección de arquitectura: alumnos distintos como SUBCOLECCIÓN
       // (no como array), para no hacer crecer indefinidamente el documento
       // padre ni degradar sus lecturas futuras (auditoría V8.4).
       match /alumnosVistos/{alumnoId} {
-        allow read, write: if request.auth != null && request.auth.uid == docenteUid;
+        allow read: if (request.auth != null && request.auth.uid == docenteUid) || esAdmin();
+        allow write: if request.auth != null && request.auth.uid == docenteUid;
       }
+    }
+
+    // ==========================================================================
+    // suscripciones/{docenteUid}
+    // Documento único de plan comercial por docente (V8.5). Mismo patrón de
+    // acceso que clases/{docenteUid} y metricas_docentes/{docenteUid}:
+    // solo el propio docente autenticado puede leer/escribir su documento.
+    // Fuente de verdad del modelo: PLANES_Y_SUSCRIPCIONES.md.
+    // ==========================================================================
+    match /suscripciones/{docenteUid} {
+
+      allow read: if request.auth != null && request.auth.uid == docenteUid;
+
+      // Creación inicial automática al registrarse (login.html → registrar()).
+      // Todo docente nace exclusivamente en trial, sin historial de Pro y
+      // sin grupo activo ni congelados todavía.
+      allow create: if request.auth != null
+                    && request.auth.uid == docenteUid
+                    && request.resource.data.keys().hasOnly([
+                         'estado', 'trialInicio', 'trialFin',
+                         'proInicio', 'proVencimiento', 'precioPagado',
+                         'grupoActivo', 'gruposCongelados', 'actualizadoEn'
+                       ])
+                    && request.resource.data.keys().hasAll([
+                         'estado', 'trialInicio', 'trialFin',
+                         'proInicio', 'proVencimiento', 'precioPagado',
+                         'grupoActivo', 'gruposCongelados', 'actualizadoEn'
+                       ])
+                    && request.resource.data.estado == 'trial'
+                    && request.resource.data.trialInicio is number
+                    && request.resource.data.trialFin is number
+                    && request.resource.data.proInicio == null
+                    && request.resource.data.proVencimiento == null
+                    && request.resource.data.precioPagado == null
+                    && request.resource.data.grupoActivo == null
+                    && request.resource.data.gruposCongelados == []
+                    && request.resource.data.actualizadoEn is number;
+
+      // Actualización: mismo esquema cerrado. Cubre las transiciones
+      // automáticas trial→free y pro→free, la asignación/registro del
+      // grupo activo bajo free, y una futura confirmación de compra de
+      // Pro (sin proveedor de pago seleccionado todavía — ver
+      // PLANES_Y_SUSCRIPCIONES.md sección 16).
+      allow update: if request.auth != null
+                    && request.auth.uid == docenteUid
+                    && request.resource.data.keys().hasOnly([
+                         'estado', 'trialInicio', 'trialFin',
+                         'proInicio', 'proVencimiento', 'precioPagado',
+                         'grupoActivo', 'gruposCongelados', 'actualizadoEn'
+                       ])
+                    && request.resource.data.estado in ['trial', 'free', 'pro']
+                    && request.resource.data.actualizadoEn is number;
+
+      allow delete: if false;
     }
 
     // ==========================================================================
@@ -199,7 +285,11 @@ service cloud.firestore {
     // de la aplicación).
     // ==========================================================================
     match /onboarding_alumno_eventos/{eventoId} {
-      allow read: if false; // no se consulta desde el cliente; reservado para un futuro panel-admin autenticado
+      // ✅ V8.5: el panel-admin ya existe, por lo que la lectura reservada
+      // para "un futuro panel-admin autenticado" se habilita ahora,
+      // exclusivamente para administradores (admins/{uid}). Sigue sin
+      // lectura para docentes ni para el cliente anónimo del alumno.
+      allow read: if esAdmin();
       allow create: if request.resource.data.keys().hasOnly(['tipo', 'paso', 'timestamp'])
                       && request.resource.data.tipo in ['completado', 'omitido'];
       allow update, delete: if false; // los eventos son inmutables

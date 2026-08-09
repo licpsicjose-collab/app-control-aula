@@ -291,6 +291,46 @@
         font-weight: 600;
         cursor: pointer;
     }
+
+    /* ✅ V8.5 — SUSCRIPCIONES: tarjeta de plan y banner de patrocinio */
+    #tarjeta-plan {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    #tarjeta-plan.plan-trial { background: #dbeafe; color: #1e40af; }
+    #tarjeta-plan.plan-free { background: #f3f4f6; color: #374151; }
+    #tarjeta-plan.plan-pro { background: #fef3c7; color: #92400e; }
+
+    #banner-patrocinio {
+        display: none;
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        color: #3730a3;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 13px;
+        margin-bottom: 16px;
+        text-align: center;
+    }
+
+    #banner-grupo-congelado {
+        display: none;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        color: #9a3412;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 13px;
+        margin-bottom: 16px;
+    }
 </style>
 </head>
 <body>
@@ -298,12 +338,17 @@
 <header>
     <h2>Panel del Docente</h2>
     <div style="display:flex; align-items:center; gap:14px;">
+        <span id="tarjeta-plan" style="display:none;"></span>
         <button id="btn-ver-recorrido" onclick="iniciarRecorrido(true)" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">❓ Ver recorrido nuevamente</button>
         <div id="info-usuario">Cargando sesión...</div>
     </div>
 </header>
 
 <div class="container">
+    <!-- ✅ V8.5 — SUSCRIPCIONES: patrocinio (solo plan free) y aviso de grupo congelado -->
+    <div id="banner-patrocinio">💜 Control de Aula Free está patrocinado por <strong>Psicología Aplicada</strong></div>
+    <div id="banner-grupo-congelado"></div>
+
     <!-- Bloque de configuración con memoria local -->
     <div class="grid-config" id="modulo-config">
         <div>
@@ -382,6 +427,11 @@ let listaAlumnosGlobal = [];
 let unsubscribeAlumnos = null;
 let datosClaseActual = null; // ✅ Guarda el último snapshot de la clase (modo, pausada, escuela, materia, grupo)
 
+// ✅ V8.5 — SUSCRIPCIONES
+let suscripcionRef = null;
+let datosSuscripcion = null; // último snapshot de suscripciones/{docenteUid}
+let transicionEnProceso = false; // evita disparar dos transiciones a la vez
+
 // Revisar autenticación del maestro
 firebase.auth().onAuthStateChanged(user => {
     if (user) {
@@ -390,6 +440,7 @@ firebase.auth().onAuthStateChanged(user => {
         cargarConfiguracionLocal();
         obtenerCodigoDocente();
         verificarClaseActiva();
+        cargarSuscripcion(); // ✅ V8.5
     } else {
         window.location.href = "login.html";
     }
@@ -510,6 +561,20 @@ async function iniciarClase() {
         return;
     }
 
+    // ✅ V8.5 — SUSCRIPCIONES: en plan Free, solo el grupo activo puede
+    // iniciar clases nuevas (PLANES_Y_SUSCRIPCIONES.md secciones 9-11).
+    // Trial y Pro no tienen esta restricción.
+    if (datosSuscripcion && datosSuscripcion.estado === "free") {
+        if (!datosSuscripcion.grupoActivo) {
+            // Primera clase del docente ya en Free (p.ej. nunca tuvo Trial):
+            // este grupo se convierte automáticamente en su grupo activo.
+            await suscripcionRef.set({ grupoActivo: grp, actualizadoEn: Date.now() }, { merge: true }).catch(() => {});
+        } else if (datosSuscripcion.grupoActivo !== grp) {
+            alert(`❄️ Tu plan Free solo permite iniciar clases en tu grupo activo (${datosSuscripcion.grupoActivo}). "${grp}" está congelado: puedes consultarlo y exportarlo, pero no iniciar clases nuevas ahí. Actualiza a Pro para usar todos tus grupos sin restricción.`);
+            return;
+        }
+    }
+
     // Guardar en localStorage para la siguiente clase
     localStorage.setItem("config_docente_previa", JSON.stringify({ escuela: esc, materia: mat, grupo: grp }));
 
@@ -557,6 +622,141 @@ function registrarMetricaInicioClase(escuela) {
             });
         }
     }).catch(() => {}); // no debe interrumpir la creación de la clase si esto falla
+}
+
+// ============================================================
+// ✅ V8.5 — SISTEMA DE SUSCRIPCIONES
+// Fuente de verdad: PLANES_Y_SUSCRIPCIONES.md.
+// No modifica ninguna función de negocio existente (aula, alumnos,
+// historial, métricas). Solo lee/escribe suscripciones/{docenteUid}
+// y restringe iniciarClase() cuando el plan es "free".
+// ============================================================
+
+// Escucha en tiempo real el documento de plan del docente.
+function cargarSuscripcion() {
+    suscripcionRef = db.collection("suscripciones").doc(docenteUid);
+    suscripcionRef.onSnapshot(doc => {
+        if (doc.exists) {
+            datosSuscripcion = doc.data();
+        } else {
+            // Docentes creados antes de V8.5 no tienen documento de suscripción.
+            // No se les asigna un Trial retroactivo (cambiaría condiciones ya
+            // vividas por un docente existente) — simplemente no se muestra
+            // tarjeta de plan ni se aplica ninguna restricción hasta que exista
+            // un documento (migración fuera de alcance de esta entrega).
+            datosSuscripcion = null;
+        }
+        actualizarTarjetaPlan();
+        verificarTransicionAutomatica();
+    });
+}
+
+// ✅ Transiciones automáticas trial→free y pro→free, siempre hacia el
+// estado más restrictivo, nunca hacia pro (principio #4 de
+// PLANES_Y_SUSCRIPCIONES.md). Se evalúa cada vez que el docente abre
+// el panel (no hay Cloud Functions en este proyecto — ver nota en
+// docs/ESTADO_PROYECTO_V8_5.md).
+async function verificarTransicionAutomatica() {
+    if (!datosSuscripcion || transicionEnProceso) return;
+    let ahora = Date.now();
+
+    if (datosSuscripcion.estado === "trial" && datosSuscripcion.trialFin && ahora > datosSuscripcion.trialFin) {
+        transicionEnProceso = true;
+        await ejecutarTransicionAFree("trial");
+        transicionEnProceso = false;
+    } else if (datosSuscripcion.estado === "pro" && datosSuscripcion.proVencimiento && ahora > datosSuscripcion.proVencimiento) {
+        transicionEnProceso = true;
+        await ejecutarTransicionAFree("pro");
+        transicionEnProceso = false;
+    }
+}
+
+// Determina el grupo de uso más reciente del docente consultando su
+// historial archivado (fechaFin descendente). PLANES_Y_SUSCRIPCIONES.md
+// (sección 15) sugiere basarse en "ultimaClaseEn por grupo" vía
+// metricas_docentes, pero esa colección no guarda una marca de tiempo por
+// grupo individual (solo un arreglo plano gruposVistos) — se usa historial
+// como equivalente práctico. Devuelve { activo, congelados }.
+async function determinarGrupoActivoReciente() {
+    try {
+        let snap = await db.collection("historial")
+            .where("docenteId", "==", docenteUid)
+            .orderBy("fechaFin", "desc")
+            .limit(30)
+            .get();
+
+        let vistos = [];
+        snap.forEach(doc => {
+            let g = doc.data().grupoClase;
+            if (g && !vistos.includes(g)) vistos.push(g);
+        });
+
+        if (vistos.length === 0) return { activo: null, congelados: [] };
+        return { activo: vistos[0], congelados: vistos.slice(1) };
+    } catch (e) {
+        // Si la consulta falla (p.ej. índice compuesto faltante), no bloquea
+        // la transición: el docente simplemente queda sin grupo activo
+        // preasignado y lo obtiene en su próximo iniciarClase().
+        return { activo: null, congelados: [] };
+    }
+}
+
+async function ejecutarTransicionAFree(origen) {
+    let { activo, congelados } = await determinarGrupoActivoReciente();
+    let ahora = Date.now();
+
+    await suscripcionRef.set({
+        estado: "free",
+        grupoActivo: activo,
+        gruposCongelados: congelados,
+        actualizadoEn: ahora
+    }, { merge: true }).catch(() => {});
+
+    if (origen === "trial") {
+        alert("⏳ Tu período de prueba de 15 días terminó. Tu cuenta ahora está en el plan Free. Puedes seguir usando Control de Aula con tu grupo activo, o actualizar a Pro cuando quieras.");
+    } else {
+        alert("📅 Tu plan Pro venció. Tu cuenta volvió al plan Free. Todo tu historial se conserva. Puedes renovar Pro cuando quieras.");
+    }
+}
+
+// Renderiza la tarjeta de plan en el header y el banner de patrocinio.
+function actualizarTarjetaPlan() {
+    let tarjeta = document.getElementById("tarjeta-plan");
+    let bannerPatrocinio = document.getElementById("banner-patrocinio");
+    let bannerCongelado = document.getElementById("banner-grupo-congelado");
+
+    if (!datosSuscripcion) {
+        tarjeta.style.display = "none";
+        bannerPatrocinio.style.display = "none";
+        bannerCongelado.style.display = "none";
+        return;
+    }
+
+    tarjeta.style.display = "inline-flex";
+    tarjeta.classList.remove("plan-trial", "plan-free", "plan-pro");
+
+    if (datosSuscripcion.estado === "trial") {
+        let diasRestantes = Math.max(0, Math.ceil((datosSuscripcion.trialFin - Date.now()) / (24 * 60 * 60 * 1000)));
+        tarjeta.classList.add("plan-trial");
+        tarjeta.innerText = `🚀 Trial · ${diasRestantes} día${diasRestantes === 1 ? '' : 's'} restante${diasRestantes === 1 ? '' : 's'}`;
+    } else if (datosSuscripcion.estado === "pro") {
+        tarjeta.classList.add("plan-pro");
+        tarjeta.innerText = "⭐ Plan Pro";
+    } else {
+        tarjeta.classList.add("plan-free");
+        tarjeta.innerText = "Plan Free";
+    }
+
+    // ✅ Patrocinio exclusivo del plan Free (nunca en trial ni en pro)
+    bannerPatrocinio.style.display = (datosSuscripcion.estado === "free") ? "block" : "none";
+
+    // Aviso de grupo activo/congelados, solo relevante en Free
+    if (datosSuscripcion.estado === "free" && datosSuscripcion.gruposCongelados && datosSuscripcion.gruposCongelados.length > 0) {
+        bannerCongelado.style.display = "block";
+        bannerCongelado.innerHTML = `❄️ Tu grupo activo es <strong>${escaparHTML(datosSuscripcion.grupoActivo || '')}</strong>. Grupos congelados (solo consulta/exportación, sin clases nuevas): <strong>${escaparHTML(datosSuscripcion.gruposCongelados.join(', '))}</strong>. Actualiza a Pro para volver a usarlos.`;
+    } else {
+        bannerCongelado.style.display = "none";
+    }
 }
 
 function escucharAlumnos() {

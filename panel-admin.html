@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel Administrativo — Control de Aula</title>
+
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<meta name="theme-color" content="#1e3a8a">
+
+<style>
+    body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f3f4f6;
+        color: #1f2937;
+    }
+    header {
+        background-color: #1e3a8a;
+        color: white;
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    header h2 { margin: 0; font-size: 18px; }
+    .container {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .aviso {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        color: #4b5563;
+    }
+    .aviso.error { border-left: 4px solid #dc2626; color: #991b1b; text-align: left; }
+    .seccion {
+        margin-bottom: 28px;
+    }
+    .seccion h3 {
+        font-size: 15px;
+        color: #374151;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        margin: 0 0 12px 0;
+    }
+    .grid-tarjetas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 14px;
+    }
+    .tarjeta {
+        background: white;
+        border-radius: 8px;
+        padding: 18px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .tarjeta .valor {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1e3a8a;
+        line-height: 1.2;
+    }
+    .tarjeta .etiqueta {
+        font-size: 13px;
+        color: #6b7280;
+        margin-top: 4px;
+    }
+    .tarjeta .nota {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-top: 8px;
+        line-height: 1.4;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        font-size: 13px;
+    }
+    th, td {
+        text-align: left;
+        padding: 10px 14px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    th {
+        background: #f9fafb;
+        color: #6b7280;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.3px;
+    }
+    tr:last-child td { border-bottom: none; }
+    .barra-fondo {
+        background: #e5e7eb;
+        border-radius: 4px;
+        height: 8px;
+        width: 100%;
+        overflow: hidden;
+    }
+    .barra-relleno {
+        background: #2563eb;
+        height: 100%;
+    }
+    .fuente-datos {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-top: 24px;
+        line-height: 1.6;
+        border-top: 1px solid #e5e7eb;
+        padding-top: 14px;
+    }
+    #cargando { text-align: center; padding: 60px; color: #6b7280; }
+</style>
+</head>
+<body>
+
+<header>
+    <h2>Panel Administrativo — Control de Aula</h2>
+    <div id="info-usuario">Cargando sesión...</div>
+</header>
+
+<div class="container">
+    <div id="cargando">Cargando métricas…</div>
+    <div id="acceso-denegado" style="display:none;"></div>
+    <div id="contenido-admin" style="display:none;"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="firebase.js"></script>
+
+<script>
+// ============================================================
+// ✅ V8.5 — PANEL ADMINISTRATIVO
+// Construido EXCLUSIVAMENTE sobre las métricas ya implementadas en V8.4:
+//   - metricas_docentes/{docenteUid}
+//   - metricas_docentes/{docenteUid}/alumnosVistos/{alumnoId}
+//   - onboarding_alumno_eventos/{eventoId}
+// No usa datos de suscripciones/{docenteUid} (V8.5) por instrucción
+// explícita de esta entrega — el estado comercial (trial/free/pro) queda
+// fuera de alcance de este panel hasta una entrega posterior.
+// No usa Firebase Auth admin API (requiere Admin SDK / backend, fuera de
+// alcance de un proyecto sin servidor) — por lo que "total de docentes
+// registrados" no es una métrica disponible aquí; solo "docentes
+// activados" (con al menos un documento en metricas_docentes, es decir,
+// que ya iniciaron al menos una clase).
+// ============================================================
+
+// Acceso: requiere sesión de Firebase Auth Y un documento en
+// admins/{uid} (gestionado manualmente desde la consola de Firebase,
+// ver firestore.rules). No hay ninguna pantalla para autoasignarse admin.
+firebase.auth().onAuthStateChanged(user => {
+    if (!user) {
+        window.location.href = "login.html";
+        return;
+    }
+    document.getElementById("info-usuario").innerText = user.email;
+    cargarPanelAdmin();
+});
+
+function escaparHTML(texto) {
+    if (texto === null || texto === undefined) return "";
+    return String(texto)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+async function cargarPanelAdmin() {
+    let docentes = [];
+
+    try {
+        // Si esta cuenta no es admin, firestore.rules rechaza esta lectura
+        // (permission-denied) y saltamos directo al catch.
+        let snap = await db.collection("metricas_docentes").get();
+        snap.forEach(doc => docentes.push({ uid: doc.id, ...doc.data() }));
+    } catch (e) {
+        document.getElementById("cargando").style.display = "none";
+        let bloque = document.getElementById("acceso-denegado");
+        bloque.style.display = "block";
+        bloque.innerHTML = `
+            <div class="aviso error">
+                <strong>Acceso restringido.</strong><br><br>
+                Esta cuenta (${escaparHTML(document.getElementById("info-usuario").innerText)})
+                no tiene permisos de administrador, o Firestore rechazó la lectura.<br><br>
+                Un administrador debe agregar un documento con el UID de esta cuenta
+                en la colección <code>admins</code> desde la consola de Firebase
+                (no existe ninguna forma de hacerlo desde la aplicación, por diseño).
+            </div>`;
+        return;
+    }
+
+    // ✅ Alumnos únicos por docente: una consulta por docente a su
+    // subcolección alumnosVistos. Aceptable para el volumen actual de
+    // docentes; si la base de docentes crece considerablemente, migrar a
+    // una collection group query agregada (documentado como límite
+    // conocido, mismo criterio que otras decisiones de esta versión).
+    await Promise.all(docentes.map(async d => {
+        try {
+            let snapAlumnos = await db.collection("metricas_docentes").doc(d.uid).collection("alumnosVistos").get();
+            d._alumnosUnicos = snapAlumnos.size;
+        } catch (e) {
+            d._alumnosUnicos = null; // no bloquea el resto del panel
+        }
+    }));
+
+    let eventosOnboardingAlumno = [];
+    try {
+        let snapEventos = await db.collection("onboarding_alumno_eventos").get();
+        snapEventos.forEach(doc => eventosOnboardingAlumno.push(doc.data()));
+    } catch (e) {
+        eventosOnboardingAlumno = null; // se muestra como "no disponible" si falla
+    }
+
+    renderPanel(docentes, eventosOnboardingAlumno);
+}
+
+function renderPanel(docentes, eventosOnboardingAlumno) {
+    document.getElementById("cargando").style.display = "none";
+    let cont = document.getElementById("contenido-admin");
+    cont.style.display = "block";
+
+    let totalDocentes = docentes.length;
+    let totalClases = docentes.reduce((s, d) => s + (d.totalClases || 0), 0);
+
+    let ahora = Date.now();
+    let dia = 24 * 60 * 60 * 1000;
+    let activos7d = docentes.filter(d => d.ultimaActividad && (ahora - d.ultimaActividad) <= 7 * dia).length;
+    let activos30d = docentes.filter(d => d.ultimaActividad && (ahora - d.ultimaActividad) <= 30 * dia).length;
+
+    let gruposUnicos = new Set();
+    docentes.forEach(d => (d.gruposVistos || []).forEach(g => gruposUnicos.add(g)));
+
+    let alumnosConDato = docentes.filter(d => d._alumnosUnicos !== null);
+    let totalAlumnosUnicos = alumnosConDato.reduce((s, d) => s + d._alumnosUnicos, 0);
+    let promedioAlumnosPorDocente = alumnosConDato.length > 0 ? (totalAlumnosUnicos / alumnosConDato.length) : 0;
+
+    // Onboarding docente (campo onboardingDocente: 'completado' | 'omitido' | ausente)
+    let obDocCompletado = docentes.filter(d => d.onboardingDocente === "completado").length;
+    let obDocOmitido = docentes.filter(d => d.onboardingDocente === "omitido").length;
+    let obDocPendiente = totalDocentes - obDocCompletado - obDocOmitido;
+
+    // Distribución por escuela
+    let porEscuela = {};
+    docentes.forEach(d => {
+        let esc = d.escuela && d.escuela.trim() ? d.escuela.trim() : "(sin escuela registrada)";
+        porEscuela[esc] = (porEscuela[esc] || 0) + 1;
+    });
+    let escuelasOrdenadas = Object.entries(porEscuela).sort((a, b) => b[1] - a[1]);
+
+    // Onboarding alumno (colección independiente, puede no estar disponible)
+    let htmlOnboardingAlumno = "";
+    if (eventosOnboardingAlumno === null) {
+        htmlOnboardingAlumno = `<div class="tarjeta"><div class="etiqueta">No se pudo leer onboarding_alumno_eventos.</div></div>`;
+    } else {
+        let totalEventos = eventosOnboardingAlumno.length;
+        let completados = eventosOnboardingAlumno.filter(e => e.tipo === "completado").length;
+        let omitidos = eventosOnboardingAlumno.filter(e => e.tipo === "omitido").length;
+        let pctCompletado = totalEventos > 0 ? Math.round((completados / totalEventos) * 100) : 0;
+
+        // Distribución de en qué paso se omite (campo "paso")
+        let porPaso = {};
+        eventosOnboardingAlumno.filter(e => e.tipo === "omitido").forEach(e => {
+            let p = (e.paso !== undefined && e.paso !== null) ? e.paso : "(sin paso registrado)";
+            porPaso[p] = (porPaso[p] || 0) + 1;
+        });
+        let pasosOrdenados = Object.entries(porPaso).sort((a, b) => b[1] - a[1]);
+
+        htmlOnboardingAlumno = `
+            <div class="grid-tarjetas">
+                <div class="tarjeta">
+                    <div class="valor">${totalEventos}</div>
+                    <div class="etiqueta">Eventos totales de onboarding alumno</div>
+                </div>
+                <div class="tarjeta">
+                    <div class="valor">${pctCompletado}%</div>
+                    <div class="etiqueta">Completaron la guía (${completados} de ${totalEventos})</div>
+                    <div class="barra-fondo" style="margin-top:8px;"><div class="barra-relleno" style="width:${pctCompletado}%;"></div></div>
+                </div>
+                <div class="tarjeta">
+                    <div class="valor">${omitidos}</div>
+                    <div class="etiqueta">Omitieron la guía</div>
+                </div>
+            </div>
+            ${pasosOrdenados.length > 0 ? `
+            <table style="margin-top:14px;">
+                <thead><tr><th>Paso donde se omitió</th><th>Eventos</th></tr></thead>
+                <tbody>
+                    ${pasosOrdenados.map(([paso, n]) => `<tr><td>${escaparHTML(paso)}</td><td>${n}</td></tr>`).join("")}
+                </tbody>
+            </table>` : ""}
+        `;
+    }
+
+    cont.innerHTML = `
+        <div class="seccion">
+            <h3>Adopción y actividad</h3>
+            <div class="grid-tarjetas">
+                <div class="tarjeta">
+                    <div class="valor">${totalDocentes}</div>
+                    <div class="etiqueta">Docentes activados</div>
+                    <div class="nota">Con al menos un documento en metricas_docentes (ya dieron su primera clase). No incluye docentes registrados que nunca iniciaron clase — ese dato requiere Firebase Auth Admin API, fuera de alcance de este panel sin backend.</div>
+                </div>
+                <div class="tarjeta">
+                    <div class="valor">${activos7d}</div>
+                    <div class="etiqueta">Activos en los últimos 7 días</div>
+                </div>
+                <div class="tarjeta">
+                    <div class="valor">${activos30d}</div>
+                    <div class="etiqueta">Activos en los últimos 30 días</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="seccion">
+            <h3>Uso</h3>
+            <div class="grid-tarjetas">
+                <div class="tarjeta">
+                    <div class="valor">${totalClases}</div>
+                    <div class="etiqueta">Clases impartidas (histórico, vía totalClases)</div>
+                </div>
+                <div class="tarjeta">
+                    <div class="valor">${gruposUnicos.size}</div>
+                    <div class="etiqueta">Grupos distintos vistos (unión de gruposVistos)</div>
+                </div>
+                <div class="tarjeta">
+                    <div class="valor">${totalAlumnosUnicos}</div>
+                    <div class="etiqueta">Alumnos únicos totales (suma de alumnosVistos)</div>
+                    <div class="nota">${alumnosConDato.length < totalDocentes ? `Calculado sobre ${alumnosConDato.length} de ${totalDocentes} docentes; el resto no se pudo leer.` : "Calculado sobre todos los docentes activados."}</div>
+                </div>
+                <div class="tarjeta">
+                    <div class="valor">${promedioAlumnosPorDocente.toFixed(1)}</div>
+                    <div class="etiqueta">Promedio de alumnos únicos por docente</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="seccion">
+            <h3>Onboarding docente</h3>
+            <div class="grid-tarjetas">
+                <div class="tarjeta">
+                    <div class="valor">${obDocCompletado}</div>
+                    <div class="etiqueta">Completaron el recorrido</div>
+                </div>
+                <div class="tarjeta">
+                    <div class="valor">${obDocOmitido}</div>
+                    <div class="etiqueta">Omitieron el recorrido</div>
+                </div>
+                <div class="tarjeta">
+                    <div class="valor">${obDocPendiente}</div>
+                    <div class="etiqueta">Sin dato (registro previo a V8.0, o nunca disparó el evento)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="seccion">
+            <h3>Onboarding alumno</h3>
+            ${htmlOnboardingAlumno}
+        </div>
+
+        <div class="seccion">
+            <h3>Docentes por escuela</h3>
+            <table>
+                <thead><tr><th>Escuela</th><th>Docentes activados</th></tr></thead>
+                <tbody>
+                    ${escuelasOrdenadas.map(([esc, n]) => `<tr><td>${escaparHTML(esc)}</td><td>${n}</td></tr>`).join("")}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="fuente-datos">
+            Fuente exclusiva de estos datos: <code>metricas_docentes</code>,
+            <code>metricas_docentes/{'{'}docenteUid{'}'}/alumnosVistos</code> y
+            <code>onboarding_alumno_eventos</code> (V8.4). No incluye datos de
+            <code>suscripciones</code> (trial/free/pro, V8.5) ni de Firebase
+            Authentication — fuera de alcance de esta entrega, según
+            instrucción explícita. "Alumnos únicos totales" se calcula con
+            una lectura por docente a su subcolección <code>alumnosVistos</code>;
+            revisar el costo de lecturas si la base de docentes crece
+            considerablemente.
+        </div>
+    `;
+}
+</script>
+
+</body>
+</html>

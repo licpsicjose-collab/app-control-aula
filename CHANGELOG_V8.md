@@ -1,5 +1,224 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.5.1] — Panel administrativo (cierre de V8.5)
+
+### Contexto
+Antes de continuar con Privacidad, Términos o Mercado Pago (V8.6/V8.7), se
+pidió confirmar el estado real de `panel-admin.html`. Verificación:
+**no existía** — ni el archivo, ni ninguna referencia a él fuera de
+comentarios y documentos que lo listaban como pendiente
+(`firestore.rules`, `PLANES_Y_SUSCRIPCIONES.md`, `CHANGELOG_V8.md`,
+`docs/ESTADO_PROYECTO_V8_5.md`). Esta entrada lo construye, **usando
+exclusivamente las métricas ya implementadas en V8.4** (`metricas_docentes`,
+`metricas_docentes/{docenteUid}/alumnosVistos`, `onboarding_alumno_eventos`),
+sin tocar `suscripciones` (V8.5) por instrucción explícita de esta entrega.
+
+### Agregado — `panel-admin.html` (nuevo archivo)
+- Requiere sesión de Firebase Auth (redirige a `login.html` si no hay
+  usuario) **y** que ese UID tenga un documento en la nueva colección
+  `admins/{uid}` — si Firestore rechaza la lectura de `metricas_docentes`
+  (`permission-denied`), se muestra un aviso de acceso restringido en vez
+  de fallar en silencio o mostrar un panel vacío.
+- **Adopción y actividad:** docentes activados (con al menos un documento
+  en `metricas_docentes`, es decir, que ya dieron su primera clase — se
+  documenta explícitamente que esto **no** es "total de docentes
+  registrados", dato que requeriría Firebase Auth Admin API y no está
+  disponible desde el cliente sin backend); activos en los últimos 7 y 30
+  días (`ultimaActividad`).
+- **Uso:** total de clases impartidas (suma de `totalClases`); grupos
+  distintos vistos (unión de todos los `gruposVistos`); alumnos únicos
+  totales y promedio por docente (suma de conteos de la subcolección
+  `alumnosVistos`, una lectura por docente).
+- **Onboarding docente:** completado vs. omitido vs. sin dato, leído
+  directamente de `onboardingDocente`.
+- **Onboarding alumno:** total de eventos, % completado, distribución de
+  en qué paso se omite la guía, leído de `onboarding_alumno_eventos`.
+- **Docentes por escuela:** tabla agrupando `metricas_docentes` por el
+  campo `escuela`.
+- Todo el cálculo ocurre en el cliente sobre los documentos ya leídos — no
+  se usa `count()` de Firestore ni BigQuery (no configurado en el
+  proyecto), consistente con las fuentes de datos ya declaradas en
+  `METRICAS_NEGOCIO.md` sección 0.
+
+### Agregado — `firestore.rules`
+- `function esAdmin()` — verifica `exists(/databases/.../admins/{uid})`
+  para el usuario autenticado. `exists()` se evalúa con acceso interno del
+  motor de reglas, sin depender de las reglas propias de `admins`.
+- `admins/{uid}` — colección nueva, `allow read, write: if false` sin
+  excepción: se administra exclusivamente desde la consola de Firebase o
+  el Admin SDK. No existe ninguna pantalla ni ruta de código que escriba
+  ahí — evita que cualquier cuenta pueda autoasignarse permisos de admin.
+- `metricas_docentes/{docenteUid}` — se separó `allow read, write` (una
+  sola regla) en `allow read` (dueño **o** `esAdmin()`) y `allow write`
+  (dueño únicamente, mismo esquema cerrado de siempre, sin cambios en la
+  escritura).
+- `metricas_docentes/{docenteUid}/alumnosVistos/{alumnoId}` — mismo
+  patrón: lectura para dueño o admin, escritura solo para el dueño.
+- `onboarding_alumno_eventos/{eventoId}` — la lectura, antes `if false`
+  con el comentario "reservado para un futuro panel-admin autenticado",
+  pasa a `if esAdmin()` ahora que ese panel existe. Sin cambios en
+  `create`/`update`/`delete`.
+
+### NO implementado (fuera de alcance de esta entrega, según instrucción)
+- Cualquier dato de `suscripciones` (trial/free/pro, ARPU, conversión) en
+  el panel administrativo — se deja explícitamente para una entrega
+  posterior, cuando se retome el trabajo de monetización.
+- Total de docentes registrados (requiere Admin SDK/backend).
+- Exportación del panel, filtros por rango de fecha, gráficas — el panel
+  entrega los números y tablas base; visualizaciones más ricas quedan
+  fuera de esta entrega.
+- Migración a `collectionGroup` para el conteo de alumnos únicos — se usa
+  una lectura por docente a su subcolección `alumnosVistos`, documentado
+  como límite conocido si la base de docentes crece considerablemente.
+
+### Archivos modificados/creados
+- `panel-admin.html` (nuevo)
+- `firestore.rules`
+- `docs/ESTADO_PROYECTO_V8_5.md`
+- `docs/CASOS_PRUEBA_PANEL_ADMIN_V8_5.md` (nuevo)
+
+### Validación realizada
+- Sintaxis JavaScript de `panel-admin.html` verificada con `node --check`
+  sobre su bloque `<script>` — sin errores.
+- Balance de llaves/paréntesis en `panel-admin.html` (56/56 llaves,
+  110/110 paréntesis) y en `firestore.rules` tras los cambios (44/44
+  llaves, 94/94 paréntesis, 15/15 corchetes).
+- Conteo de `<div>`/`</div>` en `panel-admin.html`: 61/61 (verificación
+  aproximada; el HTML se genera parcialmente por JavaScript, ver limitación
+  abajo).
+- **No se probó contra un proyecto Firebase real** — mismo motivo que en
+  V8.5.0: sin acceso de red ni Firebase CLI/emulador en este entorno. Ver
+  `docs/CASOS_PRUEBA_PANEL_ADMIN_V8_5.md`.
+
+---
+
+## [V8.5.0] — Sistema de suscripciones (Trial / Free / Pro)
+
+### Contexto
+Corrige una inconsistencia detectada entre `# estado del proyecto 8.5.md`
+(marcaba el sistema de suscripciones como ✅ completado) y el código real,
+que no contenía ninguna referencia a `suscripciones`, `trial`, `free`, `pro`
+ni `grupoActivo`. `PLANES_Y_SUSCRIPCIONES.md` confirmaba en su propio
+encabezado: *"Modelo comercial aprobado, sin implementación de código
+todavía"*. Esta entrada implementa el modelo descrito en ese documento,
+tomándolo (junto con la corrección del estado del proyecto) como única
+fuente de verdad, sin volver a discutir ni rediseñar las decisiones ya
+aprobadas.
+
+### Agregado — `docs/ESTADO_PROYECTO_V8_5.md`
+- Nuevo documento maestro que reemplaza a `# estado del proyecto 8.5.md`.
+- Separa explícitamente **✅ IMPLEMENTADO** de **🟡 APROBADO Y PENDIENTE DE
+  IMPLEMENTACIÓN**. El sistema de suscripciones pasa de estar listado como
+  completado a reflejar su estado real en cada punto de esta entrega.
+- Documenta tres desviaciones deliberadas respecto a la redacción literal
+  de `PLANES_Y_SUSCRIPCIONES.md` (ver sección "NO implementado" abajo).
+
+### Agregado — `login.html`
+- `registrar()`: al crear la cuenta, además del mapeo de código docente ya
+  existente, se crea `suscripciones/{uid}` con `estado: "trial"`,
+  `trialInicio` = fecha de registro (Firebase Auth), `trialFin` =
+  `trialInicio + 15 días`, y el resto de campos en `null`/`[]`. No bloquea
+  el registro si la escritura falla.
+
+### Agregado — `panel-docente.html`
+- `cargarSuscripcion()` — `onSnapshot` sobre `suscripciones/{docenteUid}`,
+  llamado desde `onAuthStateChanged` junto a las cargas ya existentes.
+  Docentes creados antes de V8.5 (sin documento de suscripción) no reciben
+  Trial retroactivo; simplemente no ven tarjeta de plan ni restricciones
+  hasta que exista un proceso de migración (fuera de alcance de esta
+  entrega).
+- `verificarTransicionAutomatica()` — evalúa en cada carga del panel si
+  `trialFin` o `proVencimiento` ya pasaron, y dispara la transición a
+  `free` correspondiente. Siempre hacia el estado más restrictivo, nunca
+  hacia `pro` (principio #4 de `PLANES_Y_SUSCRIPCIONES.md`).
+- `determinarGrupoActivoReciente()` — consulta `historial` (filtrado por
+  `docenteId`, ordenado por `fechaFin` descendente) para elegir el grupo de
+  uso más reciente como nuevo grupo activo al pasar a `free`; el resto de
+  grupos vistos se archivan en `gruposCongelados`.
+- `ejecutarTransicionAFree(origen)` — escribe el nuevo estado en
+  `suscripciones/{docenteUid}` y notifica al docente con un aviso claro
+  (distinto según venga de `trial` o de `pro`), conservando siempre el
+  historial completo sin excepción.
+- `actualizarTarjetaPlan()` — renderiza la tarjeta de plan en el header
+  (`Trial · N días restantes` / `Plan Free` / `Plan Pro`), el banner de
+  patrocinio de Psicología Aplicada (solo visible en `free`), y un aviso de
+  grupo activo/congelados (solo en `free` con congelados presentes).
+- `iniciarClase()` — se agrega la restricción de grupo activo: en plan
+  `free`, si el docente aún no tiene `grupoActivo` asignado, el primer
+  grupo con el que inicia clase se convierte automáticamente en su grupo
+  activo; si ya tiene uno asignado y el grupo elegido es distinto, la
+  creación de la clase se bloquea con un mensaje explicativo. `trial` y
+  `pro` no tienen esta restricción. Ningún otro comportamiento de
+  `iniciarClase()` se modificó.
+
+### Agregado — `firestore.rules`
+- `suscripciones/{docenteUid}` — lectura/escritura exclusiva del propio
+  docente autenticado, mismo patrón que `clases/{docenteUid}` y
+  `metricas_docentes/{docenteUid}`.
+- `allow create` — exige que todo documento nuevo nazca exactamente en
+  `estado: "trial"`, sin `proInicio`/`proVencimiento`/`precioPagado`, sin
+  `grupoActivo` y con `gruposCongelados` vacío — impide que un cliente
+  malicioso se autoasigne `pro` o un grupo activo arbitrario al crear el
+  documento.
+- `allow update` — esquema cerrado a los mismos 9 campos, `estado`
+  restringido a los tres valores válidos (`trial`/`free`/`pro`).
+- `allow delete: if false` — el historial de plan de un docente nunca se
+  borra desde el cliente.
+
+### NO implementado (explícitamente fuera de alcance, según instrucción)
+- Mercado Pago, Stripe, facturación, descuentos, cupones, licencias
+  institucionales.
+- Pantalla o flujo de compra de Pro — no existe ningún botón ni ruta de
+  código que escriba `estado: "pro"` todavía; las reglas de Firestore ya
+  lo permiten para cuando se construya ese flujo.
+- Cambio manual del grupo activo por el docente (pantalla no diseñada, ver
+  sección 15 de `PLANES_Y_SUSCRIPCIONES.md`).
+- `panel-admin.html`.
+
+### Desviaciones documentadas respecto a `PLANES_Y_SUSCRIPCIONES.md`
+1. **Transiciones automáticas:** el proyecto no tiene Cloud Functions ni
+   backend propio; la transición ocurre quando el docente abre el panel
+   después de vencer su plazo, no en el instante exacto del vencimiento.
+2. **Selección de grupo activo al pasar a Free:** el documento sugiere
+   basarse en `ultimaClaseEn` por grupo "vía `metricas_docentes`", pero esa
+   colección no guarda una marca de tiempo por grupo individual. Se usa
+   `historial` (ordenado por `fechaFin`) como equivalente práctico.
+3. **Límite de alumnos en Free:** `PLANES_Y_SUSCRIPCIONES.md` (sección 2.2)
+   especifica un máximo de 60 alumnos distintos. La instrucción de esta
+   entrega definió Free como "1 grupo activo, sin límite de alumnos". Se
+   implementó sin el tope de 60, siguiendo la instrucción más reciente.
+   **Esta divergencia entre ambos documentos queda sin resolver** y debe
+   decidirse explícitamente (actualizar `PLANES_Y_SUSCRIPCIONES.md` o
+   agregar el límite de 60 en una entrega posterior).
+
+### Archivos modificados
+- `login.html`
+- `panel-docente.html`
+- `firestore.rules`
+- `docs/ESTADO_PROYECTO_V8_5.md` (nuevo, reemplaza a `# estado del proyecto 8.5.md`)
+
+### Validación realizada
+- Sintaxis JavaScript de `login.html` y `panel-docente.html` verificada con
+  `node --check` sobre el contenido de sus bloques `<script>` — sin
+  errores.
+- Balance de llaves/paréntesis verificado en `panel-docente.html` (208/208
+  llaves, 455/455 paréntesis) y en `firestore.rules` (37/37 llaves, 77/77
+  paréntesis, 15/15 corchetes).
+- **No se ejecutaron pruebas contra un proyecto Firebase real** — este
+  entorno no tiene acceso de red saliente ni Firebase CLI/emulador
+  disponible. Ver `docs/CASOS_PRUEBA_SUSCRIPCIONES_V8_5.md` para el plan de
+  pruebas manual que debe ejecutarse contra el proyecto real
+  (`app-clase-3a564`) antes de desplegar `firestore.rules`.
+
+### Impacto en lecturas/escrituras (estimado, sobre la base ya calculada en V8.4)
+| Concepto | Adicional |
+|---|---|
+| Lecturas | +1 por carga de panel (`onSnapshot` de `suscripciones`, se mantiene abierto, no se repite por acción) |
+| Escrituras | +1 única al registrarse (creación de Trial); +1 solo en el momento de cada transición automática (no por clase) |
+| Almacenamiento | Un documento pequeño y fijo por docente (`suscripciones/{docenteUid}`) — no crece con el uso |
+
+---
+
 ## [V8.4.0] — Implementación de captura de métricas de negocio
 
 ### Contexto

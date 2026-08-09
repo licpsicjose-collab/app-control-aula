@@ -687,13 +687,35 @@ function pasoAnteriorGuiaAlumno() {
 }
 
 function omitirGuiaAlumno() {
+    let yaReportado = localStorage.getItem("tutorialAlumnoVisto") === "true";
     cerrarGuiaAlumno();
     localStorage.setItem("tutorialAlumnoVisto", "true");
+    if (!yaReportado) {
+        registrarMetricaOnboardingAlumno("omitido", pasoActualGuiaAlumno);
+    }
 }
 
 function finalizarGuiaAlumno() {
+    let yaReportado = localStorage.getItem("tutorialAlumnoVisto") === "true";
     cerrarGuiaAlumno();
     localStorage.setItem("tutorialAlumnoVisto", "true");
+    if (!yaReportado) {
+        registrarMetricaOnboardingAlumno("completado", null);
+    }
+}
+
+// ✅ V8.4 — MÉTRICAS: evento INDEPENDIENTE por alumno (nunca un contador compartido).
+// Cada alumno crea su propio documento con ID autogenerado — sin documento común,
+// no hay contención posible sin importar cuántos alumnos terminen su guía a la vez
+// (decisión de la auditoría de arquitectura, en sustitución del contador global
+// propuesto originalmente). Se reporta una sola vez por navegador, gateado por el
+// propio localStorage.tutorialAlumnoVisto ya existente.
+function registrarMetricaOnboardingAlumno(estado, pasoOmitido) {
+    db.collection("onboarding_alumno_eventos").add({
+        tipo: estado,
+        paso: (pasoOmitido === null || pasoOmitido === undefined) ? null : pasoOmitido,
+        timestamp: Date.now()
+    }).catch(() => {});
 }
 
 function cerrarGuiaAlumno() {

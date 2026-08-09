@@ -165,6 +165,47 @@ service cloud.firestore {
     }
 
     // ==========================================================================
+    // ==========================================================================
+    // metricas_docentes/{docenteUid}
+    // Documento de métricas agregadas por docente (V8.4). Solo el propio
+    // docente autenticado puede leerlo/escribirlo — nadie más, ni siquiera
+    // otro docente. Esquema cerrado de campos.
+    // ==========================================================================
+    match /metricas_docentes/{docenteUid} {
+      allow read, write: if request.auth != null
+                          && request.auth.uid == docenteUid
+                          && request.resource.data.keys().hasOnly([
+                               'escuela', 'primerUso', 'ultimaActividad',
+                               'ultimaClaseEn', 'totalClases', 'gruposVistos',
+                               'onboardingDocente', 'onboardingDocentePasoOmitido'
+                             ]);
+
+      // ✅ Corrección de arquitectura: alumnos distintos como SUBCOLECCIÓN
+      // (no como array), para no hacer crecer indefinidamente el documento
+      // padre ni degradar sus lecturas futuras (auditoría V8.4).
+      match /alumnosVistos/{alumnoId} {
+        allow read, write: if request.auth != null && request.auth.uid == docenteUid;
+      }
+    }
+
+    // ==========================================================================
+    // onboarding_alumno_eventos/{eventoId}
+    // Eventos INDEPENDIENTES de onboarding del alumno (V8.4). Cada alumno crea
+    // su propio documento con ID autogenerado — nunca un contador compartido,
+    // por lo que no hay contención posible sin importar cuántos alumnos
+    // terminen su guía al mismo tiempo (corrección de la propuesta original,
+    // que usaba un documento compartido — ver auditoría de arquitectura).
+    // Sin autenticación por diseño (el alumno no se autentica en ningún punto
+    // de la aplicación).
+    // ==========================================================================
+    match /onboarding_alumno_eventos/{eventoId} {
+      allow read: if false; // no se consulta desde el cliente; reservado para un futuro panel-admin autenticado
+      allow create: if request.resource.data.keys().hasOnly(['tipo', 'paso', 'timestamp'])
+                      && request.resource.data.tipo in ['completado', 'omitido'];
+      allow update, delete: if false; // los eventos son inmutables
+    }
+
+    // ==========================================================================
     // Cualquier otra colección o documento no contemplado arriba: denegado.
     // ==========================================================================
     match /{document=**} {

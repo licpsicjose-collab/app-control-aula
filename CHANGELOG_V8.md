@@ -1,5 +1,64 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.4.0] — Implementación de captura de métricas de negocio
+
+### Contexto
+Implementa la arquitectura **corregida** tras la auditoría técnica previa (que rechazó la propuesta original por dos riesgos de escalabilidad: un array sin límite de crecimiento y un contador compartido con riesgo de contención). Esta entrada implementa exclusivamente la versión aprobada.
+
+### Agregado — `panel-docente.html`
+- `registrarMetricaInicioClase()` — en `iniciarClase()`. Vía transacción sobre `metricas_docentes/{docenteUid}`: fija `primerUso` una sola vez (si el documento no existe), y siempre actualiza `escuela`, `ultimaActividad`, `ultimaClaseEn`, e incrementa `totalClases`.
+- `registrarMetricaFinClase()` — en `finalizarClase()`. Actualiza `ultimaActividad` y agrega el grupo de la clase a `gruposVistos` (array, `arrayUnion`); registra cada alumno de la clase en la subcolección `metricas_docentes/{docenteUid}/alumnosVistos/{alumnoId}` (no como array — decisión de la auditoría, para no hacer crecer el documento principal).
+- `docenteId` agregado a cada documento de alumno archivado en `historial/{id}/alumnos/{id}` (mismo write ya existente, sin costo adicional), para permitir en el futuro consultar "alumnos de este docente" sin escanear todo `historial`.
+- `registrarMetricaOnboardingDocente()` — en `omitirRecorrido()`/`finalizarRecorrido()`. Escribe `onboardingDocente` (`"completado"`/`"omitido"`) y, si aplica, `onboardingDocentePasoOmitido`, una sola vez por docente (gateado por el propio `localStorage.tutorialVisto` ya existente — relanzar el tour manualmente nunca vuelve a escribir esto).
+
+### Agregado — `panel-alumno.html`
+- `registrarMetricaOnboardingAlumno()` — en `omitirGuiaAlumno()`/`finalizarGuiaAlumno()`. Crea un documento **independiente** (`db.collection("onboarding_alumno_eventos").add(...)`) con `tipo`, `paso`, `timestamp` — nunca un contador compartido, eliminando por completo el riesgo de contención de escritura identificado en la auditoría. Gateado por `localStorage.tutorialAlumnoVisto`, una sola vez por navegador de alumno.
+- **Nota de hallazgo:** esta instrumentación no existía en un primer repaso del archivo (solo se había completado en `panel-docente.html`); se detectó y corrigió durante la verificación previa a esta entrega.
+
+### Agregado — `firestore.rules`
+- `metricas_docentes/{docenteUid}` — lectura/escritura exclusiva del propio docente autenticado, esquema cerrado de campos.
+- `metricas_docentes/{docenteUid}/alumnosVistos/{alumnoId}` — misma restricción de dueño.
+- `onboarding_alumno_eventos/{eventoId}` — creación pública (el alumno no se autentica), sin lectura desde el cliente, sin edición ni borrado, esquema cerrado de 3 campos y `tipo` restringido a dos valores enumerados.
+- **Corrección propia detectada durante la implementación:** el diff propuesto en la auditoría anterior (`match /metricas_globales/onboarding_alumno_eventos/{eventoId}`) tenía una estructura de rutas inválida (le faltaba el nombre de una subcolección real entre el documento fijo y el ID del evento). Se corrigió como colección de nivel superior (`onboarding_alumno_eventos/{eventoId}`), más simple y sin el problema.
+
+### NO implementado (explícitamente fuera de alcance)
+- `panel-admin.html` — no se construyó, según instrucción.
+- Sistema de pagos, Mercado Pago, Stripe, métricas de monetización reales, BigQuery.
+- El array `alumnosVistos` y el contador compartido de onboarding de alumno — descartados por la auditoría de arquitectura antes de implementar.
+
+### Archivos modificados
+- `panel-docente.html`
+- `panel-alumno.html`
+- `firestore.rules`
+
+### Impacto estimado en lecturas, escrituras y almacenamiento
+Sobre la base ya calculada en la auditoría de almacenamiento previa (~3,116 lecturas / 1,569 escrituras por clase de 30 alumnos):
+
+| Concepto | Adicional por clase | Nota |
+|---|---|---|
+| Lecturas | +1 (transacción de `iniciarClase`) | Insignificante (~0.03%) |
+| Escrituras | +2 (transacción + `finalizarClase`) + ~30 (subcolección `alumnosVistos`, una por alumno, no deduplicadas en la escritura) | ~2% adicional por la subcolección; el resto es insignificante |
+| Escrituras únicas (no recurrentes) | +1 por docente (onboarding docente), +1 por navegador de alumno (onboarding alumno) | Costo total, no mensual — insignificante en cualquier escala |
+| Almacenamiento | Un documento pequeño por docente (`metricas_docentes`) + un documento diminuto por alumno distinto histórico (`alumnosVistos`) + un documento pequeño por evento de onboarding de alumno (`onboarding_alumno_eventos`, crece indefinidamente pero a bajo volumen) | Marginal en las tres escalas auditadas (100/500/5,000 docentes); ver riesgo pendiente sobre `onboarding_alumno_eventos` abajo |
+
+**Costo adicional estimado, sumado al ya calculado:** +$0.01/mes (100 docentes), +$0.03/mes (500), +$0.30/mes (5,000) — imperceptible frente al costo ya dominante (respaldo periódico del alumno cada 60 segundos).
+
+### Riesgos pendientes
+1. **`onboarding_alumno_eventos` crece indefinidamente sin ningún mecanismo de purga**, igual que `historial`. A bajo volumen (un evento por alumno nuevo, no recurrente) esto no es un problema a las escalas auditadas, pero es el mismo patrón de "crecimiento sin techo" ya señalado para `historial` — mismo tipo de decisión de retención pendiente (ver recomendación abajo).
+2. **El gate de "solo una vez" depende de `localStorage`** en ambos onboardings — un docente/alumno que borre datos del navegador puede generar un evento o una escritura de métrica duplicada. Riesgo de exactitud, no de seguridad.
+3. **La subcolección `alumnosVistos` no deduplica en la escritura** (se sobreescribe el mismo documento si el alumno ya existía, lo cual es correcto y barato), pero si un mismo alumno real tiene múltiples IDs por typos de nombre (limitación ya documentada desde la auditoría de seguridad), el conteo de "alumnos distintos" seguirá inflado por esa causa raíz, no por este diseño de métricas en sí.
+4. **Nada de esto es consultable todavía sin un panel-admin autenticado** — todas las reglas de lectura de las colecciones nuevas son `if false` o restringidas al propio docente; construir la agregación real (sumas, conteos vía `count()`) es trabajo pendiente, explícitamente fuera de esta entrega.
+
+### Recomendaciones para V8.5
+1. Construir `panel-admin.html` (ahora que la captura de datos ya existe) para poder finalmente leer y agregar `metricas_docentes`, `alumnosVistos` (vía `count()`) y `onboarding_alumno_eventos`.
+2. Definir y aplicar una política de retención para `historial` **y** para `onboarding_alumno_eventos` (ver recomendación de retención abajo) antes de que el crecimiento sin techo de ambas colecciones se vuelva un problema real.
+3. Evaluar si vale la pena instrumentar la métrica 3.4 de `METRICAS_NEGOCIO.md` (uso real de funciones, no solo estado final), que quedó pendiente por requerir un registro de eventos más amplio que el implementado aquí.
+
+### Compatibilidad con V8.3.1
+Confirmado mediante `diff`: `panel-docente.html` y `panel-alumno.html` conservan intactas todas las funciones de V8.3.1 (doble código, `activarRetardo()`, sensibilidad configurable, los 10 pasos del onboarding docente, los 5 pasos del onboarding alumno). `firestore.rules` conserva sin cambios el campo `'sensibilidad'` ya autorizado; el diff de esta entrega es puramente aditivo. `login.html`, `index.html` y los 3 manifests no se tocaron.
+
+---
+
 ## [V8.3.1] — Revisión de implementación: restaurar dos códigos, cancelar retardo automático
 
 ### Contexto de la revisión

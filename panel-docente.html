@@ -499,7 +499,7 @@ function reanudarClase() {
     claseActivaRef.update({ pausada: false });
 }
 
-function iniciarClase() {
+async function iniciarClase() {
     let esc = document.getElementById("escuela").value.trim();
     let mat = document.getElementById("materia").value.trim();
     let grp = document.getElementById("grupoClase").value.trim();
@@ -516,7 +516,7 @@ function iniciarClase() {
     let cIn = Math.floor(1000 + Math.random() * 9000).toString();
     let cRet = Math.floor(1000 + Math.random() * 9000).toString();
 
-    claseActivaRef.set({
+    await claseActivaRef.set({
         escuela: esc,
         materia: mat,
         grupoClase: grp,
@@ -527,6 +527,36 @@ function iniciarClase() {
         modo: "normal",
         sensibilidad: sensibilidad
     });
+
+    registrarMetricaInicioClase(esc); // ✅ V8.4 — métricas de negocio (no bloquea el flujo si falla)
+}
+
+// ✅ V8.4 — MÉTRICAS: registra fecha de primer uso (solo una vez, vía transacción),
+// última actividad, última clase generada, total de clases y escuela.
+// Documento propio del docente, actualización de bajo costo (+1 lectura, +1 escritura
+// por clase creada), nunca leído ni escrito por nadie más que el propio docente.
+function registrarMetricaInicioClase(escuela) {
+    let metricaRef = db.collection("metricas_docentes").doc(docenteUid);
+    db.runTransaction(async (tx) => {
+        let doc = await tx.get(metricaRef);
+        let ahora = Date.now();
+        if (!doc.exists) {
+            tx.set(metricaRef, {
+                escuela: escuela,
+                primerUso: ahora,
+                ultimaActividad: ahora,
+                ultimaClaseEn: ahora,
+                totalClases: 1
+            });
+        } else {
+            tx.update(metricaRef, {
+                escuela: escuela,
+                ultimaActividad: ahora,
+                ultimaClaseEn: ahora,
+                totalClases: firebase.firestore.FieldValue.increment(1)
+            });
+        }
+    }).catch(() => {}); // no debe interrumpir la creación de la clase si esto falla
 }
 
 function escucharAlumnos() {
@@ -740,14 +770,42 @@ async function finalizarClase() {
     // Mover registros de alumnos al historial interno
     for (let al of listaAlumnosGlobal) {
         let idAlumno = `${al.nombre}_${al.grupo}`.replace(/\s+/g, '_');
-        await historialRef.collection("alumnos").doc(idAlumno).set(al);
+        // ✅ V8.4 — MÉTRICAS: se agrega docenteId al alumno archivado (mismo write,
+        // sin costo adicional), para poder consultar "alumnos de este docente"
+        // en el futuro sin escanear todo historial.
+        await historialRef.collection("alumnos").doc(idAlumno).set({
+            ...al,
+            docenteId: docenteUid
+        });
         // Limpieza de la celda activa
         await claseActivaRef.collection("alumnos").doc(idAlumno).delete();
     }
 
+    registrarMetricaFinClase(dataClase.grupoClase); // ✅ V8.4 — métricas (no bloquea el cierre de la clase)
+
     // Borrar la sesión activa del servidor
     await claseActivaRef.delete();
     alert("Clase guardada en el historial de forma segura.");
+}
+
+// ✅ V8.4 — MÉTRICAS: alumnos distintos como SUBCOLECCIÓN (no array), para no hacer
+// crecer indefinidamente el documento principal de metricas_docentes ni degradar
+// sus lecturas futuras (decisión de la auditoría de arquitectura). gruposVistos sí
+// se mantiene como array porque el número de grupos por docente está naturalmente acotado.
+function registrarMetricaFinClase(grupoClase) {
+    let metricaRef = db.collection("metricas_docentes").doc(docenteUid);
+
+    metricaRef.set({
+        ultimaActividad: Date.now(),
+        gruposVistos: firebase.firestore.FieldValue.arrayUnion(grupoClase)
+    }, { merge: true }).catch(() => {});
+
+    listaAlumnosGlobal.forEach(al => {
+        let idAlumno = `${al.nombre}_${al.grupo}`.replace(/\s+/g, '_');
+        metricaRef.collection("alumnosVistos").doc(idAlumno)
+            .set({ primeraVez: Date.now() }, { merge: true })
+            .catch(() => {});
+    });
 }
 
 // ============================================================
@@ -927,13 +985,34 @@ function pasoAnteriorRecorrido() {
 }
 
 function omitirRecorrido() {
+    let yaReportado = localStorage.getItem("tutorialVisto") === "true";
     cerrarRecorrido();
     localStorage.setItem("tutorialVisto", "true");
+    if (!yaReportado) {
+        registrarMetricaOnboardingDocente("omitido", pasoActualRecorrido);
+    }
 }
 
 function finalizarRecorrido() {
+    let yaReportado = localStorage.getItem("tutorialVisto") === "true";
     cerrarRecorrido();
     localStorage.setItem("tutorialVisto", "true");
+    if (!yaReportado) {
+        registrarMetricaOnboardingDocente("completado", null);
+    }
+}
+
+// ✅ V8.4 — MÉTRICAS: se reporta una sola vez por docente (gateado por el propio
+// localStorage.tutorialVisto ya existente); relanzar el tour manualmente
+// ("❓ Ver recorrido nuevamente") nunca vuelve a escribir esto.
+function registrarMetricaOnboardingDocente(estado, pasoOmitido) {
+    let datos = { onboardingDocente: estado };
+    if (pasoOmitido !== null) {
+        datos.onboardingDocentePasoOmitido = pasoOmitido;
+    }
+    db.collection("metricas_docentes").doc(docenteUid)
+        .set(datos, { merge: true })
+        .catch(() => {});
 }
 
 function cerrarRecorrido() {

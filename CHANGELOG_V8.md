@@ -1,5 +1,66 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.5.2] — Corrección: mensaje de grupo congelado prometía funcionalidad inexistente
+
+### Contexto
+Al probar manualmente el plan Free, se detectó que el aviso de grupo
+congelado en `panel-docente.html` decía *"solo consulta/exportación"* y
+*"puedes consultarlo y exportarlo"*, dando a entender que existía una
+interfaz para revisar o exportar los grupos congelados. **Esa interfaz
+nunca se construyó** — no existe ninguna pantalla en el proyecto para
+consultar `historial` archivado por grupo; el único botón de exportación
+(`exportarCSV()`) exporta la clase activa en pantalla, no historial
+archivado. El texto copiaba la descripción de "Grupo Congelado" de
+`PLANES_Y_SUSCRIPCIONES.md` (diseño aprobado) como si ya estuviera
+implementada, sin serlo.
+
+Corrección de alcance acotado, sin construir la interfaz pendiente: se
+corrige únicamente el texto que promete algo inexistente, en tres lugares.
+
+### Corregido — `panel-docente.html`
+- Banner `#banner-grupo-congelado`: ya no dice "solo consulta/exportación,
+  sin clases nuevas". Ahora dice que esos grupos no pueden iniciar clases
+  nuevas, que sus datos permanecen guardados, que **todavía no hay
+  pantalla** para consultarlos o exportarlos por separado, y que
+  actualizar a Pro es la forma de volver a usarlos.
+- Alerta de bloqueo dentro de `iniciarClase()` (cuando el docente intenta
+  iniciar clase en un grupo distinto al activo): se quitó la misma
+  promesa de "puedes consultarlo y exportarlo"; ahora solo indica que no
+  se puede iniciar clase ahí y que los datos permanecen guardados.
+- Ninguna otra lógica de `iniciarClase()`, `cargarSuscripcion()`,
+  `verificarTransicionAutomatica()` ni `actualizarTarjetaPlan()` se
+  modificó — el bloqueo de grupo activo/congelado sigue funcionando
+  exactamente igual, solo cambió el texto.
+
+### Corregido — `docs/ESTADO_PROYECTO_V8_5.md`
+- Sección "GRUPOS → Grupo Congelado": se separó explícitamente el
+  **comportamiento real implementado** (no puede iniciar clases; datos
+  guardados; sin interfaz de consulta/exportación todavía; requiere Pro
+  para volver a usar esos grupos) del **diseño aprobado y pendiente**
+  (consultar / exportar / revisar historial — movidos a 🟡, con referencia
+  a `PLANES_Y_SUSCRIPCIONES.md`).
+- Se agregó una nota reconociendo que tanto la documentación anterior como
+  el mensaje que veía el docente describían esa función como si ya
+  existiera, y que ya se corrigió en ambos lugares.
+
+### NO implementado (fuera de alcance de esta corrección, según instrucción)
+- Pantalla o vista de historial filtrado por grupo.
+- Exportación de historial archivado (de cualquier grupo, activo o
+  congelado).
+- Cualquier otra pantalla nueva.
+
+### Archivos modificados
+- `panel-docente.html`
+- `docs/ESTADO_PROYECTO_V8_5.md`
+- `CHANGELOG_V8.md`
+
+### Validación realizada
+- Revisión de texto únicamente (sin cambios de lógica) — no se requirió
+  volver a correr `node --check`, pero se hizo de todas formas por
+  consistencia con el resto de la entrega: sin errores de sintaxis.
+
+---
+
 ## [V8.5.1] — Panel administrativo (cierre de V8.5)
 
 ### Contexto

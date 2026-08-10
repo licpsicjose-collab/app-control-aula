@@ -455,16 +455,28 @@ Puede:
 
 ## Grupo Congelado
 
-Puede:
-
-- consultar
-- exportar
-- revisar historial
+**Comportamiento real implementado (V8.5.0):**
 
 No puede:
 
 - crear nuevas clases
 - iniciar sesiones
+
+Sus datos permanecen almacenados, pero **no existe todavía una interfaz
+dedicada para consultarlos o exportarlos individualmente**. Para volver a
+utilizar grupos adicionales se requiere actualizar al Plan Pro.
+
+**Diseño aprobado, pendiente de implementación** (`PLANES_Y_SUSCRIPCIONES.md`,
+sección Grupo Congelado — no confundir con lo anterior):
+
+- 🟡 Consultar
+- 🟡 Exportar
+- 🟡 Revisar historial
+
+Nota: una entrega anterior de esta documentación y el mensaje que veía el
+docente en la app describían "consultar/exportar" como si ya existiera.
+Era incorrecto — se corrigió en ambos lugares para no prometer una
+funcionalidad que todavía no está construida.
 
 ---
 

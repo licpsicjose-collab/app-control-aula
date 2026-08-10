@@ -1,5 +1,85 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.5.4] — CORRECCIÓN DE SEGURIDAD CRÍTICA: escritura sin restricción en `suscripciones`
+
+### Contexto
+Auditoría externa detectó que la regla `update` de `suscripciones/{docenteUid}`
+(desde V8.5.0) solo validaba la **forma** del documento — campos permitidos,
+`estado` en el enum, un par de tipos — pero no **quién tiene derecho a
+escribir qué valor**. Consecuencia real: cualquier docente autenticado
+podía escribir directamente contra el SDK de Firestore (sin pasar por
+`panel-docente.html`) y ponerse `estado: "pro"` y `perpetuo: true` por su
+cuenta, obteniendo Pro Perpetuo gratis. Confirmado por trazado manual de
+la regla anterior — el ataque no requería ninguna vulnerabilidad de la
+aplicación, solo conocer la API pública de Firestore, algo estándar en
+cualquier app web con Firebase.
+
+También se confirmó el hallazgo relacionado: los campos `trialInicio`,
+`trialFin`, `proInicio`, `proVencimiento`, `precioPagado`, `grupoActivo` y
+`gruposCongelados` no tenían ninguna validación de tipo en `update` (solo
+en `create`).
+
+### Corregido — `firestore.rules`
+- `suscripciones/{docenteUid}` → `allow update`, reescrita por completo:
+  - `perpetuo`, `proInicio`, `proVencimiento`, `precioPagado`,
+    `trialInicio`, `trialFin` ahora deben ser **idénticos** al valor ya
+    almacenado (`resource.data.*`) — el cliente no puede modificarlos bajo
+    ninguna combinación, en ninguna escritura. Solo la consola de Firebase
+    (Admin SDK, no sujeta a estas reglas) puede tocarlos.
+  - `estado` solo puede: (A) permanecer igual al valor ya almacenado
+    (caso real: asignar `grupoActivo` bajo free sin cambiar de plan), o
+    (B) pasar a `"free"`, y únicamente si el documento ya almacenado
+    prueba que el plan anterior venció de verdad — comparando
+    `request.time` (hora del servidor de Firestore, no un dato que el
+    cliente controle) contra `trialFin` o `proVencimiento` ya guardados.
+  - Se agregó validación de tipo para `grupoActivo` (`string` o `null`) y
+    `gruposCongelados` (`list`), cerrando el segundo hallazgo.
+  - Resultado: subir a `"pro"` o marcar `perpetuo: true` sigue siendo,
+    como siempre, exclusivo de la consola de Firebase. Ningún cliente
+    puede lograrlo por su cuenta bajo ninguna secuencia de escrituras.
+
+### Corregido — `docs/ESTADO_PROYECTO_V8_5.md`
+- Se detectó y corrigió un **error propio**, sin relación con el hallazgo
+  de seguridad: el documento afirmaba "10 pasos declarados / 8 pasos
+  implementados en código" sobre el onboarding docente, una discrepancia
+  que se escribió sin verificar contra el código en su momento. Conteo
+  directo sobre `pasosRecorrido[]` en `panel-docente.html` confirma
+  **10 pasos implementados**, consistente con lo que ya documentaba
+  `CHANGELOG_V8.md` desde V8.3.1. Corregido para reflejar el conteo real.
+
+### NO modificado (fuera de alcance de esta corrección)
+- No se introdujeron Cloud Functions — la corrección se logró íntegramente
+  dentro de `firestore.rules`, sin backend adicional.
+- Ninguna función de `panel-docente.html` se modificó — los flujos
+  legítimos (asignar grupo activo, transición automática a free) siguen
+  escribiendo exactamente lo mismo que antes; solo cambiaron las reglas
+  que verifican esas escrituras del lado del servidor.
+- No se resolvió el pendiente de escalabilidad de `alumnosVistos` en
+  `panel-admin.html` (ya documentado como límite conocido desde V8.5.1) —
+  el hallazgo se confirmó como cierto, no se atendió en esta entrega.
+
+### Archivos modificados
+- `firestore.rules`
+- `docs/ESTADO_PROYECTO_V8_5.md`
+- `CHANGELOG_V8.md`
+
+### Validación realizada
+- Balance de llaves/paréntesis/corchetes en `firestore.rules` tras el
+  cambio: 44/44 llaves, 110/110 paréntesis, 14/14 corchetes.
+- Trazado manual de los dos flujos legítimos existentes contra la nueva
+  regla (asignación de grupo activo bajo free, transición automática a
+  free) — ambos siguen pasando sin cambios en su comportamiento.
+- Trazado manual del intento de ataque descrito en el contexto — la nueva
+  regla lo rechaza: `perpetuo` y `estado: "pro"` ya no son alcanzables
+  desde una escritura de cliente bajo ninguna combinación de campos.
+- **No se probó contra un proyecto Firebase real** — mismo motivo que en
+  entregas anteriores. Este es el pendiente más urgente de todo el
+  proyecto: desplegar esta regla y confirmar en el emulador o en el
+  proyecto real que (a) los flujos legítimos siguen funcionando y (b) el
+  intento de escritura maliciosa descrito arriba ahora es rechazado.
+
+---
+
 ## [V8.5.3] — Licencias perpetuas (Pro sin vencimiento)
 
 ### Contexto

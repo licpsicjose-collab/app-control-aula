@@ -262,17 +262,25 @@ service cloud.firestore {
                     && request.resource.data.actualizadoEn is number
                     && request.resource.data.perpetuo == false;
 
-      // Actualización: mismo esquema cerrado, ahora con 'perpetuo'. Cubre
-      // las transiciones automáticas trial→free y pro→free (que deben
-      // IGNORARSE cuando perpetuo == true, lógica aplicada en
-      // panel-docente.html — las reglas por sí solas no conocen fechas),
-      // la asignación/registro del grupo activo bajo free, y una futura
-      // confirmación de compra de Pro (sin proveedor de pago seleccionado
-      // todavía — ver PLANES_Y_SUSCRIPCIONES.md sección 16). No se agrega
-      // aquí ninguna restricción especial para 'perpetuo': igual que el
-      // resto del documento, el cliente puede escribirlo si tiene el uid
-      // correcto, pero panel-docente.html nunca lo hace por sí mismo — su
-      // única vía prevista es la asignación manual desde la consola.
+      // Actualización — V8.5.4 CORRECCIÓN DE SEGURIDAD: la versión anterior
+      // de esta regla solo validaba la FORMA del documento (campos
+      // permitidos, tipos en un par de campos, estado en el enum), pero no
+      // quién tiene derecho a escribir qué valor. Eso permitía que
+      // cualquier docente autenticado se autoasignara 'pro' o
+      // 'perpetuo: true' directamente vía el SDK de Firestore, sin pasar
+      // por panel-docente.html. Esta versión solo permite dos escrituras
+      // legítimas desde el cliente:
+      //   (A) Mantener el mismo 'estado' (caso real: asignar/actualizar
+      //       grupoActivo/gruposCongelados bajo free, sin cambiar de plan).
+      //   (B) Transicionar de 'trial'→'free' o 'pro'→'free', y SOLO si el
+      //       documento ya almacenado prueba que el plazo realmente venció
+      //       (comparando contra request.time, la hora del servidor —
+      //       no un valor que el cliente pueda inventar).
+      // 'perpetuo', 'proInicio', 'proVencimiento', 'precioPagado',
+      // 'trialInicio' y 'trialFin' quedan congelados: el cliente nunca
+      // puede modificarlos por su cuenta bajo ninguna combinación. Subir a
+      // 'pro' o marcar 'perpetuo: true' sigue siendo, como siempre,
+      // exclusivo de la consola de Firebase (que no pasa por estas reglas).
       allow update: if request.auth != null
                     && request.auth.uid == docenteUid
                     && request.resource.data.keys().hasOnly([
@@ -281,9 +289,31 @@ service cloud.firestore {
                          'grupoActivo', 'gruposCongelados', 'actualizadoEn',
                          'perpetuo'
                        ])
-                    && request.resource.data.estado in ['trial', 'free', 'pro']
                     && request.resource.data.actualizadoEn is number
-                    && request.resource.data.perpetuo is bool;
+                    && (request.resource.data.grupoActivo is string || request.resource.data.grupoActivo == null)
+                    && request.resource.data.gruposCongelados is list
+                    && request.resource.data.perpetuo == resource.data.perpetuo
+                    && request.resource.data.proInicio == resource.data.proInicio
+                    && request.resource.data.proVencimiento == resource.data.proVencimiento
+                    && request.resource.data.precioPagado == resource.data.precioPagado
+                    && request.resource.data.trialInicio == resource.data.trialInicio
+                    && request.resource.data.trialFin == resource.data.trialFin
+                    && (
+                         (request.resource.data.estado == resource.data.estado)
+                         ||
+                         (
+                           request.resource.data.estado == 'free'
+                           && (
+                                (resource.data.estado == 'trial'
+                                 && resource.data.trialFin is number
+                                 && request.time.toMillis() > resource.data.trialFin)
+                                ||
+                                (resource.data.estado == 'pro'
+                                 && resource.data.proVencimiento is number
+                                 && request.time.toMillis() > resource.data.proVencimiento)
+                              )
+                         )
+                       );
 
       allow delete: if false;
     }

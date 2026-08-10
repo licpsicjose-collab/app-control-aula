@@ -186,7 +186,8 @@ async function registrar(){
             precioPagado: null,
             grupoActivo: null,
             gruposCongelados: [],
-            actualizadoEn: ahoraRegistro
+            actualizadoEn: ahoraRegistro,
+            perpetuo: false
         }).catch(() => {});
 
         alert("✅ Cuenta creada con éxito. Tu Código de Enlace Docente es: " + codigoAsignado);

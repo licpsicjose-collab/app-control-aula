@@ -233,18 +233,23 @@ service cloud.firestore {
 
       // Creación inicial automática al registrarse (login.html → registrar()).
       // Todo docente nace exclusivamente en trial, sin historial de Pro y
-      // sin grupo activo ni congelados todavía.
+      // sin grupo activo ni congelados todavía. perpetuo nace siempre en
+      // false — una licencia perpetua (V8.5.1) solo se otorga mediante
+      // asignación manual posterior desde la consola de Firebase (ver
+      // sección "Licencias perpetuas" más abajo), nunca al registrarse.
       allow create: if request.auth != null
                     && request.auth.uid == docenteUid
                     && request.resource.data.keys().hasOnly([
                          'estado', 'trialInicio', 'trialFin',
                          'proInicio', 'proVencimiento', 'precioPagado',
-                         'grupoActivo', 'gruposCongelados', 'actualizadoEn'
+                         'grupoActivo', 'gruposCongelados', 'actualizadoEn',
+                         'perpetuo'
                        ])
                     && request.resource.data.keys().hasAll([
                          'estado', 'trialInicio', 'trialFin',
                          'proInicio', 'proVencimiento', 'precioPagado',
-                         'grupoActivo', 'gruposCongelados', 'actualizadoEn'
+                         'grupoActivo', 'gruposCongelados', 'actualizadoEn',
+                         'perpetuo'
                        ])
                     && request.resource.data.estado == 'trial'
                     && request.resource.data.trialInicio is number
@@ -254,22 +259,31 @@ service cloud.firestore {
                     && request.resource.data.precioPagado == null
                     && request.resource.data.grupoActivo == null
                     && request.resource.data.gruposCongelados == []
-                    && request.resource.data.actualizadoEn is number;
+                    && request.resource.data.actualizadoEn is number
+                    && request.resource.data.perpetuo == false;
 
-      // Actualización: mismo esquema cerrado. Cubre las transiciones
-      // automáticas trial→free y pro→free, la asignación/registro del
-      // grupo activo bajo free, y una futura confirmación de compra de
-      // Pro (sin proveedor de pago seleccionado todavía — ver
-      // PLANES_Y_SUSCRIPCIONES.md sección 16).
+      // Actualización: mismo esquema cerrado, ahora con 'perpetuo'. Cubre
+      // las transiciones automáticas trial→free y pro→free (que deben
+      // IGNORARSE cuando perpetuo == true, lógica aplicada en
+      // panel-docente.html — las reglas por sí solas no conocen fechas),
+      // la asignación/registro del grupo activo bajo free, y una futura
+      // confirmación de compra de Pro (sin proveedor de pago seleccionado
+      // todavía — ver PLANES_Y_SUSCRIPCIONES.md sección 16). No se agrega
+      // aquí ninguna restricción especial para 'perpetuo': igual que el
+      // resto del documento, el cliente puede escribirlo si tiene el uid
+      // correcto, pero panel-docente.html nunca lo hace por sí mismo — su
+      // única vía prevista es la asignación manual desde la consola.
       allow update: if request.auth != null
                     && request.auth.uid == docenteUid
                     && request.resource.data.keys().hasOnly([
                          'estado', 'trialInicio', 'trialFin',
                          'proInicio', 'proVencimiento', 'precioPagado',
-                         'grupoActivo', 'gruposCongelados', 'actualizadoEn'
+                         'grupoActivo', 'gruposCongelados', 'actualizadoEn',
+                         'perpetuo'
                        ])
                     && request.resource.data.estado in ['trial', 'free', 'pro']
-                    && request.resource.data.actualizadoEn is number;
+                    && request.resource.data.actualizadoEn is number
+                    && request.resource.data.perpetuo is bool;
 
       allow delete: if false;
     }

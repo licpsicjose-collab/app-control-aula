@@ -1,5 +1,73 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.5.3] — Licencias perpetuas (Pro sin vencimiento)
+
+### Contexto
+Se pidió soporte para docentes con acceso Pro permanente, sin fecha de
+vencimiento, sin tocar el sistema Trial/Free/Pro existente ni implementar
+pagos — asignación exclusivamente manual desde Firestore.
+
+### Agregado — `firestore.rules`
+- Campo `perpetuo` (boolean) agregado al esquema cerrado de
+  `suscripciones/{docenteUid}`, en `create` y `update`.
+- `allow create`: exige `perpetuo == false` — un docente nuevo nunca nace
+  con licencia perpetua desde el registro.
+- `allow update`: exige `perpetuo is bool` — sin restringir su valor, ya
+  que la asignación a `true` ocurre desde la consola de Firebase (que
+  opera con privilegios de administrador y no pasa por estas reglas), no
+  desde el cliente.
+
+### Agregado — `login.html`
+- `registrar()`: el documento de Trial que se crea al registrarse ahora
+  incluye `perpetuo: false` explícitamente (requerido por el esquema
+  cerrado de las reglas).
+
+### Agregado — `panel-docente.html`
+- `verificarTransicionAutomatica()`: primera verificación de la función —
+  si `datosSuscripcion.perpetuo === true`, la función retorna de
+  inmediato, sin evaluar `trialFin` ni `proVencimiento`, sin importar el
+  `estado` guardado. Ningún vencimiento dispara ninguna transición
+  mientras `perpetuo` sea `true`.
+- `actualizarTarjetaPlan()`: cuando `estado === "pro"` y
+  `perpetuo === true`, la tarjeta muestra "Plan Pro Perpetuo" en vez de
+  "Plan Pro" (mismo estilo visual `plan-pro`, solo cambia el texto).
+- `iniciarClase()` — sin cambios: un docente con licencia perpetua tiene
+  `estado: "pro"`, que ya no tenía restricción de grupo activo antes de
+  esta entrega.
+
+### Confirmado sin cambios — `panel-admin.html`
+- No usa datos de `suscripciones` en ningún punto (fuera de alcance desde
+  V8.5.1 — panel administrativo). Verificado con `grep`: la única mención
+  de "suscripciones" en ese archivo es un comentario explicando esa
+  exclusión. Sin ninguna incompatibilidad que resolver.
+
+### NO implementado (explícitamente fuera de alcance, según instrucción)
+- Ningún flujo de pago para licencias perpetuas.
+- Ninguna pantalla para asignar `perpetuo` desde la aplicación — es
+  exclusivamente manual desde Firestore, igual que `admins/{uid}`.
+- Ningún cambio a las reglas comerciales de Trial, Free o Pro para
+  docentes sin licencia perpetua.
+
+### Archivos modificados
+- `firestore.rules`
+- `login.html`
+- `panel-docente.html`
+- `docs/ESTADO_PROYECTO_V8_5.md`
+
+### Validación realizada
+- Sintaxis JavaScript de `login.html` y `panel-docente.html` verificada
+  con `node --check` — sin errores.
+- Balance de llaves/paréntesis/corchetes en `firestore.rules` tras el
+  cambio: 44/44 llaves, 97/97 paréntesis, 15/15 corchetes.
+- **No se probó contra un proyecto Firebase real** — mismo motivo que en
+  entregas anteriores (sin red ni Firebase CLI/emulador en este entorno).
+  Pendiente: asignar manualmente `perpetuo: true` a una cuenta de prueba
+  en plan Pro y confirmar que la tarjeta cambia a "Plan Pro Perpetuo" y
+  que una fecha de `proVencimiento` en el pasado no dispara la transición
+  a Free.
+
+---
+
 ## [V8.5.2] — Corrección: mensaje de grupo congelado prometía funcionalidad inexistente
 
 ### Contexto

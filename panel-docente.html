@@ -658,6 +658,14 @@ function cargarSuscripcion() {
 // docs/ESTADO_PROYECTO_V8_5.md).
 async function verificarTransicionAutomatica() {
     if (!datosSuscripcion || transicionEnProceso) return;
+
+    // ✅ V8.5.1 — LICENCIAS PERPETUAS: si perpetuo === true, se ignoran
+    // vencimientos y transiciones por completo, sin importar el estado
+    // (trial/free/pro) ni las fechas almacenadas. No se toca ningún otro
+    // campo del documento — el sistema Trial/Free/Pro sigue intacto para
+    // el resto de los docentes.
+    if (datosSuscripcion.perpetuo === true) return;
+
     let ahora = Date.now();
 
     if (datosSuscripcion.estado === "trial" && datosSuscripcion.trialFin && ahora > datosSuscripcion.trialFin) {
@@ -741,7 +749,9 @@ function actualizarTarjetaPlan() {
         tarjeta.innerText = `🚀 Trial · ${diasRestantes} día${diasRestantes === 1 ? '' : 's'} restante${diasRestantes === 1 ? '' : 's'}`;
     } else if (datosSuscripcion.estado === "pro") {
         tarjeta.classList.add("plan-pro");
-        tarjeta.innerText = "⭐ Plan Pro";
+        // ✅ V8.5.1 — LICENCIAS PERPETUAS: mismo estilo visual que Pro,
+        // solo cambia la etiqueta de texto.
+        tarjeta.innerText = (datosSuscripcion.perpetuo === true) ? "⭐ Plan Pro Perpetuo" : "⭐ Plan Pro";
     } else {
         tarjeta.classList.add("plan-free");
         tarjeta.innerText = "Plan Free";

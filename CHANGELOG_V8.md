@@ -1,5 +1,81 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.6.2] — Enlaces legales + Control de pagos en panel administrativo
+
+### Nota de transparencia
+Al empezar esta entrega, `firestore.rules` ya tenía una regla etiquetada
+"V8.6.2" (lectura de `suscripciones` para administradores) que no aparecía
+en ningún registro de este `CHANGELOG_V8.md`, y `panel-admin.html` seguía
+sin usar esa colección en absoluto. Parece trabajo iniciado y no
+concluido. Se completa aquí de forma consistente, documentando todo junto
+bajo el mismo número de versión que ya estaba en el código.
+
+### Agregado — `panel-docente.html`
+- Franja de enlaces, debajo de los banners de suscripción: **Aviso de
+  Privacidad**, **Términos de Uso**, **Soporte** — apuntan directamente a
+  `AVISO_PRIVACIDAD.md`, `TERMINOS_DE_USO.md`, `POLITICA_SOPORTE.md`.
+  El enlace al Consentimiento informado (header, desde V8.6.0) no se tocó.
+- `flex-wrap: wrap` agregado al contenedor del header, por precaución, ya
+  que ahora hay más elementos y podría desbordar en pantallas angostas.
+
+### Agregado — `firestore.rules`
+- `mapeo_codigos` → `allow list`: se agrega `|| esAdmin()`, necesario para
+  que el panel administrativo pueda resolver qué correo corresponde a cada
+  `docenteUid` al mostrar el control de pagos. La restricción para
+  docentes normales (solo pueden listar su propio mapeo) no cambia.
+- La regla de lectura de `suscripciones` con `esAdmin()` ya existía
+  (encontrada al inicio de esta entrega, ver nota de transparencia arriba)
+  — no se modificó, solo se le dio uso real por primera vez.
+
+### Agregado — `panel-admin.html`
+- Nueva sección **"Control de pagos (suscripciones)"**, de solo lectura:
+  - Lee `suscripciones` (todos los docentes) y `mapeo_codigos` (para
+    mostrar el correo en vez del UID).
+  - Por cada docente: plan actual (Trial / Free / Pro / Pro Perpetuo),
+    días restantes antes de vencer (Trial o Pro sin licencia perpetua), y
+    el precio pagado si lo hay.
+  - Fila resaltada en rojo y marcada con ⚠️ cuando el Trial vence en 3 días
+    o menos, o el Pro (no perpetuo) vence en 7 días o menos — es el
+    "recordatorio" pedido: al abrir el panel, lo urgente queda arriba de
+    la tabla, ordenado por cercanía al vencimiento.
+  - Tarjeta de resumen con el conteo de docentes urgentes, solo si hay al
+    menos uno.
+  - **No escribe nada en Firestore** — sigue sin existir ningún flujo de
+    pago automático; esta tabla solo ayuda a saber a quién le toca
+    revisar manualmente, algo que hasta ahora requería entrar
+    docente por docente a la consola sin ninguna vista consolidada.
+  - Carga de forma independiente del resto del panel (Promise separada,
+    con su propio `try/catch`) — si falla, el resto de las secciones
+    (adopción, uso, onboarding, escuelas) se siguen mostrando igual.
+
+### NO implementado (fuera de alcance de esta entrega)
+- Ningún flujo de pago automático — sigue siendo activación manual desde
+  la consola de Firebase, como se decidió en la entrega anterior.
+- Ninguna acción desde el panel administrativo (por ejemplo, un botón para
+  activar Pro directamente desde ahí) — solo lectura, ninguna escritura.
+- Ningún recordatorio proactivo (correo, notificación) — el "recordatorio"
+  es visual, y solo aparece cuando el Responsable abre el panel.
+
+### Archivos modificados
+- `panel-docente.html`
+- `panel-admin.html`
+- `firestore.rules`
+- `docs/ESTADO_PROYECTO_V8_5.md`
+
+### Validación realizada
+- Sintaxis JavaScript de `panel-docente.html` y `panel-admin.html`
+  verificada con `node --check` — sin errores.
+- Balance de llaves/paréntesis en `panel-admin.html`: 86/86 y 155/155.
+- Balance de llaves/paréntesis/corchetes en `firestore.rules`: 47/47,
+  132/132, 17/17.
+- **No se probó contra un proyecto Firebase real** — mismo motivo que
+  siempre en este proyecto. Antes de confiar en el Control de Pagos,
+  confirma que las dos reglas nuevas (`suscripciones` con `esAdmin()`, y
+  `mapeo_codigos` con `esAdmin()` en `list`) estén desplegadas, o la
+  sección mostrará el mensaje de "no se pudo leer".
+
+---
+
 ## [V8.6.1] — Minimización de datos: borrado automático a 6 meses (TTL de Firestore)
 
 ### Contexto

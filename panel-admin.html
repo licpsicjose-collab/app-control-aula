@@ -226,10 +226,34 @@ async function cargarPanelAdmin() {
         eventosOnboardingAlumno = null; // se muestra como "no disponible" si falla
     }
 
-    renderPanel(docentes, eventosOnboardingAlumno);
+    // ✅ V8.6.2 — CONTROL DE PAGOS: independiente del resto del panel — si
+    // falla (p. ej. las reglas de suscripciones/mapeo_codigos no se han
+    // desplegado todavía), el resto del panel (adopción, uso, onboarding,
+    // escuelas) se muestra igual, sin verse afectado.
+    let suscripciones = null;
+    try {
+        let snapSus = await db.collection("suscripciones").get();
+        suscripciones = {};
+        snapSus.forEach(doc => suscripciones[doc.id] = doc.data());
+    } catch (e) {
+        suscripciones = null;
+    }
+
+    let correoPorUid = {};
+    try {
+        let snapMapeo = await db.collection("mapeo_codigos").get();
+        snapMapeo.forEach(doc => {
+            let d = doc.data();
+            if (d.docenteUid && d.correo) correoPorUid[d.docenteUid] = d.correo;
+        });
+    } catch (e) {
+        correoPorUid = {}; // se mostrará el UID en vez del correo si esto falla
+    }
+
+    renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPorUid);
 }
 
-function renderPanel(docentes, eventosOnboardingAlumno) {
+function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPorUid) {
     document.getElementById("cargando").style.display = "none";
     let cont = document.getElementById("contenido-admin");
     cont.style.display = "block";
@@ -303,6 +327,74 @@ function renderPanel(docentes, eventosOnboardingAlumno) {
                     ${pasosOrdenados.map(([paso, n]) => `<tr><td>${escaparHTML(paso)}</td><td>${n}</td></tr>`).join("")}
                 </tbody>
             </table>` : ""}
+        `;
+    }
+
+    // ✅ V8.6.2 — CONTROL DE PAGOS: no reemplaza ningún flujo automático de
+    // cobro (sigue sin existir uno) — es solo una vista de lectura sobre
+    // suscripciones/{docenteUid} para que el Responsable sepa a quién le
+    // toca revisar manualmente (activar Pro tras confirmar un pago fuera de
+    // la app, o simplemente saber quién está por vencer). No escribe nada.
+    let htmlControlPagos;
+    const DIA_MS = 24 * 60 * 60 * 1000;
+    const UMBRAL_URGENTE_TRIAL_DIAS = 3;
+    const UMBRAL_URGENTE_PRO_DIAS = 7;
+
+    if (suscripciones === null) {
+        htmlControlPagos = `<div class="tarjeta"><div class="etiqueta">No se pudo leer la colección suscripciones (revisa que firestore.rules esté desplegado con la regla de V8.6.2).</div></div>`;
+    } else {
+        let ahoraPagos = Date.now();
+        let filas = Object.keys(suscripciones).map(uid => {
+            let s = suscripciones[uid];
+            let correo = correoPorUid[uid] || `(uid: ${uid})`;
+            let diasRestantes = null;
+            let vencePara = null;
+            let urgente = false;
+            let etiquetaPlan = s.estado;
+
+            if (s.estado === "pro" && s.perpetuo === true) {
+                etiquetaPlan = "Pro Perpetuo";
+            } else if (s.estado === "trial" && s.trialFin) {
+                vencePara = s.trialFin;
+                diasRestantes = Math.ceil((s.trialFin - ahoraPagos) / DIA_MS);
+                urgente = diasRestantes <= UMBRAL_URGENTE_TRIAL_DIAS;
+            } else if (s.estado === "pro" && s.proVencimiento) {
+                vencePara = s.proVencimiento;
+                diasRestantes = Math.ceil((s.proVencimiento - ahoraPagos) / DIA_MS);
+                urgente = diasRestantes <= UMBRAL_URGENTE_PRO_DIAS;
+            }
+
+            return { uid, correo, etiquetaPlan, diasRestantes, urgente, precioPagado: s.precioPagado };
+        });
+
+        // Urgentes primero (los que vencen antes), luego el resto en el orden en que llegaron.
+        filas.sort((a, b) => {
+            if (a.urgente && !b.urgente) return -1;
+            if (!a.urgente && b.urgente) return 1;
+            if (a.diasRestantes !== null && b.diasRestantes !== null) return a.diasRestantes - b.diasRestantes;
+            return 0;
+        });
+
+        let urgentesCount = filas.filter(f => f.urgente).length;
+
+        htmlControlPagos = `
+            ${urgentesCount > 0 ? `<div class="tarjeta" style="border-left:4px solid #dc2626; margin-bottom:14px;"><div class="valor" style="color:#dc2626;">${urgentesCount}</div><div class="etiqueta">docente(s) por vencer pronto — revisar y renovar manualmente si corresponde</div></div>` : ""}
+            <table>
+                <thead><tr><th>Correo</th><th>Plan</th><th>Vence en</th><th>Precio pagado</th></tr></thead>
+                <tbody>
+                    ${filas.map(f => `
+                        <tr style="${f.urgente ? 'background:#fef2f2;' : ''}">
+                            <td>${escaparHTML(f.correo)}</td>
+                            <td>${escaparHTML(f.etiquetaPlan)}</td>
+                            <td>${f.diasRestantes !== null ? (f.urgente ? '⚠️ ' : '') + f.diasRestantes + ' día(s)' : '—'}</td>
+                            <td>${f.precioPagado !== null && f.precioPagado !== undefined ? '$' + f.precioPagado + ' MXN' : '—'}</td>
+                        </tr>`).join("")}
+                </tbody>
+            </table>
+            <div class="nota" style="margin-top:10px;">
+                No hay ningún flujo de pago automático — esta tabla es solo de lectura, para saber a quién le toca revisar manualmente en Firestore (suscripciones/{'{'}docenteUid{'}'}).
+                "Vence en" se recalcula cada vez que abres este panel, no en tiempo real.
+            </div>
         `;
     }
 
@@ -382,6 +474,11 @@ function renderPanel(docentes, eventosOnboardingAlumno) {
             </table>
         </div>
 
+        <div class="seccion">
+            <h3>Control de pagos (suscripciones)</h3>
+            ${htmlControlPagos}
+        </div>
+
         <div class="fuente-datos">
             Fuente exclusiva de estos datos: <code>metricas_docentes</code>,
             <code>metricas_docentes/{'{'}docenteUid{'}'}/alumnosVistos</code> y
@@ -391,7 +488,9 @@ function renderPanel(docentes, eventosOnboardingAlumno) {
             instrucción explícita. "Alumnos únicos totales" se calcula con
             una lectura por docente a su subcolección <code>alumnosVistos</code>;
             revisar el costo de lecturas si la base de docentes crece
-            considerablemente.
+            considerablemente. La sección "Control de pagos" (V8.6.2) sí lee
+            <code>suscripciones</code> y <code>mapeo_codigos</code> — ver nota
+            dentro de esa sección.
         </div>
     `;
 }

@@ -50,8 +50,11 @@ service cloud.firestore {
       // .where("docenteUid","==",docenteUid).get()
       // Se permite listar/consultar solo si el documento devuelto pertenece
       // al UID autenticado que hace la consulta.
-      allow list: if request.auth != null
-                  && resource.data.docenteUid == request.auth.uid;
+      // ✅ V8.6.2 — panel-admin.html (control de pagos): un administrador
+      // también puede listar toda la colección, para resolver qué correo
+      // corresponde a cada docenteUid al mostrar el estado de su plan.
+      allow list: if (request.auth != null
+                  && resource.data.docenteUid == request.auth.uid) || esAdmin();
 
       // ✅ CORRECCIÓN: registro inicial de un docente autenticado (login.html):
       // db.collection("mapeo_codigos").doc(codigoAsignado).set({docenteUid, correo})
@@ -229,7 +232,12 @@ service cloud.firestore {
     // ==========================================================================
     match /suscripciones/{docenteUid} {
 
-      allow read: if request.auth != null && request.auth.uid == docenteUid;
+      // ✅ V8.6.2 — panel-admin.html: un administrador puede leer (no
+      // escribir) el plan de cualquier docente, para el control de pagos.
+      // Esto NO toca 'create' ni 'update' — ahí sigue intacta la
+      // corrección de seguridad de V8.5.4 (el cliente nunca puede
+      // autoasignarse pro/perpetuo, solo la consola de Firebase).
+      allow read: if (request.auth != null && request.auth.uid == docenteUid) || esAdmin();
 
       // Creación inicial automática al registrarse (login.html → registrar()).
       // Todo docente nace exclusivamente en trial, sin historial de Pro y
@@ -313,6 +321,45 @@ service cloud.firestore {
                                  && request.time.toMillis() > resource.data.proVencimiento)
                               )
                          )
+                       );
+
+      allow delete: if false;
+    }
+
+    // ==========================================================================
+    // solicitudes_pago/{docenteUid}
+    // V8.6.2 — CONTROL DE PAGOS MANUAL. Colección independiente de
+    // 'suscripciones': un docente avisa "ya pagué" aquí; el Responsable lo ve
+    // en panel-admin.html y activa el plan a mano en 'suscripciones' desde la
+    // consola, como ya se hacía para licencias perpetuas. Esta colección NO
+    // otorga ningún beneficio por sí sola — es solo una bitácora/recordatorio,
+    // nunca se lee para decidir el plan de un docente.
+    // ==========================================================================
+    match /solicitudes_pago/{docenteUid} {
+
+      allow read: if (request.auth != null && request.auth.uid == docenteUid) || esAdmin();
+
+      // El docente solo puede crear/sobrescribir SU PROPIA solicitud, y
+      // siempre debe nacer sin atender. No puede marcarse a sí mismo como
+      // atendido — eso es exclusivo del admin (ver 'update' abajo).
+      allow create: if request.auth != null
+                    && request.auth.uid == docenteUid
+                    && request.resource.data.keys().hasOnly(['correo', 'fechaSolicitud', 'estadoActual', 'atendida'])
+                    && request.resource.data.atendida == false
+                    && request.resource.data.fechaSolicitud is number;
+
+      // El docente puede reenviar su solicitud (por ejemplo, si pagó de
+      // nuevo al renovar) siempre que siga sin atender en su propia
+      // escritura; el admin puede marcarla como atendida SIN cambiar
+      // ningún otro campo — es la única escritura que se le permite.
+      allow update: if request.auth != null
+                    && (
+                         (request.auth.uid == docenteUid
+                          && request.resource.data.keys().hasOnly(['correo', 'fechaSolicitud', 'estadoActual', 'atendida'])
+                          && request.resource.data.atendida == false)
+                         ||
+                         (esAdmin()
+                          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['atendida']))
                        );
 
       allow delete: if false;

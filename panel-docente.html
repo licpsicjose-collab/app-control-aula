@@ -337,8 +337,17 @@
 
 <header>
     <h2>Panel del Docente</h2>
-    <div style="display:flex; align-items:center; gap:14px;">
+    <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
         <span id="tarjeta-plan" style="display:none;"></span>
+        <button id="btn-notificar-pago" onclick="notificarPago()" style="display:none; background:#059669; border:none; color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">💳 Ya pagué, notificar</button>
+        <details style="display:inline-block; position:relative;">
+            <summary style="list-style:none; cursor:pointer; background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; display:inline-block;">📄 Documentos legales</summary>
+            <div style="position:absolute; right:0; top:110%; background:white; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.2); padding:8px 0; min-width:200px; z-index:50;">
+                <a href="AVISO_PRIVACIDAD.md" target="_blank" style="display:block; padding:8px 16px; color:#1f2937; text-decoration:none; font-size:13px;">Aviso de Privacidad</a>
+                <a href="TERMINOS_DE_USO.md" target="_blank" style="display:block; padding:8px 16px; color:#1f2937; text-decoration:none; font-size:13px;">Términos de Uso</a>
+                <a href="POLITICA_SOPORTE.md" target="_blank" style="display:block; padding:8px 16px; color:#1f2937; text-decoration:none; font-size:13px;">Política de Soporte</a>
+            </div>
+        </details>
         <a id="btn-consentimiento-padres" href="CONSENTIMIENTO_INFORMADO_PADRES.html" target="_blank" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer; text-decoration:none; display:inline-block;">📄 Consentimiento informado (padres)</a>
         <button id="btn-ver-recorrido" onclick="iniciarRecorrido(true)" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">❓ Ver recorrido nuevamente</button>
         <div id="info-usuario">Cargando sesión...</div>
@@ -349,6 +358,13 @@
     <!-- ✅ V8.5 — SUSCRIPCIONES: patrocinio (solo plan free) y aviso de grupo congelado -->
     <div id="banner-patrocinio">💜 Control de Aula Free está patrocinado por <strong>Psicología Aplicada</strong></div>
     <div id="banner-grupo-congelado"></div>
+
+    <!-- ✅ V8.6.2 — Enlaces a los documentos legales (antes solo el consentimiento estaba enlazado desde el header) -->
+    <div style="font-size:12px; color:#9ca3af; margin:-8px 0 16px 0; text-align:right;">
+        <a href="AVISO_PRIVACIDAD.md" target="_blank" style="color:#6b7280; text-decoration:underline; margin-left:12px;">Aviso de Privacidad</a>
+        <a href="TERMINOS_DE_USO.md" target="_blank" style="color:#6b7280; text-decoration:underline; margin-left:12px;">Términos de Uso</a>
+        <a href="POLITICA_SOPORTE.md" target="_blank" style="color:#6b7280; text-decoration:underline; margin-left:12px;">Soporte</a>
+    </div>
 
     <!-- Bloque de configuración con memoria local -->
     <div class="grid-config" id="modulo-config">

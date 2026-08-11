@@ -339,6 +339,7 @@
     <h2>Panel del Docente</h2>
     <div style="display:flex; align-items:center; gap:14px;">
         <span id="tarjeta-plan" style="display:none;"></span>
+        <a id="btn-consentimiento-padres" href="CONSENTIMIENTO_INFORMADO_PADRES.html" target="_blank" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer; text-decoration:none; display:inline-block;">📄 Consentimiento informado (padres)</a>
         <button id="btn-ver-recorrido" onclick="iniciarRecorrido(true)" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">❓ Ver recorrido nuevamente</button>
         <div id="info-usuario">Cargando sesión...</div>
     </div>
@@ -960,6 +961,18 @@ function exportarCSV() {
 }
 
 // ✅ ARCHIVADO PRIVADO SEGURO
+// ✅ V8.6.1 — MINIMIZACIÓN DE DATOS: se agrega 'eliminarEn' a cada registro
+// archivado, para que una política TTL de Firestore (configurada del lado
+// de la consola, no en este código) los borre automáticamente 6 meses
+// después de archivarse. Decisión de retención tomada explícitamente por
+// el Responsable del proyecto, tras recomendación de asesoría legal, para
+// reducir el riesgo de conservar datos de alumnos indefinidamente.
+function calcularFechaEliminacion(fechaBase) {
+    let fecha = new Date(fechaBase);
+    fecha.setMonth(fecha.getMonth() + 6);
+    return fecha.getTime();
+}
+
 async function finalizarClase() {
     if (listaAlumnosGlobal.length > 0) {
         let seguro = confirm("⚠️ ¿Ya descargaste el reporte en Excel? Si finalizas la clase sin exportar, perderás las métricas de esta sesión.");
@@ -968,13 +981,16 @@ async function finalizarClase() {
 
     let infoClase = await claseActivaRef.get();
     let dataClase = infoClase.data();
+    let ahoraFin = Date.now();
+    let fechaEliminacion = calcularFechaEliminacion(ahoraFin);
 
     // Guardar en historial maestro incluyendo el filtro estricto del docenteUid
     let historialRef = db.collection("historial").doc();
     await historialRef.set({
         ...dataClase,
         docenteId: docenteUid,
-        fechaFin: Date.now()
+        fechaFin: ahoraFin,
+        eliminarEn: fechaEliminacion
     });
 
     // Mover registros de alumnos al historial interno
@@ -985,7 +1001,8 @@ async function finalizarClase() {
         // en el futuro sin escanear todo historial.
         await historialRef.collection("alumnos").doc(idAlumno).set({
             ...al,
-            docenteId: docenteUid
+            docenteId: docenteUid,
+            eliminarEn: fechaEliminacion
         });
         // Limpieza de la celda activa
         await claseActivaRef.collection("alumnos").doc(idAlumno).delete();
@@ -1002,6 +1019,9 @@ async function finalizarClase() {
 // crecer indefinidamente el documento principal de metricas_docentes ni degradar
 // sus lecturas futuras (decisión de la auditoría de arquitectura). gruposVistos sí
 // se mantiene como array porque el número de grupos por docente está naturalmente acotado.
+// ✅ V8.6.1 — el documento padre metricas_docentes (cifras agregadas del
+// docente) NO lleva 'eliminarEn': solo alumnosVistos, por ser la parte que
+// identifica alumnos por nombre+grupo. Decisión explícita, ver CHANGELOG.
 function registrarMetricaFinClase(grupoClase) {
     let metricaRef = db.collection("metricas_docentes").doc(docenteUid);
 
@@ -1013,7 +1033,7 @@ function registrarMetricaFinClase(grupoClase) {
     listaAlumnosGlobal.forEach(al => {
         let idAlumno = `${al.nombre}_${al.grupo}`.replace(/\s+/g, '_');
         metricaRef.collection("alumnosVistos").doc(idAlumno)
-            .set({ primeraVez: Date.now() }, { merge: true })
+            .set({ primeraVez: Date.now(), eliminarEn: calcularFechaEliminacion(Date.now()) }, { merge: true })
             .catch(() => {});
     });
 }

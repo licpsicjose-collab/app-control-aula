@@ -114,8 +114,8 @@ Esta información permanece en el dispositivo hasta que la persona usuaria borra
 ## 7. Conservación de la información
 
 - Los datos de una clase activa se conservan mientras la clase está en curso.
-- Al finalizar una clase, sus datos se archivan en el historial de la plataforma, asociados a la cuenta del docente, y se conservan indefinidamente mientras la cuenta docente permanezca activa, salvo solicitud de eliminación (ver secciones 9 y 10).
-- Las métricas de uso agregadas (sección 3.2) se conservan mientras la cuenta docente exista, con el mismo tratamiento que el resto de sus datos.
+- Al finalizar una clase, sus datos se archivan en el historial de la plataforma, asociados a la cuenta del docente, y se conservan durante **6 meses** desde la fecha en que la clase finalizó, transcurridos los cuales se eliminan automáticamente. Este mismo plazo aplica al registro de qué alumnos ha tenido un docente (`alumnosVistos`), y se reinicia cada vez que ese alumno vuelve a aparecer en una clase — es decir, un alumno activo no pierde su registro por el simple paso del tiempo, solo cuando deja de aparecer en clases nuevas durante 6 meses seguidos. Usted puede solicitar la eliminación anticipada de sus datos en cualquier momento, sin esperar a que transcurra este plazo (ver secciones 9 y 10).
+- Las métricas de uso agregadas sobre su propia actividad como docente (sección 3.2 — por ejemplo, cuántas clases ha impartido en total) se conservan mientras la cuenta docente exista, ya que son cifras agregadas y no contienen datos identificables de sus alumnos.
 - Sobre la conservación del correo electrónico después de eliminar una cuenta, ver la sección 12 — es un caso distinto, con una finalidad específica y acotada.
 
 ---

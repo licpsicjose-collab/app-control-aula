@@ -1,5 +1,150 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.6.1] — Minimización de datos: borrado automático a 6 meses (TTL de Firestore)
+
+### Contexto
+Asesoría legal externa señaló que el historial de clases y los registros de
+alumnos se conservaban indefinidamente en Firestore, sin fecha de
+caducidad — un riesgo real, ya corregido en `AVISO_PRIVACIDAD.md` §7 (antes
+decía "se conservan indefinidamente"). Se decidió explícitamente, por el
+Responsable del proyecto: **retención de 6 meses** para el historial
+detallado de clases y para `alumnosVistos` (el registro que identifica
+alumnos por nombre+grupo); **sin cambio** para `metricas_docentes` (el
+documento padre, que solo contiene cifras agregadas del docente, sin datos
+identificables de alumnos).
+
+### Agregado — `panel-docente.html`
+- `calcularFechaEliminacion(fechaBase)` — nueva función, calcula
+  `fechaBase + 6 meses` usando aritmética de fechas real (`Date.setMonth`),
+  no una constante fija en milisegundos, para que el cálculo sea correcto
+  sin importar la duración de cada mes.
+- `finalizarClase()`: se agrega el campo `eliminarEn` tanto al documento
+  padre de `historial/{registroId}` como a cada
+  `historial/{registroId}/alumnos/{alumnoId}` archivado — 6 meses desde
+  `fechaFin`. Ninguna otra lógica de la función cambió.
+- `registrarMetricaFinClase()`: se agrega `eliminarEn` (6 meses desde
+  ahora) a cada documento de `metricas_docentes/{uid}/alumnosVistos/{id}`.
+  Como el `set` usa `merge: true` y se ejecuta cada vez que ese alumno
+  vuelve a aparecer en una clase, **la fecha se recalcula cada vez** — un
+  alumno que sigue tomando clases activamente nunca alcanza la fecha de
+  borrado; solo expira 6 meses después de la última vez que apareció. El
+  documento padre `metricas_docentes` (cifras agregadas del docente) no
+  recibe este campo — se mantiene sin fecha de expiración.
+
+### Pendiente — configuración fuera de este código (requiere acción manual del usuario)
+Agregar el campo `eliminarEn` es solo la mitad del trabajo. Para que
+Firestore borre los documentos de verdad, hace falta **configurar la
+política TTL desde la consola de Firebase o gcloud CLI** — esto no se
+puede hacer desde este entorno de desarrollo (sin acceso de red) ni desde
+el código de la aplicación:
+
+1. Firestore → pestaña "Time-to-live" (o `gcloud firestore fields ttls update eliminarEn --collection-group=historial ...`).
+2. Configurar una política TTL sobre el campo `eliminarEn` en el grupo de colecciones `historial`.
+3. Configurar una **segunda** política TTL, también sobre `eliminarEn`, en el grupo de colecciones `alumnos` — **importante**: por cómo funciona Firestore, borrar un documento padre por TTL **no borra sus subcolecciones automáticamente**, así que esta segunda política es indispensable, no opcional.
+4. Configurar una **tercera** política TTL sobre `eliminarEn` en el grupo de colecciones `alumnosVistos`.
+5. **Precaución con el grupo de colecciones "alumnos":** ese nombre también lo usa la lista de alumnos de la clase *activa* (`clases/{docenteUid}/alumnos`), no solo el historial archivado. Una política TTL aplica a todos los documentos con ese nombre de colección en toda la base — pero como el código nunca escribe `eliminarEn` en los documentos de la clase activa, esos documentos nunca son elegibles para borrado. Aun así, no agregar ese campo a ninguna escritura de la clase activa en el futuro sin tenerlo presente.
+
+### NO implementado en esta entrega
+- No se implementó ningún aviso al docente antes de que sus datos expiren
+  (por ejemplo, "tu historial de marzo se borrará en 15 días") — el
+  docente debe exportar lo que le interese antes de que pasen los 6 meses.
+- No se verificó de forma real si la política TTL respeta las reglas de
+  `allow delete: if false` ya existentes en `historial` — la documentación
+  de Firestore indica que el borrado por TTL es un proceso interno del
+  motor, no una escritura de cliente, por lo que no debería estar sujeto a
+  esa regla, pero **esto no se ha probado en el proyecto real**.
+
+### Archivos modificados
+- `panel-docente.html`
+- `AVISO_PRIVACIDAD.md`
+
+### Validación realizada
+- Sintaxis JavaScript de `panel-docente.html` verificada con `node --check`
+  tras el cambio — sin errores. Balance de llaves/paréntesis: 209/209 y
+  467/467 respectivamente.
+- Confirmado por `grep` que ni `historial`, ni
+  `historial/{id}/alumnos`, ni `metricas_docentes/{uid}/alumnosVistos`
+  tienen restricción `hasOnly()` de campos en `firestore.rules` — agregar
+  `eliminarEn` no requiere ningún cambio a las reglas.
+- **No se configuró la política TTL en un proyecto Firebase real** —
+  paso manual pendiente, descrito arriba. Sin esa configuración, el campo
+  `eliminarEn` se escribe pero no borra nada por sí solo.
+
+---
+
+## [V8.6.0] — Consentimiento informado de padres/tutores (solo menores de edad)
+
+### Contexto
+Se identificó que la falta de consentimiento parental para el tratamiento
+de datos de alumnos menores de edad era el riesgo legal más serio del
+proyecto (señalado en la auditoría posterior a `AVISO_PRIVACIDAD.md`). Se
+diseñó, entre el usuario y el asistente, un documento imprimible dirigido
+específicamente a padres/madres/tutores de alumnos **menores de edad** —
+explícitamente no aplica a alumnos mayores de edad, quienes pueden
+autorizar el uso de sus propios datos directamente.
+
+### Agregado — `CONSENTIMIENTO_INFORMADO_PADRES.html` (nuevo archivo)
+- Documento HTML autocontenido, pensado para imprimirse (botón "Imprimir
+  este documento" con `window.print()`, estilos `@media print` que ocultan
+  ese botón al imprimir).
+- Explica en lenguaje llano: qué es Control de Aula, qué datos del alumno
+  se registran (los mismos ya documentados en `AVISO_PRIVACIDAD.md` §2.2 —
+  nombre, grupo, tiempos, participaciones, evaluación, retardos), por qué
+  cada dato es necesario, y por qué el tratamiento no representa un riesgo
+  significativo (mismas medidas de seguridad ya descritas en
+  `AVISO_PRIVACIDAD.md` §8).
+- Ofrece dos formas de verificación de firma, **ambas a criterio del
+  plantel o del docente, ninguna obligatoria**: (a) copia de una
+  identificación oficial anexa, o (b) firma recabada en una junta
+  presencial informativa. En ambos casos, el documento deja explícito que
+  **Control de Aula (la plataforma) nunca recibe ni almacena esa copia de
+  identificación** — el resguardo físico queda en manos del plantel o el
+  docente, no del Responsable de la plataforma. Esto evita el riesgo de
+  custodia centralizada de identificaciones oficiales que se había
+  señalado como problemático en una entrega anterior de este mismo
+  proyecto.
+- Bloque de firma con nombre, parentesco, firma y fecha, más campos para
+  llenar a mano (escuela, docente, materia, grupo, nombre del alumno).
+
+### Agregado — `panel-docente.html`
+- Nuevo enlace en el header, junto a "Ver recorrido nuevamente": **"📄
+  Consentimiento informado (padres)"**, que abre
+  `CONSENTIMIENTO_INFORMADO_PADRES.html` en una pestaña nueva
+  (`target="_blank"`). Es el primer enlace desde la aplicación hacia
+  cualquiera de los documentos legales del proyecto — los otros tres
+  (`AVISO_PRIVACIDAD.md`, `TERMINOS_DE_USO.md`, `POLITICA_SOPORTE.md`)
+  siguen sin enlazarse, ver "Pendiente" abajo.
+- Ninguna otra función, estilo o lógica de `panel-docente.html` se
+  modificó.
+
+### NO implementado (fuera de alcance de esta entrega)
+- No se enlazaron `AVISO_PRIVACIDAD.md`, `TERMINOS_DE_USO.md` ni
+  `POLITICA_SOPORTE.md` — solo el consentimiento de padres, que era lo
+  solicitado.
+- No se generó una versión para alumnos mayores de edad — se determinó
+  explícitamente que no la necesitan.
+- No se automatizó ningún flujo de firma digital ni de captura dentro de
+  la aplicación — el documento está diseñado para imprimirse y firmarse
+  en papel, fuera de la plataforma.
+- Ninguna revisión legal profesional de este documento todavía.
+
+### Archivos modificados/creados
+- `CONSENTIMIENTO_INFORMADO_PADRES.html` (nuevo)
+- `panel-docente.html`
+- `docs/ESTADO_PROYECTO_V8_5.md`
+
+### Validación realizada
+- Balance de etiquetas `<div>`/`</div>` y `<p>`/`</p>` en
+  `CONSENTIMIENTO_INFORMADO_PADRES.html`: 8/8 y 14/14 respectivamente.
+- Sintaxis JavaScript de `panel-docente.html` re-verificada con
+  `node --check` tras el cambio de header — sin errores (el cambio fue
+  puramente HTML, sin tocar ningún `<script>`).
+- **No se probó la impresión real en un navegador** — no se revisó cómo
+  se ve el documento impreso en papel físico, solo se verificó la
+  estructura del HTML y el CSS de impresión.
+
+---
+
 ## [V8.5.4] — CORRECCIÓN DE SEGURIDAD CRÍTICA: escritura sin restricción en `suscripciones`
 
 ### Contexto

@@ -13,7 +13,7 @@ El responsable del tratamiento de sus datos personales es:
 
 **Ubicación:** Cuautitlán Izcalli, Estado de México, México.
 
-**Correo de contacto:** licpscijose@gmail.com
+**Correo de contacto:** licpsicjose@gmail.com
 
 Control de Aula es una plataforma educativa operada de forma independiente. No forma parte de una institución educativa, y su relación jurídica es directamente con la persona docente que crea una cuenta y, de forma indirecta y sin cuenta propia, con las personas alumnas que se conectan a las clases que ese docente administra.
 
@@ -147,7 +147,7 @@ Estos derechos se pueden ejercer por el medio de contacto señalado en la secci�
 
 ## 10. Procedimiento para solicitar eliminación de datos
 
-1. Envíe un correo a **licpscijose@gmail.com** desde la cuenta de correo asociada a su cuenta docente (o, si es una persona alumna o su representante, indicando el nombre y grupo con el que se conectó, y el docente/plantel bajo el cual tomó la clase, para poder localizar el registro).
+1. Envíe un correo a **licpsicjose@gmail.com** desde la cuenta de correo asociada a su cuenta docente (o, si es una persona alumna o su representante, indicando el nombre y grupo con el que se conectó, y el docente/plantel bajo el cual tomó la clase, para poder localizar el registro).
 2. Indique claramente qué desea: acceso a sus datos, corrección de un dato específico, o cancelación total de su información.
 3. El Responsable confirmará la recepción de la solicitud y, en caso de requerir verificar su identidad para proteger la información de terceros, podrá solicitarle datos adicionales antes de proceder.
 4. El Responsable dará respuesta a la solicitud dentro de un plazo razonable a partir de su recepción.
@@ -199,7 +199,7 @@ Para cualquier duda, solicitud o ejercicio de derechos relacionados con este avi
 
 **José Cándido Díaz Hernández**
 Cuautitlán Izcalli, Estado de México, México
-Correo: **licpscijose@gmail.com**
+Correo: **licpsicjose@gmail.com**
 
 ---
 

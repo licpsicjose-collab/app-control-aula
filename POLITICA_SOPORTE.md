@@ -9,7 +9,7 @@
 
 Actualmente, el único canal de soporte de Control de Aula es correo electrónico:
 
-**licpscijose@gmail.com**
+**licpsicjose@gmail.com**
 
 No existe hoy un sistema de tickets, chat en vivo, línea telefónica, ni un centro de ayuda con base de conocimiento fuera del que ya está integrado dentro del panel docente (ícono de ayuda / recorrido de bienvenida).
 
@@ -64,4 +64,4 @@ Esta Política de Soporte no sustituye ni modifica lo establecido en el [Aviso d
 
 **José Cándido Díaz Hernández**
 Cuautitlán Izcalli, Estado de México, México
-Correo: **licpscijose@gmail.com**
+Correo: **licpsicjose@gmail.com**

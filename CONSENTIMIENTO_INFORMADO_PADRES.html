@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consentimiento Informado para Padres o Tutores — Control de Aula</title>
+<style>
+    body {
+        font-family: Georgia, "Times New Roman", serif;
+        max-width: 800px;
+        margin: 30px auto;
+        padding: 0 20px;
+        color: #1f2937;
+        line-height: 1.55;
+        font-size: 15px;
+    }
+    h1 {
+        font-size: 20px;
+        text-align: center;
+        color: #1e3a8a;
+        margin-bottom: 4px;
+    }
+    h2 {
+        font-size: 15px;
+        color: #1e3a8a;
+        border-bottom: 1px solid #cbd5e1;
+        padding-bottom: 4px;
+        margin-top: 26px;
+    }
+    .subtitulo {
+        text-align: center;
+        color: #6b7280;
+        font-size: 13px;
+        margin-bottom: 22px;
+    }
+    .campo-llenar {
+        display: inline-block;
+        border-bottom: 1px solid #1f2937;
+        min-width: 220px;
+        margin: 0 4px;
+    }
+    .bloque-datos {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin: 16px 0;
+    }
+    .bloque-datos p { margin: 6px 0; }
+    ul { margin: 8px 0; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .opciones-verificacion label {
+        display: block;
+        margin: 8px 0;
+    }
+    .firma-bloque {
+        margin-top: 40px;
+        page-break-inside: avoid;
+    }
+    .firma-linea {
+        border-top: 1px solid #1f2937;
+        width: 320px;
+        margin-top: 46px;
+        padding-top: 4px;
+        font-size: 13px;
+        color: #4b5563;
+    }
+    .nota-final {
+        margin-top: 30px;
+        font-size: 12.5px;
+        color: #6b7280;
+        border-top: 1px solid #e5e7eb;
+        padding-top: 12px;
+    }
+    .btn-imprimir {
+        display: block;
+        margin: 0 auto 24px auto;
+        background: #1e3a8a;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        font-family: -apple-system, sans-serif;
+    }
+    @media print {
+        .btn-imprimir { display: none; }
+        body { margin: 0; }
+    }
+</style>
+</head>
+<body>
+
+<button class="btn-imprimir" onclick="window.print()">🖨️ Imprimir este documento</button>
+
+<h1>CONSENTIMIENTO INFORMADO PARA PADRES, MADRES O TUTORES</h1>
+<div class="subtitulo">Autorización para el tratamiento de datos personales de un alumno menor de edad en la plataforma Control de Aula</div>
+
+<p>Este documento aplica <strong>exclusivamente a alumnas y alumnos menores de edad</strong>. Si el alumno ya es mayor de edad, no se requiere la firma de un padre, madre o tutor — el propio alumno puede autorizar directamente el uso de sus datos conforme al Aviso de Privacidad de la plataforma.</p>
+
+<div class="bloque-datos">
+    <p><strong>Escuela:</strong> <span class="campo-llenar">&nbsp;</span></p>
+    <p><strong>Docente:</strong> <span class="campo-llenar">&nbsp;</span> &nbsp; <strong>Materia:</strong> <span class="campo-llenar" style="min-width:140px;">&nbsp;</span></p>
+    <p><strong>Grupo:</strong> <span class="campo-llenar" style="min-width:140px;">&nbsp;</span></p>
+    <p><strong>Nombre completo del alumno/a:</strong> <span class="campo-llenar" style="min-width:100%; display:block; margin-top:4px;">&nbsp;</span></p>
+</div>
+
+<h2>1. ¿Qué es Control de Aula?</h2>
+<p>Control de Aula es una plataforma educativa que el docente de su hijo/a utiliza dentro del salón de clases para llevar registro de asistencia, participación y evaluación durante la sesión. El responsable de la plataforma es <strong>José Cándido Díaz Hernández</strong>, con contacto en <strong>licpsicjose@gmail.com</strong>, ubicado en Cuautitlán Izcalli, Estado de México.</p>
+
+<h2>2. ¿Qué datos de mi hijo/a se registran?</h2>
+<p>Al conectarse a una clase, su hijo/a captura directamente su nombre y grupo. A partir de ahí, la plataforma registra:</p>
+<ul>
+    <li>Tiempo de conexión durante la clase y tiempo fuera de ella.</li>
+    <li>Número de participaciones registradas por el docente.</li>
+    <li>Calificación o evaluación que el docente le asigne, si aplica.</li>
+    <li>Si llegó con retardo, y el número de veces que salió durante la clase.</li>
+</ul>
+<p>Su hijo/a <strong>no crea una cuenta ni una contraseña</strong> — no hay ningún inicio de sesión propio de las y los alumnos.</p>
+
+<h2>3. ¿Por qué es necesario recopilar estos datos?</h2>
+<p>Cada dato tiene un propósito académico directo: la asistencia y los tiempos permiten al docente llevar un control objetivo de la presencia en clase; las participaciones y evaluaciones respaldan la calificación; el registro de retardos y salidas apoya la disciplina y el seguimiento dentro del aula. Ninguno de estos datos se recopila con un fin distinto al de apoyar la labor docente dentro del salón de clases.</p>
+
+<h2>4. ¿Por qué esto no representa un riesgo significativo?</h2>
+<ul>
+    <li>Los datos se almacenan en la infraestructura de Firebase (Google), con reglas de acceso que impiden que un docente vea la información de otro, y que cualquier persona ajena a la cuenta del docente acceda a estos datos.</li>
+    <li>La plataforma <strong>no vende, no comparte con terceros ajenos a su operación técnica, y no utiliza estos datos con fines publicitarios</strong>.</li>
+    <li>Su hijo/a no crea una cuenta propia ni una contraseña que pueda ser vulnerada de forma independiente.</li>
+    <li>Usted conserva en todo momento el derecho de solicitar acceso, corrección o eliminación de estos datos — ver la sección 6.</li>
+</ul>
+<p style="font-size:13px; color:#6b7280;">Esta explicación no constituye una garantía absoluta de seguridad — ningún sistema lo es — sino una descripción honesta de las medidas aplicadas y del alcance real del tratamiento.</p>
+
+<h2>5. Verificación de la firma (a criterio del plantel o del docente)</h2>
+<p>Para dar validez a esta autorización, el plantel o el docente podrán optar por alguna de las siguientes formas de verificación — <strong>no ambas son obligatorias</strong>, basta con una:</p>
+<div class="opciones-verificacion">
+    <label>☐ Se adjunta copia simple de una identificación oficial de quien firma (por ejemplo, credencial para votar), únicamente para cotejar la firma. Esta copia queda resguardada por el plantel o el docente — <strong>Control de Aula (la plataforma) nunca recibe ni almacena esta copia</strong>.</label>
+    <label>☐ Esta firma se recabó durante una junta presencial informativa, donde se explicó a los padres/tutores el objetivo y funcionamiento de la aplicación antes de firmar.</label>
+</div>
+
+<h2>6. Sus derechos</h2>
+<p>Usted puede solicitar en cualquier momento el acceso, corrección o eliminación de los datos de su hijo/a registrados en la plataforma, escribiendo a <strong>licpsicjose@gmail.com</strong> o directamente a través del docente. El Aviso de Privacidad completo de la plataforma está disponible bajo solicitud a través del docente o del contacto anterior.</p>
+
+<h2>7. Autorización</h2>
+<p>Declaro que he leído y comprendido este documento, y que autorizo el tratamiento de los datos personales de mi hijo/a menor de edad en la plataforma Control de Aula, exclusivamente para los fines académicos descritos en las secciones 2 y 3.</p>
+
+<div class="firma-bloque">
+    <p><strong>Nombre completo del padre, madre o tutor:</strong></p>
+    <div class="firma-linea">Nombre y parentesco con el alumno/a</div>
+    <br><br>
+    <div class="firma-linea">Firma</div>
+    <br><br>
+    <div class="firma-linea">Fecha</div>
+</div>
+
+<div class="nota-final">
+    Este documento se genera con el propósito de documentar la autorización de padres, madres o tutores de alumnas y alumnos menores de edad para el uso de Control de Aula dentro del salón de clases. El plantel educativo o el docente conservan el original firmado (y, en su caso, la copia de identificación anexa) como respaldo físico; esta plataforma no recibe ni almacena copias de identificaciones oficiales de ningún padre, madre o tutor. Este documento no sustituye una revisión legal profesional del caso particular de cada institución.
+</div>
+
+</body>
+</html>

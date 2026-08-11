@@ -112,6 +112,6 @@ Estos términos se rigen por la legislación aplicable en México. Para cualquie
 
 **José Cándido Díaz Hernández**
 Cuautitlán Izcalli, Estado de México, México
-Correo: **licpscijose@gmail.com**
+Correo: **licpsicjose@gmail.com**
 
 Este documento no constituye asesoría legal ni una certificación de cumplimiento normativo; se recomienda su revisión por un abogado especializado antes de considerarlo definitivo.

@@ -28,6 +28,8 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        row-gap: 10px;
         box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
     }
     .container {
@@ -331,6 +333,43 @@
         font-size: 13px;
         margin-bottom: 16px;
     }
+
+    /* ✅ V8.6.3 — MODAL DE PAGO */
+    #overlay-modal-pago {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 200;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+    }
+    #overlay-modal-pago.visible { display: flex; }
+    #modal-pago {
+        background: white;
+        border-radius: 12px;
+        max-width: 420px;
+        width: 100%;
+        padding: 24px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    #modal-pago h3 { margin: 0 0 12px 0; color: #1e3a8a; font-size: 17px; }
+    #modal-pago .dato-pago {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin: 8px 0;
+        font-size: 14px;
+    }
+    #modal-pago .dato-pago strong { display: block; font-size: 11px; text-transform: uppercase; color: #6b7280; margin-bottom: 2px; }
+    #modal-pago p { font-size: 13px; color: #374151; line-height: 1.5; }
+    #modal-pago .modal-botones { display: flex; gap: 10px; margin-top: 18px; }
+    #modal-pago .modal-botones button { flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 13px; cursor: pointer; }
+    #modal-pago .btn-notificar { background: #059669; color: white; }
+    #modal-pago .btn-cerrar { background: #f3f4f6; color: #374151; }
 </style>
 </head>
 <body>
@@ -339,15 +378,7 @@
     <h2>Panel del Docente</h2>
     <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
         <span id="tarjeta-plan" style="display:none;"></span>
-        <button id="btn-notificar-pago" onclick="notificarPago()" style="display:none; background:#059669; border:none; color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">💳 Ya pagué, notificar</button>
-        <details style="display:inline-block; position:relative;">
-            <summary style="list-style:none; cursor:pointer; background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; display:inline-block;">📄 Documentos legales</summary>
-            <div style="position:absolute; right:0; top:110%; background:white; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.2); padding:8px 0; min-width:200px; z-index:50;">
-                <a href="AVISO_PRIVACIDAD.md" target="_blank" style="display:block; padding:8px 16px; color:#1f2937; text-decoration:none; font-size:13px;">Aviso de Privacidad</a>
-                <a href="TERMINOS_DE_USO.md" target="_blank" style="display:block; padding:8px 16px; color:#1f2937; text-decoration:none; font-size:13px;">Términos de Uso</a>
-                <a href="POLITICA_SOPORTE.md" target="_blank" style="display:block; padding:8px 16px; color:#1f2937; text-decoration:none; font-size:13px;">Política de Soporte</a>
-            </div>
-        </details>
+        <button id="btn-actualizar-pro" onclick="mostrarModalPago()" style="display:none; background:#059669; border:none; color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">💳 Actualizar a Pro</button>
         <a id="btn-consentimiento-padres" href="CONSENTIMIENTO_INFORMADO_PADRES.html" target="_blank" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer; text-decoration:none; display:inline-block;">📄 Consentimiento informado (padres)</a>
         <button id="btn-ver-recorrido" onclick="iniciarRecorrido(true)" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">❓ Ver recorrido nuevamente</button>
         <div id="info-usuario">Cargando sesión...</div>
@@ -749,13 +780,19 @@ function actualizarTarjetaPlan() {
     let tarjeta = document.getElementById("tarjeta-plan");
     let bannerPatrocinio = document.getElementById("banner-patrocinio");
     let bannerCongelado = document.getElementById("banner-grupo-congelado");
+    let btnActualizarPro = document.getElementById("btn-actualizar-pro");
 
     if (!datosSuscripcion) {
         tarjeta.style.display = "none";
         bannerPatrocinio.style.display = "none";
         bannerCongelado.style.display = "none";
+        btnActualizarPro.style.display = "none";
         return;
     }
+
+    // ✅ V8.6.3 — el botón de actualizar a Pro solo tiene sentido si el
+    // docente todavía no es Pro (perpetuo o de paga).
+    btnActualizarPro.style.display = (datosSuscripcion.estado !== "pro") ? "inline-block" : "none";
 
     tarjeta.style.display = "inline-flex";
     tarjeta.classList.remove("plan-trial", "plan-free", "plan-pro");
@@ -783,6 +820,34 @@ function actualizarTarjetaPlan() {
         bannerCongelado.innerHTML = `❄️ Tu grupo activo es <strong>${escaparHTML(datosSuscripcion.grupoActivo || '')}</strong>. No puedes iniciar clases nuevas en estos grupos: <strong>${escaparHTML(datosSuscripcion.gruposCongelados.join(', '))}</strong>. Sus datos permanecen guardados, pero todavía no hay una pantalla para consultarlos o exportarlos por separado. Actualiza a Pro para volver a usar todos tus grupos.`;
     } else {
         bannerCongelado.style.display = "none";
+    }
+}
+
+// ✅ V8.6.3 — MODAL DE PAGO MANUAL
+// No hay pasarela de pago automática — el docente paga por transferencia
+// fuera de la app y notifica aquí, para que el Responsable lo vea marcado
+// en panel-admin.html y confirme manualmente. No activa Pro por sí solo.
+function mostrarModalPago() {
+    document.getElementById("overlay-modal-pago").classList.add("visible");
+}
+
+function ocultarModalPago() {
+    document.getElementById("overlay-modal-pago").classList.remove("visible");
+}
+
+async function notificarPago() {
+    let usuario = firebase.auth().currentUser;
+    if (!usuario) return;
+
+    try {
+        await db.collection("notificaciones_pago").doc(docenteUid).set({
+            correo: usuario.email,
+            notificadoEn: Date.now()
+        });
+        alert("✅ Listo, quedó registrado. En cuanto confirmemos tu pago activaremos tu Plan Pro — normalmente en menos de 48 horas.");
+        ocultarModalPago();
+    } catch (e) {
+        alert("No se pudo enviar la notificación. Por favor intenta de nuevo o contáctanos directamente por WhatsApp.");
     }
 }
 
@@ -1315,6 +1380,25 @@ firebase.auth().onAuthStateChanged(user => {
         <div>
             <button class="tour-btn-anterior" id="tour-btn-anterior" onclick="pasoAnteriorRecorrido()">Anterior</button>
             <button class="tour-btn-siguiente" id="tour-btn-siguiente" onclick="siguientePasoRecorrido()">Siguiente</button>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ V8.6.3 — MODAL DE PAGO: sin pasarela automática (sigue sin existir), solo
+     muestra los datos para pagar por transferencia y permite notificar el pago
+     para que aparezca marcado en el panel administrativo. La activación real
+     del plan Pro sigue siendo manual, desde la consola de Firebase. -->
+<div id="overlay-modal-pago" onclick="if(event.target===this) ocultarModalPago()">
+    <div id="modal-pago">
+        <h3>💳 Actualizar a Plan Pro</h3>
+        <p>Realiza tu pago por transferencia (SPEI) a la siguiente cuenta:</p>
+        <div class="dato-pago"><strong>CLABE</strong>072180012216110510</div>
+        <p>Envía tu comprobante de pago y el correo de tu cuenta al siguiente número de WhatsApp:</p>
+        <div class="dato-pago"><strong>WhatsApp</strong>55 3756 6087</div>
+        <p>Una vez que confirmemos tu pago, activaremos tu Plan Pro manualmente — normalmente en menos de 48 horas.</p>
+        <div class="modal-botones">
+            <button class="btn-cerrar" onclick="ocultarModalPago()">Cerrar</button>
+            <button class="btn-notificar" onclick="notificarPago()">Ya pagué, notificar</button>
         </div>
     </div>
 </div>

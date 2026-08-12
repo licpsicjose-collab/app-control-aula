@@ -250,10 +250,19 @@ async function cargarPanelAdmin() {
         correoPorUid = {}; // se mostrará el UID en vez del correo si esto falla
     }
 
-    renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPorUid);
+    // ✅ V8.6.3 — docentes que notificaron un pago manual, pendientes de confirmar
+    let notificacionesPago = {};
+    try {
+        let snapNotif = await db.collection("notificaciones_pago").get();
+        snapNotif.forEach(doc => notificacionesPago[doc.id] = doc.data());
+    } catch (e) {
+        notificacionesPago = {}; // no bloquea el resto del Control de Pagos
+    }
+
+    renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPorUid, notificacionesPago);
 }
 
-function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPorUid) {
+function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPorUid, notificacionesPago) {
     document.getElementById("cargando").style.display = "none";
     let cont = document.getElementById("contenido-admin");
     cont.style.display = "block";
@@ -364,11 +373,15 @@ function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPor
                 urgente = diasRestantes <= UMBRAL_URGENTE_PRO_DIAS;
             }
 
-            return { uid, correo, etiquetaPlan, diasRestantes, urgente, precioPagado: s.precioPagado };
+            return { uid, correo, etiquetaPlan, diasRestantes, urgente, precioPagado: s.precioPagado, notifico: !!notificacionesPago[uid] };
         });
 
-        // Urgentes primero (los que vencen antes), luego el resto en el orden en que llegaron.
+        // Prioridad: quien notificó un pago pendiente de confirmar va primero
+        // (requiere acción tuya ya mismo), luego los urgentes por vencer,
+        // luego el resto en el orden en que llegaron.
         filas.sort((a, b) => {
+            if (a.notifico && !b.notifico) return -1;
+            if (!a.notifico && b.notifico) return 1;
             if (a.urgente && !b.urgente) return -1;
             if (!a.urgente && b.urgente) return 1;
             if (a.diasRestantes !== null && b.diasRestantes !== null) return a.diasRestantes - b.diasRestantes;
@@ -376,23 +389,29 @@ function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPor
         });
 
         let urgentesCount = filas.filter(f => f.urgente).length;
+        let notificaronCount = filas.filter(f => f.notifico).length;
 
         htmlControlPagos = `
-            ${urgentesCount > 0 ? `<div class="tarjeta" style="border-left:4px solid #dc2626; margin-bottom:14px;"><div class="valor" style="color:#dc2626;">${urgentesCount}</div><div class="etiqueta">docente(s) por vencer pronto — revisar y renovar manualmente si corresponde</div></div>` : ""}
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+                ${notificaronCount > 0 ? `<div class="tarjeta" style="border-left:4px solid #059669; flex:1; min-width:200px;"><div class="valor" style="color:#059669;">${notificaronCount}</div><div class="etiqueta">notificaron un pago — pendiente de confirmar y activar</div></div>` : ""}
+                ${urgentesCount > 0 ? `<div class="tarjeta" style="border-left:4px solid #dc2626; flex:1; min-width:200px;"><div class="valor" style="color:#dc2626;">${urgentesCount}</div><div class="etiqueta">docente(s) por vencer pronto</div></div>` : ""}
+            </div>
             <table>
-                <thead><tr><th>Correo</th><th>Plan</th><th>Vence en</th><th>Precio pagado</th></tr></thead>
+                <thead><tr><th>Correo</th><th>Plan</th><th>Vence en</th><th>Precio pagado</th><th>Estado</th></tr></thead>
                 <tbody>
                     ${filas.map(f => `
-                        <tr style="${f.urgente ? 'background:#fef2f2;' : ''}">
+                        <tr style="${f.notifico ? 'background:#ecfdf5;' : (f.urgente ? 'background:#fef2f2;' : '')}">
                             <td>${escaparHTML(f.correo)}</td>
                             <td>${escaparHTML(f.etiquetaPlan)}</td>
                             <td>${f.diasRestantes !== null ? (f.urgente ? '⚠️ ' : '') + f.diasRestantes + ' día(s)' : '—'}</td>
                             <td>${f.precioPagado !== null && f.precioPagado !== undefined ? '$' + f.precioPagado + ' MXN' : '—'}</td>
+                            <td>${f.notifico ? '🔔 Notificó pago' : '—'}</td>
                         </tr>`).join("")}
                 </tbody>
             </table>
             <div class="nota" style="margin-top:10px;">
                 No hay ningún flujo de pago automático — esta tabla es solo de lectura, para saber a quién le toca revisar manualmente en Firestore (suscripciones/{'{'}docenteUid{'}'}).
+                "🔔 Notificó pago" viene de notificaciones_pago — verifica el comprobante que te compartieron por WhatsApp antes de activar, y borra ese registro desde Firestore una vez activado.
                 "Vence en" se recalcula cada vez que abres este panel, no en tiempo real.
             </div>
         `;

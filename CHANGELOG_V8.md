@@ -1,5 +1,88 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.6.3] — Corrección de UX móvil, consolidación de enlaces, y notificación de pago manual
+
+### Contexto
+Tres observaciones directas del usuario tras probar la app: (1) los
+documentos legales aparecían duplicados en `panel-docente.html` — un
+menú desplegable en el header y una franja de enlaces debajo de los
+banners, apuntando a los mismos tres archivos; (2) el formulario de
+registro en `login.html` se veía diminuto en teléfono; (3) no había
+ninguna forma de que un docente supiera cómo pagar Pro ni de contactar al
+Responsable — solo existía un botón oculto y roto
+(`onclick="notificarPago()"` sin esa función definida en ningún lado).
+
+### Corregido — `login.html`
+- Se agregó la etiqueta `<meta name="viewport" content="width=device-width, initial-scale=1.0">`,
+  ausente por completo. Esta era la causa real del problema — no un
+  defecto de CSS: sin esa etiqueta, el navegador móvil renderiza la
+  página a un ancho de escritorio (~980px) y la encoge para que quepa,
+  hasta el formulario ya bien diseñado se ve minúsculo. `panel-docente.html`
+  sí la tenía; `login.html` era el único archivo del proyecto sin ella.
+
+### Corregido — `panel-docente.html`
+- Se quitó el menú desplegable "📄 Documentos legales" del header —
+  quedó un solo mecanismo (la franja de enlaces sueltos debajo de los
+  banners, que el usuario prefirió estéticamente).
+- El botón roto `💳 Ya pagué, notificar` (llamaba a una función
+  inexistente) se reemplazó por un flujo completo y funcional:
+  - `btn-actualizar-pro` en el header — visible solo cuando
+    `datosSuscripcion.estado !== "pro"` (no tiene sentido ofrecerlo a
+    quien ya es Pro o Pro Perpetuo).
+  - Al hacer clic, abre un modal (`mostrarModalPago()`) con los datos de
+    pago (CLABE y WhatsApp del Responsable) y las instrucciones para
+    transferir y enviar el comprobante.
+  - Dentro del modal, "Ya pagué, notificar" (`notificarPago()`) escribe
+    un documento en la nueva colección `notificaciones_pago/{docenteUid}`
+    con el correo del docente y la fecha — **no activa Pro por sí solo**,
+    solo dispara la señal que el Responsable ve en `panel-admin.html`.
+
+### Agregado — `firestore.rules`
+- `notificaciones_pago/{docenteUid}` — el propio docente puede
+  crear/actualizar únicamente su propio documento (esquema cerrado a
+  `correo` y `notificadoEn`); lectura para el dueño o para
+  administradores (`esAdmin()`); **sin ruta de borrado desde el
+  cliente**, ni siquiera para el propio docente — el Responsable limpia
+  el registro manualmente tras activar el Pro correspondiente, igual que
+  con `admins/{uid}` y la asignación de `perpetuo`.
+
+### Agregado — `panel-admin.html`
+- La sección "Control de pagos" ahora también lee `notificaciones_pago` y
+  cruza esa información con la tabla existente: los docentes que
+  notificaron un pago aparecen primero (antes que los simplemente
+  urgentes por vencer), resaltados en verde, con una columna nueva
+  "Estado" (🔔 Notificó pago) y una tarjeta de resumen separada con el
+  conteo. Sigue siendo de solo lectura — ninguna escritura desde el panel
+  administrativo.
+
+### NO implementado (fuera de alcance de esta entrega)
+- Ninguna verificación automática del comprobante de pago — sigue siendo
+  criterio y revisión manual del Responsable antes de activar Pro.
+- Ningún botón para "limpiar" la notificación desde `panel-admin.html` —
+  se hace desde la consola de Firebase, manualmente.
+- No se auditó el resto del proyecto en busca de más elementos "a medio
+  terminar" similares a los encontrados en esta entrega y en V8.6.2 — se
+  corrigieron los que el usuario reportó, no se hizo una barrida completa.
+
+### Archivos modificados
+- `login.html`
+- `panel-docente.html`
+- `panel-admin.html`
+- `firestore.rules`
+
+### Validación realizada
+- Sintaxis JavaScript de `login.html`, `panel-docente.html` y
+  `panel-admin.html` verificada con `node --check` — sin errores.
+- Balance de llaves/paréntesis/corchetes en `firestore.rules`: 51/51,
+  136/136, 18/18. Balance de `<div>`/`</div>` en `panel-docente.html`:
+  38/38.
+- **No se probó en un teléfono real** — la corrección del viewport se
+  basa en el diagnóstico correcto del problema (etiqueta ausente), pero
+  no se verificó visualmente en un dispositivo. Tampoco se probó el modal
+  de pago ni la escritura a `notificaciones_pago` contra Firebase real.
+
+---
+
 ## [V8.6.2] — Enlaces legales + Control de pagos en panel administrativo
 
 ### Nota de transparencia

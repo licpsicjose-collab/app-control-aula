@@ -1,7 +1,7 @@
 # AVISO DE PRIVACIDAD — CONTROL DE AULA
 
 **Última actualización:** Agosto 2026
-**Versión del aviso:** 1.0
+**Versión del aviso:** 1.1
 
 ---
 
@@ -27,7 +27,7 @@ Control de Aula es una plataforma educativa operada de forma independiente. No f
 - Contraseña — el Responsable **no tiene acceso a su contraseña en texto plano**; su gestión (almacenamiento cifrado, verificación) la realiza Firebase Authentication, servicio de Google.
 - Nombre de la escuela, materia y grupo que usted mismo captura al crear una clase.
 - Datos de uso de la plataforma: fecha de su primer uso, fecha de su última actividad, fecha de su última clase, número total de clases impartidas, lista de grupos que ha usado, y si completó u omitió el recorrido de bienvenida (onboarding).
-- Estado de su plan de suscripción (prueba, gratuito o de pago), fechas asociadas a ese plan, y qué grupo tiene activo o congelado. Actualmente la plataforma **no procesa pagos ni almacena datos de tarjetas o medios de pago** — ver sección 13.
+- Estado de su plan de suscripción (prueba, gratuito o de pago), fechas asociadas a ese plan, y qué grupo tiene activo o congelado. Actualmente la plataforma **no tiene integrado un procesador de pagos automatizado ni almacena datos de tarjetas**; si usted notifica un pago manual, se almacena únicamente su correo y la fecha de esa notificación — ver sección 13.
 
 ### 2.2 Datos de las personas alumnas (sin cuenta propia)
 
@@ -177,11 +177,13 @@ Este tratamiento se limita estrictamente al correo electrónico como identificad
 
 ---
 
-## 13. Posible integración futura de Mercado Pago
+## 13. Pago manual y posible integración futura de un procesador de pagos
 
-La plataforma **no tiene integrado actualmente ningún medio de pago**. El plan de pago (Pro) existe como concepto comercial y en el modelo de datos interno, pero no hay ningún flujo funcional para comprarlo dentro de la aplicación al momento de este aviso.
+La plataforma **no tiene integrado actualmente ningún procesador de pagos automatizado** (como Mercado Pago). El plan Pro se adquiere hoy mediante transferencia bancaria (SPEI) fuera de la aplicación, y una notificación manual dentro de la aplicación para avisar que el pago ya se realizó.
 
-En caso de integrarse en el futuro un proveedor de pagos como **Mercado Pago**, ese tratamiento de datos de pago (por ejemplo, datos de tarjeta) sería realizado directamente por el proveedor de pagos correspondiente, conforme a su propio aviso de privacidad, y el Responsable actualizaría este documento antes de activar esa integración para describir con precisión qué datos se comparten con ese proveedor y con qué finalidad.
+Esa notificación de pago almacena únicamente su correo electrónico y la fecha en que la envió — nunca datos de tarjeta ni de la transferencia en sí (esos permanecen en su banco y en el comprobante que usted comparte directamente por WhatsApp con el Responsable). El Responsable consulta esta notificación para saber a quién le corresponde confirmar un pago y activar el plan Pro manualmente; el registro se conserva hasta que el Responsable lo elimina, una vez activado el plan.
+
+En caso de integrarse en el futuro un procesador de pagos automatizado como **Mercado Pago**, ese tratamiento de datos de pago (por ejemplo, datos de tarjeta) sería realizado directamente por el proveedor de pagos correspondiente, conforme a su propio aviso de privacidad, y el Responsable actualizaría este documento antes de activar esa integración para describir con precisión qué datos se comparten con ese proveedor y con qué finalidad.
 
 ---
 

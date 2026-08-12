@@ -1408,15 +1408,18 @@ firebase.auth().onAuthStateChanged(user => {
     </div>
 </div>
 
-<!-- ✅ V8.6.3 — MODAL DE PAGO: sin pasarela automática (sigue sin existir), solo
-     muestra los datos para pagar por transferencia y permite notificar el pago
-     para que aparezca marcado en el panel administrativo. La activación real
-     del plan Pro sigue siendo manual, desde la consola de Firebase. -->
+<!-- ✅ V8.6.4 — MODAL DE PAGO: sin pasarela automática (sigue sin existir), solo
+     muestra el monto ($399 MXN), la CLABE, el nombre del titular de la cuenta,
+     y permite notificar el pago para que aparezca marcado en el panel
+     administrativo. La activación real del plan Pro sigue siendo manual,
+     desde la consola de Firebase. -->
 <div id="overlay-modal-pago" onclick="if(event.target===this) ocultarModalPago()">
     <div id="modal-pago">
         <h3>💳 Actualizar a Plan Pro</h3>
         <p>Realiza tu pago por transferencia (SPEI) a la siguiente cuenta:</p>
+        <div class="dato-pago"><strong>Monto</strong>$399 MXN (1 año)</div>
         <div class="dato-pago"><strong>CLABE</strong>072180012216110510</div>
+        <div class="dato-pago"><strong>A nombre de</strong>José Cándido Díaz Hernández</div>
         <p>Envía tu comprobante de pago y el correo de tu cuenta al siguiente número de WhatsApp:</p>
         <div class="dato-pago"><strong>WhatsApp</strong>55 3756 6087</div>
         <p>Una vez que confirmemos tu pago, activaremos tu Plan Pro manualmente — normalmente en menos de 48 horas.</p>

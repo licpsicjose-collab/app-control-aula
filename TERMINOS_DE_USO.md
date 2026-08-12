@@ -1,7 +1,7 @@
 # TÉRMINOS DE USO — CONTROL DE AULA
 
 **Última actualización:** Agosto 2026
-**Versión:** 1.0
+**Versión:** 1.1
 
 ---
 
@@ -24,7 +24,7 @@ La plataforma se ofrece bajo tres planes:
 
 - **Trial (prueba):** 15 días desde el registro, con acceso sin restricción de grupos.
 - **Free (gratuito):** un grupo activo; el resto de los grupos usados previamente quedan congelados (no pueden iniciar clases nuevas, aunque sus datos permanecen almacenados).
-- **Pro (de pago):** grupos ilimitados, sin patrocinio. **Este plan no tiene actualmente un flujo de compra funcional dentro de la aplicación** — ver sección 8.
+- **Pro (de pago):** grupos ilimitados, sin patrocinio. **Se adquiere hoy mediante transferencia bancaria (SPEI) y notificación manual dentro de la aplicación — no existe todavía una pasarela de pago automatizada** — ver sección 8.
 
 ---
 
@@ -63,7 +63,7 @@ El incumplimiento de esta sección puede resultar en la suspensión o eliminaci�
 - El plan Trial se asigna automáticamente al registrarse y dura 15 días naturales contados desde la fecha de registro.
 - Al vencer el Trial (o un eventual periodo Pro), la cuenta pasa automáticamente al plan Free. Esta transición ocurre la primera vez que usted abre el panel docente después de la fecha de vencimiento — la plataforma no tiene un proceso en segundo plano que la ejecute en el instante exacto del vencimiento.
 - Bajo el plan Free, el primer grupo con el que usted inicie una clase se convierte en su grupo activo; el resto de los grupos que haya usado antes quedan congelados (no pueden iniciar clases nuevas, aunque sus datos permanecen almacenados). Actualmente **no existe una pantalla dentro de la aplicación para consultar o exportar por separado los datos de un grupo congelado**; recuperar el acceso a esos grupos requiere actualizar al plan Pro.
-- El plan Pro tiene un costo asociado, descrito en la documentación comercial de la plataforma, pero **no cuenta hoy con un flujo de pago funcional** dentro de la aplicación (ver sección 8).
+- El plan Pro tiene un costo asociado, descrito en la documentación comercial de la plataforma. Su adquisición se realiza hoy mediante el proceso manual descrito en la sección 8 — **no cuenta todavía con una pasarela de pago automatizada** dentro de la aplicación.
 
 ---
 
@@ -76,7 +76,13 @@ El incumplimiento de esta sección puede resultar en la suspensión o eliminaci�
 
 ## 8. Pagos (estado actual)
 
-A la fecha de estos términos, Control de Aula **no procesa pagos**. El plan Pro existe como concepto comercial, pero no hay ningún botón, pantalla o integración funcional para comprarlo. Cualquier cobro futuro (por ejemplo, mediante Mercado Pago) se anunciará con anticipación, y estos Términos de Uso, junto con el Aviso de Privacidad, se actualizarán antes de activar esa función para describir con precisión las condiciones de cobro, renovación y cancelación.
+Control de Aula **no cuenta con una pasarela de pago automatizada**. El plan Pro no se compra con tarjeta ni se activa de forma instantánea dentro de la aplicación. Su adquisición actual funciona así:
+
+1. Usted transfiere el monto vigente del plan Pro (SPEI) a la cuenta bancaria indicada dentro de la aplicación, a nombre de José Cándido Díaz Hernández.
+2. Usted notifica ese pago dentro de la aplicación (botón "Ya pagué, notificar"), lo cual únicamente registra que hizo una transferencia y en qué fecha — **no activa el plan Pro por sí solo**.
+3. El Responsable confirma manualmente el pago (con el comprobante que usted comparte por WhatsApp) y activa el plan Pro desde la consola de administración, normalmente en menos de 48 horas.
+
+Este proceso es manual en ambos sentidos: ni el pago ni la activación ocurren automáticamente. Cualquier cobro futuro a través de un procesador de pagos automatizado (por ejemplo, Mercado Pago) se anunciará con anticipación, y estos Términos de Uso, junto con el Aviso de Privacidad, se actualizarán antes de activar esa integración para describir con precisión las condiciones de cobro, renovación y cancelación.
 
 ---
 

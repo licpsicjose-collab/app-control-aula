@@ -1,5 +1,62 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.6.5] — Monto/titular en el modal de pago y actualización de documentos legales
+
+### Contexto
+Al revisar qué hacía falta para poder cobrarle a un cliente real bajo el
+modelo actual (transferencia manual, sin pasarela de pago automatizada
+todavía), se encontraron dos brechas: el modal de pago no indicaba cuánto
+transferir ni a nombre de quién, y los documentos legales seguían
+declarando "no procesamos pagos" cuando el flujo manual de notificación
+(V8.6.3) ya estaba en producción.
+
+### Agregado — `panel-docente.html`
+- El modal de pago (`#modal-pago`) ahora muestra el **monto** ($399 MXN,
+  1 año) y el **nombre del titular de la cuenta** (José Cándido Díaz
+  Hernández), además de la CLABE y el WhatsApp ya existentes. Ningún
+  otro dato ni función del modal cambió — sigue sin activar Pro por sí
+  solo, sigue siendo `notificarPago()` la única acción que escribe algo.
+
+### Corregido — `TERMINOS_DE_USO.md` (v1.0 → v1.1)
+- Sección 2, 6 y 8: se reemplazó la afirmación de que el plan Pro "no
+  tiene un flujo de compra funcional" por la descripción real del
+  proceso vigente (transferencia SPEI + notificación manual dentro de la
+  app + activación manual del Responsable). Se conserva explícitamente
+  que **no existe una pasarela de pago automatizada** todavía, y que la
+  eventual integración de un procesador como Mercado Pago se anunciará
+  y documentará por separado cuando ocurra — sin comprometer una fecha.
+
+### Corregido — `AVISO_PRIVACIDAD.md` (v1.0 → v1.1)
+- Sección 2.1 y 13 (renombrada de "Posible integración futura de Mercado
+  Pago" a "Pago manual y posible integración futura de un procesador de
+  pagos"): se documenta con precisión qué se almacena hoy cuando un
+  docente notifica un pago (correo y fecha de la notificación,
+  únicamente — nunca datos de tarjeta ni de la transferencia bancaria
+  en sí) y quién la consulta y para qué. Se conserva la referencia a
+  Mercado Pago como integración futura, sin cambios en su tratamiento
+  descrito.
+
+### Explícitamente NO modificado
+- Ninguna función de JavaScript — el cambio en `panel-docente.html` es
+  exclusivamente de contenido HTML dentro del modal ya existente.
+- El tema fiscal (facturación, régimen bajo el cual se emitirán CFDI si
+  corresponde) queda deliberadamente fuera de alcance de esta entrega,
+  por decisión explícita del Responsable, hasta que el crecimiento de la
+  plataforma lo requiera.
+- El uso del plan Firebase Spark (gratuito) — el proyecto sigue sin
+  usar Cloud Functions ni ningún servicio que obligue a escalar a Blaze.
+
+### Archivos modificados
+- `panel-docente.html`, `TERMINOS_DE_USO.md`, `AVISO_PRIVACIDAD.md`
+
+### Validación realizada
+- Balance de `<div>` en `panel-docente.html` tras el cambio: 40/40.
+- Sintaxis JavaScript de `panel-docente.html` verificada con
+  `node --check` — sin errores (el cambio no tocó ningún bloque
+  `<script>`).
+
+---
+
 ## [V8.6.4] — Fusión de la rama V8_5_MOBILE (optimizaciones móviles) a la rama principal
 
 ### Contexto

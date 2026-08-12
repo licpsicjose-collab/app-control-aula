@@ -23,6 +23,8 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
         box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
     }
     header h2 { margin: 0; font-size: 18px; }
@@ -30,6 +32,15 @@
         padding: 20px;
         max-width: 1200px;
         margin: 0 auto;
+        box-sizing: border-box;
+    }
+    /* ✅ Permite desplazamiento horizontal de tablas anchas en pantallas
+       angostas sin alterar su estructura ni su contenido (auditoría móvil) */
+    .tabla-scroll {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
     }
     .aviso {
         background: white;
@@ -121,6 +132,23 @@
         padding-top: 14px;
     }
     #cargando { text-align: center; padding: 60px; color: #6b7280; }
+
+    /* ✅ Optimización móvil (solo estilos — no altera lógica, datos ni permisos) */
+    @media (max-width: 600px) {
+        header { padding: 14px 16px; }
+        header h2 { font-size: 15px; }
+        #info-usuario { font-size: 13px; }
+        .container { padding: 12px; }
+        .aviso { padding: 20px 16px; }
+        .grid-tarjetas { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+        .tarjeta { padding: 14px; }
+        .tarjeta .valor { font-size: 22px; }
+        table { font-size: 12px; }
+        th, td { padding: 8px 10px; }
+    }
+    @media (max-width: 380px) {
+        .grid-tarjetas { grid-template-columns: 1fr 1fr; }
+    }
 </style>
 </head>
 <body>
@@ -330,12 +358,14 @@ function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPor
                 </div>
             </div>
             ${pasosOrdenados.length > 0 ? `
-            <table style="margin-top:14px;">
+            <div class="tabla-scroll" style="margin-top:14px;">
+            <table>
                 <thead><tr><th>Paso donde se omitió</th><th>Eventos</th></tr></thead>
                 <tbody>
                     ${pasosOrdenados.map(([paso, n]) => `<tr><td>${escaparHTML(paso)}</td><td>${n}</td></tr>`).join("")}
                 </tbody>
-            </table>` : ""}
+            </table>
+            </div>` : ""}
         `;
     }
 
@@ -396,6 +426,7 @@ function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPor
                 ${notificaronCount > 0 ? `<div class="tarjeta" style="border-left:4px solid #059669; flex:1; min-width:200px;"><div class="valor" style="color:#059669;">${notificaronCount}</div><div class="etiqueta">notificaron un pago — pendiente de confirmar y activar</div></div>` : ""}
                 ${urgentesCount > 0 ? `<div class="tarjeta" style="border-left:4px solid #dc2626; flex:1; min-width:200px;"><div class="valor" style="color:#dc2626;">${urgentesCount}</div><div class="etiqueta">docente(s) por vencer pronto</div></div>` : ""}
             </div>
+            <div class="tabla-scroll">
             <table>
                 <thead><tr><th>Correo</th><th>Plan</th><th>Vence en</th><th>Precio pagado</th><th>Estado</th></tr></thead>
                 <tbody>
@@ -409,6 +440,7 @@ function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPor
                         </tr>`).join("")}
                 </tbody>
             </table>
+            </div>
             <div class="nota" style="margin-top:10px;">
                 No hay ningún flujo de pago automático — esta tabla es solo de lectura, para saber a quién le toca revisar manualmente en Firestore (suscripciones/{'{'}docenteUid{'}'}).
                 "🔔 Notificó pago" viene de notificaciones_pago — verifica el comprobante que te compartieron por WhatsApp antes de activar, y borra ese registro desde Firestore una vez activado.
@@ -485,12 +517,14 @@ function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPor
 
         <div class="seccion">
             <h3>Docentes por escuela</h3>
+            <div class="tabla-scroll">
             <table>
                 <thead><tr><th>Escuela</th><th>Docentes activados</th></tr></thead>
                 <tbody>
                     ${escuelasOrdenadas.map(([esc, n]) => `<tr><td>${escaparHTML(esc)}</td><td>${n}</td></tr>`).join("")}
                 </tbody>
             </table>
+            </div>
         </div>
 
         <div class="seccion">

@@ -1,5 +1,110 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.6.4] — Fusión de la rama V8_5_MOBILE (optimizaciones móviles) a la rama principal
+
+### Contexto
+Existían dos copias del proyecto avanzando en paralelo desde una base común
+V8.5: la rama principal (documentada hasta V8.6.3 en este mismo archivo) y
+una rama independiente, `Version_8_5_MOBILE`, enfocada exclusivamente en
+ajustes de visualización en pantallas de celular (viewport, media queries,
+`100dvh`, desplazamiento horizontal de tablas anchas) que nunca se
+integraron a la rama principal. Esta entrada consolida ambas en una sola
+versión, sin duplicar trabajo ni perder ninguna de las dos líneas de
+avance.
+
+### Regla seguida en la fusión
+Ante cualquier archivo con diferencias entre ambas ramas, se conservó
+siempre la lógica de negocio y las funciones de la rama principal
+(V8.6.3, más avanzada en funcionalidad — modal de pago, notificaciones,
+`firestore.rules`), y se le añadió el CSS/HTML de optimización móvil de
+`V8_5_MOBILE`, sin alterar ninguna función de JavaScript ya existente en
+ninguna de las dos ramas.
+
+### Agregado — `index.html`
+- `viewport-fit=cover` en la etiqueta viewport (ausente en la rama
+  principal).
+- `padding-left/right` y `box-sizing: border-box` en `body`, y bloque
+  `@media (max-width: 480px)` que apila los botones de entrada a ancho
+  completo en pantallas angostas.
+
+### Agregado — `login.html`
+- `viewport-fit=cover` en la etiqueta viewport.
+- Bloque `@media (max-width: 480px)`: alto automático con `100dvh`,
+  padding reducido, y `font-size: 16px` en los campos para evitar el
+  zoom automático de iOS al enfocar un input.
+
+### Agregado — `panel-alumno.html`
+- Bloque `@media (max-width: 360px)` para pantallas muy angostas
+  (parpadeo, marcadores de estrellas/evaluación, encabezado de pantalla
+  pausada).
+- Soporte `@supports (height: 100dvh)` para que Safari en iOS no recorte
+  el contenido por la barra del navegador, sin afectar el resto de
+  navegadores que siguen usando `100vh` como antes.
+
+### Agregado — `panel-docente.html`
+- Bloques `@media (max-width: 600px)` y `@media (max-width: 480px)` con
+  ajustes de padding, tamaño de fuente, y botones de acción de clase
+  (Finalizar/Exportar/Retardo/Pausar) apilados a ancho completo en
+  móvil. `font-size: 16px` en inputs/selects por el mismo motivo que en
+  `login.html`.
+- **No se trasladó** la regla `header details > div` de la rama móvil,
+  porque el menú desplegable "📄 Documentos legales" que protegía fue
+  eliminado en V8.6.3 (sustituido por la franja de enlaces); la regla ya
+  no tenía ningún elemento al que aplicar.
+
+### Agregado — `panel-admin.html`
+- `flex-wrap` y `gap` en el header, y `box-sizing: border-box` en
+  `.container`.
+- Nueva clase `.tabla-scroll` (contenedor con `overflow-x: auto`) para
+  permitir desplazamiento horizontal en pantallas angostas sin alterar
+  el contenido ni la estructura de las tablas — aplicada a las tres
+  tablas del panel: distribución de pasos de onboarding, Control de
+  pagos, y Docentes por escuela. La tabla de Control de pagos ya incluye
+  la columna "Estado" y el resaltado en verde agregados en V8.6.3; solo
+  se le envolvió el `<table>` existente, sin tocar sus columnas, datos
+  ni lógica de orden.
+- Bloques `@media (max-width: 600px)` y `@media (max-width: 380px)` para
+  encabezado, tarjetas de resumen y tipografía de tablas.
+
+### Agregado — `CONSENTIMIENTO_INFORMADO_PADRES.html`
+- Botón **"← Volver"** (`volverAtras()`), junto al botón de imprimir ya
+  existente, que regresa a la pantalla anterior usando el historial del
+  navegador (o a `panel-docente.html` si no hay historial previo, por
+  ejemplo al abrirse en una pestaña nueva). Esta función no existía en
+  ninguna versión previa registrada en este changelog; se documenta aquí
+  por primera vez.
+- Bloque `@media (max-width: 600px)` para los campos de datos y la barra
+  de botones en pantallas angostas.
+
+### Explícitamente NO modificado
+- Ninguna función de JavaScript de negocio en ningún archivo — Firebase,
+  Firestore, autenticación, `firestore.rules` (se usó tal cual la
+  versión de V8.6.3, sin cambios), flujo de pago manual, participaciones,
+  evaluaciones, historial, exportación, onboarding docente/alumno.
+- Los documentos legales (`AVISO_PRIVACIDAD`, `TERMINOS_DE_USO`,
+  `POLITICA_SOPORTE`) se conservaron en el formato `.md` de la rama
+  principal, ya enlazado desde `panel-docente.html`; las copias `.html`
+  de la rama móvil quedaron obsoletas desde la migración de formato ya
+  documentada en V8.6.2 y no se reincorporaron.
+
+### Archivos modificados
+- `index.html`, `login.html`, `panel-alumno.html`, `panel-docente.html`,
+  `panel-admin.html`, `CONSENTIMIENTO_INFORMADO_PADRES.html`
+
+### Validación realizada
+- Sintaxis JavaScript de los cinco archivos `.html` con bloque `<script>`
+  verificada extrayendo el código y ejecutando `node --check` — sin
+  errores en ninguno.
+- Balance de `<div>` en `panel-admin.html`: 75/75.
+- Balance de llaves/paréntesis en `panel-admin.html`: 128/128, 176/176.
+- Balance de llaves/paréntesis en `panel-docente.html`: 295/295, 542/542.
+- Balance de llaves/paréntesis/corchetes en `firestore.rules` (sin
+  cambios respecto a V8.6.3): 51/51, 136/136, 18/18.
+- **No se probó en un teléfono real ni contra un proyecto Firebase
+  real** — mismo motivo que en entregas anteriores de este proyecto.
+
+---
+
 ## [V8.6.3] — Corrección de UX móvil, consolidación de enlaces, y notificación de pago manual
 
 ### Contexto

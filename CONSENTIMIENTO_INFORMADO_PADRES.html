@@ -73,8 +73,8 @@
         padding-top: 12px;
     }
     .btn-imprimir {
-        display: block;
-        margin: 0 auto 24px auto;
+        display: inline-block;
+        margin: 0;
         background: #1e3a8a;
         color: white;
         border: none;
@@ -84,15 +84,64 @@
         cursor: pointer;
         font-family: -apple-system, sans-serif;
     }
+    .btn-volver {
+        display: inline-block;
+        margin: 0;
+        background: #f1f5f9;
+        color: #1e3a8a;
+        border: 1px solid #cbd5e1;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        font-family: -apple-system, sans-serif;
+    }
+    .barra-acciones {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
     @media print {
-        .btn-imprimir { display: none; }
+        .btn-imprimir, .btn-volver { display: none; }
         body { margin: 0; }
+    }
+
+    /* ✅ Optimización móvil (solo estilos — el contenido y el texto legal no cambian) */
+    @media (max-width: 600px) {
+        body {
+            margin: 16px auto;
+            padding: 0 14px;
+            font-size: 14px;
+        }
+        h1 { font-size: 17px; }
+        h2 { font-size: 14px; }
+        .campo-llenar {
+            min-width: 0;
+            width: 100%;
+            display: block;
+            margin: 4px 0 8px 0;
+        }
+        .bloque-datos p {
+            display: flex;
+            flex-direction: column;
+        }
+        .firma-linea { width: 100%; }
+        .barra-acciones button {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .barra-acciones { flex-direction: column; }
     }
 </style>
 </head>
 <body>
 
-<button class="btn-imprimir" onclick="window.print()">🖨️ Imprimir este documento</button>
+<div class="barra-acciones">
+    <button class="btn-imprimir" onclick="window.print()">🖨️ Imprimir este documento</button>
+    <button class="btn-volver" onclick="volverAtras()">← Volver</button>
+</div>
 
 <h1>CONSENTIMIENTO INFORMADO PARA PADRES, MADRES O TUTORES</h1>
 <div class="subtitulo">Autorización para el tratamiento de datos personales de un alumno menor de edad en la plataforma Control de Aula</div>
@@ -156,6 +205,19 @@
 <div class="nota-final">
     Este documento se genera con el propósito de documentar la autorización de padres, madres o tutores de alumnas y alumnos menores de edad para el uso de Control de Aula dentro del salón de clases. El plantel educativo o el docente conservan el original firmado (y, en su caso, la copia de identificación anexa) como respaldo físico; esta plataforma no recibe ni almacena copias de identificaciones oficiales de ningún padre, madre o tutor. Este documento no sustituye una revisión legal profesional del caso particular de cada institución.
 </div>
+
+<script>
+// ✅ Redirige a la pantalla anterior al terminar de leer el documento.
+// Usa el historial del navegador; si se abrió sin historial previo
+// (p. ej. en una pestaña nueva desde el panel docente), regresa ahí.
+function volverAtras() {
+    if (window.history.length > 1) {
+        window.history.back();
+    } else {
+        window.location.href = "panel-docente.html";
+    }
+}
+</script>
 
 </body>
 </html>

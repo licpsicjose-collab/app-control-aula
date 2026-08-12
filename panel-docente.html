@@ -370,6 +370,30 @@
     #modal-pago .modal-botones button { flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 13px; cursor: pointer; }
     #modal-pago .btn-notificar { background: #059669; color: white; }
     #modal-pago .btn-cerrar { background: #f3f4f6; color: #374151; }
+
+    /* ✅ Optimización móvil (solo estilos — no altera lógica ni datos) */
+    @media (max-width: 600px) {
+        header { padding: 14px 16px; }
+        header h2 { font-size: 16px; }
+        .container { padding: 12px; }
+        .grid-config { padding: 14px; gap: 10px; }
+        .grid-alumnos { grid-template-columns: 1fr; gap: 12px; }
+        .codigo-grande { font-size: 26px; }
+        .tarjeta-alumno { padding: 14px; }
+        input, select { font-size: 16px; } /* evita zoom automático de iOS al enfocar */
+        /* Los botones de acción de clase (Finalizar/Exportar/Retardo/Pausar)
+           se apilan a ancho completo para facilitar el toque en pantallas angostas */
+        #zona-codigos > div > div > .btn {
+            width: 100%;
+            margin: 4px 0;
+            box-sizing: border-box;
+        }
+    }
+    @media (max-width: 480px) {
+        .tour-tarjeta { padding: 14px 16px; }
+        .tour-privacidad { padding: 18px 18px; }
+        .codigo-grande { font-size: 22px; letter-spacing: 1px; }
+    }
 </style>
 </head>
 <body>

@@ -228,6 +228,20 @@ button:hover {
 @media (max-width: 480px) {
     .guia-tarjeta { padding: 16px; }
 }
+
+/* ✅ Optimización móvil adicional (solo estilos — no altera la lógica) */
+@media (max-width: 360px) {
+    .form-box { padding: 22px 18px; }
+    .parpadeo { font-size: 42px; }
+    .marcador-estrellas, .marcador-evaluacion { font-size: 18px; padding: 8px 14px; }
+    .pantalla-pausada h2 { font-size: 24px; }
+}
+/* iOS Safari calcula 100vh incluyendo la barra del navegador; dvh evita
+   que el contenido quede cortado en pantallas de celular (donde el
+   navegador lo soporta; en el resto sigue funcionando 100vh como antes) */
+@supports (height: 100dvh) {
+    .pantalla-login, .pantalla-clase, .pantalla-pausada { height: 100dvh; }
+}
 </style>
 </head>
 <body>

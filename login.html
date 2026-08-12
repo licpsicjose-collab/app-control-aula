@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Acceso Docente</title>
 
 <!-- ✅ V7.4 — PWA: manifest, favicon e íconos (no afecta lógica ni Firebase) -->
@@ -92,6 +92,25 @@ button {
 
 .btn-secondary:hover {
     background-color: #e2e8f0;
+}
+
+/* ✅ Optimización móvil (solo estilos, no cambia funcionamiento) */
+@media (max-width: 480px) {
+    body {
+        height: auto;
+        min-height: 100dvh;
+        padding: 20px 12px;
+        box-sizing: border-box;
+        align-items: flex-start;
+    }
+    .login-card {
+        padding: 28px 20px;
+        max-width: 100%;
+        margin-top: 30px;
+    }
+    input, .btn-container button {
+        font-size: 16px; /* evita zoom automático de iOS al enfocar */
+    }
 }
 </style>
 

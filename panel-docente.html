@@ -370,30 +370,6 @@
     #modal-pago .modal-botones button { flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 13px; cursor: pointer; }
     #modal-pago .btn-notificar { background: #059669; color: white; }
     #modal-pago .btn-cerrar { background: #f3f4f6; color: #374151; }
-
-    /* ✅ Optimización móvil (solo estilos — no altera lógica ni datos) */
-    @media (max-width: 600px) {
-        header { padding: 14px 16px; }
-        header h2 { font-size: 16px; }
-        .container { padding: 12px; }
-        .grid-config { padding: 14px; gap: 10px; }
-        .grid-alumnos { grid-template-columns: 1fr; gap: 12px; }
-        .codigo-grande { font-size: 26px; }
-        .tarjeta-alumno { padding: 14px; }
-        input, select { font-size: 16px; } /* evita zoom automático de iOS al enfocar */
-        /* Los botones de acción de clase (Finalizar/Exportar/Retardo/Pausar)
-           se apilan a ancho completo para facilitar el toque en pantallas angostas */
-        #zona-codigos > div > div > .btn {
-            width: 100%;
-            margin: 4px 0;
-            box-sizing: border-box;
-        }
-    }
-    @media (max-width: 480px) {
-        .tour-tarjeta { padding: 14px 16px; }
-        .tour-privacidad { padding: 18px 18px; }
-        .codigo-grande { font-size: 22px; letter-spacing: 1px; }
-    }
 </style>
 </head>
 <body>
@@ -413,13 +389,6 @@
     <!-- ✅ V8.5 — SUSCRIPCIONES: patrocinio (solo plan free) y aviso de grupo congelado -->
     <div id="banner-patrocinio">💜 Control de Aula Free está patrocinado por <strong>Psicología Aplicada</strong></div>
     <div id="banner-grupo-congelado"></div>
-
-    <!-- ✅ V8.6.2 — Enlaces a los documentos legales (antes solo el consentimiento estaba enlazado desde el header) -->
-    <div style="font-size:12px; color:#9ca3af; margin:-8px 0 16px 0; text-align:right;">
-        <a href="AVISO_PRIVACIDAD.md" target="_blank" style="color:#6b7280; text-decoration:underline; margin-left:12px;">Aviso de Privacidad</a>
-        <a href="TERMINOS_DE_USO.md" target="_blank" style="color:#6b7280; text-decoration:underline; margin-left:12px;">Términos de Uso</a>
-        <a href="POLITICA_SOPORTE.md" target="_blank" style="color:#6b7280; text-decoration:underline; margin-left:12px;">Soporte</a>
-    </div>
 
     <!-- Bloque de configuración con memoria local -->
     <div class="grid-config" id="modulo-config">
@@ -484,6 +453,17 @@
         <!-- Listado dinámico de alumnos -->
         <div class="grid-alumnos" id="contenedor-alumnos"></div>
     </div>
+
+    <!-- ✅ V8.6.4 — Pie de página real, fuera de la zona de configuración de
+         clase (antes quedaba pegado a los banners de suscripción, dando la
+         impresión de formar parte de la sesión activa). Usa visor-legal.html
+         (misma pestaña, sin target="_blank") para que el retroceso del
+         navegador/teléfono regrese al panel en vez de salir de la app. -->
+    <footer style="text-align:center; padding:24px 0 8px 0; font-size:12px; color:#9ca3af;">
+        <a href="visor-legal.html?doc=AVISO_PRIVACIDAD.md&titulo=Aviso%20de%20Privacidad" style="color:#6b7280; text-decoration:underline; margin:0 10px;">Aviso de Privacidad</a>
+        <a href="visor-legal.html?doc=TERMINOS_DE_USO.md&titulo=T%C3%A9rminos%20de%20Uso" style="color:#6b7280; text-decoration:underline; margin:0 10px;">Términos de Uso</a>
+        <a href="visor-legal.html?doc=POLITICA_SOPORTE.md&titulo=Pol%C3%ADtica%20de%20Soporte" style="color:#6b7280; text-decoration:underline; margin:0 10px;">Soporte</a>
+    </footer>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -859,14 +839,20 @@ function ocultarModalPago() {
     document.getElementById("overlay-modal-pago").classList.remove("visible");
 }
 
+// ✅ V8.6.5 — MIGRADO de notificaciones_pago a solicitudes_pago: esta
+// colección ya tenía una regla más completa (permite que el admin marque
+// 'atendida' sin volver a la consola de Firebase), escrita en una sesión
+// anterior pero nunca conectada a ningún código. Se conserva el mismo
+// nombre de función para no tener que tocar el modal ni el botón.
 async function notificarPago() {
     let usuario = firebase.auth().currentUser;
     if (!usuario) return;
 
     try {
-        await db.collection("notificaciones_pago").doc(docenteUid).set({
+        await db.collection("solicitudes_pago").doc(docenteUid).set({
             correo: usuario.email,
-            notificadoEn: Date.now()
+            fechaSolicitud: Date.now(),
+            atendida: false
         });
         alert("✅ Listo, quedó registrado. En cuanto confirmemos tu pago activaremos tu Plan Pro — normalmente en menos de 48 horas.");
         ocultarModalPago();
@@ -1408,18 +1394,15 @@ firebase.auth().onAuthStateChanged(user => {
     </div>
 </div>
 
-<!-- ✅ V8.6.4 — MODAL DE PAGO: sin pasarela automática (sigue sin existir), solo
-     muestra el monto ($399 MXN), la CLABE, el nombre del titular de la cuenta,
-     y permite notificar el pago para que aparezca marcado en el panel
-     administrativo. La activación real del plan Pro sigue siendo manual,
-     desde la consola de Firebase. -->
+<!-- ✅ V8.6.3 — MODAL DE PAGO: sin pasarela automática (sigue sin existir), solo
+     muestra los datos para pagar por transferencia y permite notificar el pago
+     para que aparezca marcado en el panel administrativo. La activación real
+     del plan Pro sigue siendo manual, desde la consola de Firebase. -->
 <div id="overlay-modal-pago" onclick="if(event.target===this) ocultarModalPago()">
     <div id="modal-pago">
         <h3>💳 Actualizar a Plan Pro</h3>
         <p>Realiza tu pago por transferencia (SPEI) a la siguiente cuenta:</p>
-        <div class="dato-pago"><strong>Monto</strong>$399 MXN (1 año)</div>
         <div class="dato-pago"><strong>CLABE</strong>072180012216110510</div>
-        <div class="dato-pago"><strong>A nombre de</strong>José Cándido Díaz Hernández</div>
         <p>Envía tu comprobante de pago y el correo de tu cuenta al siguiente número de WhatsApp:</p>
         <div class="dato-pago"><strong>WhatsApp</strong>55 3756 6087</div>
         <p>Una vez que confirmemos tu pago, activaremos tu Plan Pro manualmente — normalmente en menos de 48 horas.</p>

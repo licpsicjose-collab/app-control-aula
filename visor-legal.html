@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documento — Control de Aula</title>
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 0 18px 40px 18px;
+        color: #1f2937;
+        line-height: 1.6;
+        background: #f9fafb;
+    }
+    .barra-volver {
+        position: sticky;
+        top: 0;
+        background: #1e3a8a;
+        margin: 0 -18px 20px -18px;
+        padding: 14px 18px;
+        z-index: 10;
+    }
+    .barra-volver a {
+        color: white;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    #contenido h1 { font-size: 22px; color: #1e3a8a; margin-top: 28px; }
+    #contenido h2 { font-size: 17px; color: #1e3a8a; margin-top: 24px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; }
+    #contenido h3 { font-size: 15px; color: #374151; margin-top: 18px; }
+    #contenido p { font-size: 14.5px; margin: 10px 0; }
+    #contenido ul { padding-left: 22px; }
+    #contenido li { font-size: 14.5px; margin-bottom: 6px; }
+    #contenido hr { border: none; border-top: 1px solid #e5e7eb; margin: 18px 0; }
+    #contenido a { color: #2563eb; }
+    #contenido strong { color: #111827; }
+    #cargando-doc { text-align: center; color: #6b7280; padding: 60px 0; }
+</style>
+</head>
+<body>
+
+<div class="barra-volver">
+    <a href="panel-docente.html">← Volver al panel docente</a>
+</div>
+
+<div id="cargando-doc">Cargando documento…</div>
+<div id="contenido"></div>
+
+<script>
+// ============================================================
+// ✅ V8.6.4 — VISOR DE DOCUMENTOS LEGALES
+// Lee el archivo .md real vía fetch() y lo convierte a HTML legible en
+// pantalla. Deliberadamente NO transcribe el texto a mano: así el
+// documento que se muestra es siempre exactamente el mismo texto que vive
+// en el .md, sin riesgo de que una copia manual altere su contenido legal.
+// Convertidor de markdown deliberadamente simple — cubre solo lo que estos
+// tres documentos usan de verdad (encabezados, negritas, listas, líneas
+// horizontales, un enlace), no es un parser de markdown completo.
+// ============================================================
+
+function escaparHTML(texto) {
+    return texto
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+function markdownASimpleHTML(md) {
+    let lineas = md.split("\n");
+    let html = "";
+    let dentroDeLista = false;
+
+    for (let linea of lineas) {
+        let l = linea.trim();
+
+        if (l === "---") {
+            if (dentroDeLista) { html += "</ul>"; dentroDeLista = false; }
+            html += "<hr>";
+            continue;
+        }
+        if (l.startsWith("### ")) {
+            if (dentroDeLista) { html += "</ul>"; dentroDeLista = false; }
+            html += `<h3>${formatoInline(l.slice(4))}</h3>`;
+            continue;
+        }
+        if (l.startsWith("## ")) {
+            if (dentroDeLista) { html += "</ul>"; dentroDeLista = false; }
+            html += `<h2>${formatoInline(l.slice(3))}</h2>`;
+            continue;
+        }
+        if (l.startsWith("# ")) {
+            if (dentroDeLista) { html += "</ul>"; dentroDeLista = false; }
+            html += `<h1>${formatoInline(l.slice(2))}</h1>`;
+            continue;
+        }
+        if (l.startsWith("- ")) {
+            if (!dentroDeLista) { html += "<ul>"; dentroDeLista = true; }
+            html += `<li>${formatoInline(l.slice(2))}</li>`;
+            continue;
+        }
+        if (l === "") {
+            if (dentroDeLista) { html += "</ul>"; dentroDeLista = false; }
+            continue;
+        }
+        // Párrafo normal (incluye líneas de tabla '|' sin formato especial,
+        // ya que ninguno de estos tres documentos usa tablas)
+        html += `<p>${formatoInline(l)}</p>`;
+    }
+    if (dentroDeLista) html += "</ul>";
+    return html;
+}
+
+// Negritas **texto** y enlaces [texto](url) dentro de una línea ya escapada
+function formatoInline(lineaEscapada) {
+    let out = lineaEscapada
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    return out;
+}
+
+async function cargarDocumento() {
+    let params = new URLSearchParams(window.location.search);
+    let archivo = params.get("doc");
+    let titulo = params.get("titulo") || "Documento";
+    document.title = titulo + " — Control de Aula";
+
+    if (!archivo) {
+        document.getElementById("cargando-doc").innerText = "No se especificó qué documento mostrar.";
+        return;
+    }
+
+    try {
+        let resp = await fetch(archivo);
+        if (!resp.ok) throw new Error("No se pudo cargar " + archivo);
+        let texto = await resp.text();
+        let htmlEscapado = markdownASimpleHTML(escaparHTML(texto));
+        document.getElementById("cargando-doc").style.display = "none";
+        document.getElementById("contenido").innerHTML = htmlEscapado;
+    } catch (e) {
+        document.getElementById("cargando-doc").innerText = "No se pudo cargar el documento. Intenta de nuevo más tarde.";
+    }
+}
+
+cargarDocumento();
+</script>
+
+</body>
+</html>

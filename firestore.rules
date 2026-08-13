@@ -387,28 +387,15 @@ service cloud.firestore {
     }
 
     // ==========================================================================
-    // notificaciones_pago/{docenteUid}
-    // ✅ V8.6.3 — MODAL DE PAGO MANUAL: el docente marca "ya pagué" desde
-    // panel-docente.html, para que el Responsable lo vea en el Control de
-    // Pagos de panel-admin.html y confirme el pago manualmente. Esto NO
-    // activa Pro por sí solo — sigue siendo una escritura manual en
-    // suscripciones/{docenteUid} desde la consola de Firebase, exactamente
-    // igual que antes. Esta colección es solo una señal/recordatorio.
+    // notificaciones_pago — RETIRADA en V8.6.5. Se usó brevemente en V8.6.3,
+    // pero se migró a solicitudes_pago (mejor diseño, ya existente desde una
+    // sesión anterior: permite que un admin marque 'atendida' sin entrar a
+    // la consola de Firebase). Si tienes documentos viejos en
+    // notificaciones_pago de antes de este cambio, ya no son legibles ni
+    // escribibles desde el cliente — bórralos manualmente si quieres, no
+    // afecta nada del funcionamiento actual. La regla de solicitudes_pago
+    // (la que sí está en uso) se define más arriba en este mismo archivo.
     // ==========================================================================
-    match /notificaciones_pago/{docenteUid} {
-      allow read: if (request.auth != null && request.auth.uid == docenteUid) || esAdmin();
-
-      allow create, update: if request.auth != null
-                    && request.auth.uid == docenteUid
-                    && request.resource.data.keys().hasOnly(['correo', 'notificadoEn'])
-                    && request.resource.data.correo is string
-                    && request.resource.data.notificadoEn is number;
-
-      // El Responsable limpia el registro manualmente desde la consola una
-      // vez que activó el Pro correspondiente — no hay ruta de borrado
-      // desde el cliente, ni siquiera para el propio docente.
-      allow delete: if false;
-    }
 
     // ==========================================================================
     // Cualquier otra colección o documento no contemplado arriba: denegado.

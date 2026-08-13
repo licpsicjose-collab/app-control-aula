@@ -23,8 +23,6 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        flex-wrap: wrap;
-        gap: 10px;
         box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
     }
     header h2 { margin: 0; font-size: 18px; }
@@ -32,15 +30,6 @@
         padding: 20px;
         max-width: 1200px;
         margin: 0 auto;
-        box-sizing: border-box;
-    }
-    /* ✅ Permite desplazamiento horizontal de tablas anchas en pantallas
-       angostas sin alterar su estructura ni su contenido (auditoría móvil) */
-    .tabla-scroll {
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        border-radius: 8px;
     }
     .aviso {
         background: white;
@@ -132,23 +121,6 @@
         padding-top: 14px;
     }
     #cargando { text-align: center; padding: 60px; color: #6b7280; }
-
-    /* ✅ Optimización móvil (solo estilos — no altera lógica, datos ni permisos) */
-    @media (max-width: 600px) {
-        header { padding: 14px 16px; }
-        header h2 { font-size: 15px; }
-        #info-usuario { font-size: 13px; }
-        .container { padding: 12px; }
-        .aviso { padding: 20px 16px; }
-        .grid-tarjetas { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-        .tarjeta { padding: 14px; }
-        .tarjeta .valor { font-size: 22px; }
-        table { font-size: 12px; }
-        th, td { padding: 8px 10px; }
-    }
-    @media (max-width: 380px) {
-        .grid-tarjetas { grid-template-columns: 1fr 1fr; }
-    }
 </style>
 </head>
 <body>
@@ -206,6 +178,23 @@ function escaparHTML(texto) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+// ✅ V8.6.5 — Única escritura que hace panel-admin.html en todo el proyecto:
+// marcar 'atendida' en solicitudes_pago. La regla solo permite tocar ese
+// campo (nada más) para una cuenta con esAdmin() — no puede alterar
+// correo, fechaSolicitud, ni forzar 'atendida' de vuelta a false.
+// NO activa Pro por sí sola — eso sigue siendo manual en Firestore.
+async function marcarSolicitudAtendida(uid) {
+    let seguro = confirm("¿Ya confirmaste el comprobante y activaste el Plan Pro de este docente en Firestore? Esto solo quita el aviso de pendiente, no activa nada.");
+    if (!seguro) return;
+
+    try {
+        await db.collection("solicitudes_pago").doc(uid).update({ atendida: true });
+        cargarPanelAdmin();
+    } catch (e) {
+        alert("No se pudo marcar como atendida. Verifica que firestore.rules esté desplegado con la regla de solicitudes_pago (V8.6.5).");
+    }
 }
 
 async function cargarPanelAdmin() {
@@ -278,19 +267,21 @@ async function cargarPanelAdmin() {
         correoPorUid = {}; // se mostrará el UID en vez del correo si esto falla
     }
 
-    // ✅ V8.6.3 — docentes que notificaron un pago manual, pendientes de confirmar
-    let notificacionesPago = {};
+    // ✅ V8.6.5 — MIGRADO de notificaciones_pago a solicitudes_pago (mejor
+    // diseño, ya existente en firestore.rules desde una sesión anterior:
+    // permite marcar 'atendida' desde este mismo panel).
+    let solicitudesPago = {};
     try {
-        let snapNotif = await db.collection("notificaciones_pago").get();
-        snapNotif.forEach(doc => notificacionesPago[doc.id] = doc.data());
+        let snapSolic = await db.collection("solicitudes_pago").get();
+        snapSolic.forEach(doc => solicitudesPago[doc.id] = doc.data());
     } catch (e) {
-        notificacionesPago = {}; // no bloquea el resto del Control de Pagos
+        solicitudesPago = {}; // no bloquea el resto del Control de Pagos
     }
 
-    renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPorUid, notificacionesPago);
+    renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPorUid, solicitudesPago);
 }
 
-function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPorUid, notificacionesPago) {
+function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPorUid, solicitudesPago) {
     document.getElementById("cargando").style.display = "none";
     let cont = document.getElementById("contenido-admin");
     cont.style.display = "block";
@@ -358,14 +349,12 @@ function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPor
                 </div>
             </div>
             ${pasosOrdenados.length > 0 ? `
-            <div class="tabla-scroll" style="margin-top:14px;">
-            <table>
+            <table style="margin-top:14px;">
                 <thead><tr><th>Paso donde se omitió</th><th>Eventos</th></tr></thead>
                 <tbody>
                     ${pasosOrdenados.map(([paso, n]) => `<tr><td>${escaparHTML(paso)}</td><td>${n}</td></tr>`).join("")}
                 </tbody>
-            </table>
-            </div>` : ""}
+            </table>` : ""}
         `;
     }
 
@@ -403,7 +392,9 @@ function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPor
                 urgente = diasRestantes <= UMBRAL_URGENTE_PRO_DIAS;
             }
 
-            return { uid, correo, etiquetaPlan, diasRestantes, urgente, precioPagado: s.precioPagado, notifico: !!notificacionesPago[uid] };
+            let solicitud = solicitudesPago[uid];
+            let notifico = !!solicitud && solicitud.atendida === false;
+            return { uid, correo, etiquetaPlan, diasRestantes, urgente, precioPagado: s.precioPagado, notifico, atendida: solicitud ? solicitud.atendida : null };
         });
 
         // Prioridad: quien notificó un pago pendiente de confirmar va primero
@@ -426,9 +417,8 @@ function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPor
                 ${notificaronCount > 0 ? `<div class="tarjeta" style="border-left:4px solid #059669; flex:1; min-width:200px;"><div class="valor" style="color:#059669;">${notificaronCount}</div><div class="etiqueta">notificaron un pago — pendiente de confirmar y activar</div></div>` : ""}
                 ${urgentesCount > 0 ? `<div class="tarjeta" style="border-left:4px solid #dc2626; flex:1; min-width:200px;"><div class="valor" style="color:#dc2626;">${urgentesCount}</div><div class="etiqueta">docente(s) por vencer pronto</div></div>` : ""}
             </div>
-            <div class="tabla-scroll">
             <table>
-                <thead><tr><th>Correo</th><th>Plan</th><th>Vence en</th><th>Precio pagado</th><th>Estado</th></tr></thead>
+                <thead><tr><th>Correo</th><th>Plan</th><th>Vence en</th><th>Precio pagado</th><th>Estado</th><th></th></tr></thead>
                 <tbody>
                     ${filas.map(f => `
                         <tr style="${f.notifico ? 'background:#ecfdf5;' : (f.urgente ? 'background:#fef2f2;' : '')}">
@@ -436,14 +426,14 @@ function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPor
                             <td>${escaparHTML(f.etiquetaPlan)}</td>
                             <td>${f.diasRestantes !== null ? (f.urgente ? '⚠️ ' : '') + f.diasRestantes + ' día(s)' : '—'}</td>
                             <td>${f.precioPagado !== null && f.precioPagado !== undefined ? '$' + f.precioPagado + ' MXN' : '—'}</td>
-                            <td>${f.notifico ? '🔔 Notificó pago' : '—'}</td>
+                            <td>${f.notifico ? '🔔 Notificó pago' : (f.atendida === true ? '✅ Atendida' : '—')}</td>
+                            <td>${f.notifico ? `<button onclick="marcarSolicitudAtendida('${f.uid}')" style="background:#2563eb; color:white; border:none; border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer;">Marcar atendida</button>` : ''}</td>
                         </tr>`).join("")}
                 </tbody>
             </table>
-            </div>
             <div class="nota" style="margin-top:10px;">
-                No hay ningún flujo de pago automático — esta tabla es solo de lectura, para saber a quién le toca revisar manualmente en Firestore (suscripciones/{'{'}docenteUid{'}'}).
-                "🔔 Notificó pago" viene de notificaciones_pago — verifica el comprobante que te compartieron por WhatsApp antes de activar, y borra ese registro desde Firestore una vez activado.
+                No hay ningún flujo de pago automático — esta tabla es solo de lectura salvo el botón "Marcar atendida". Verifica el comprobante que te compartieron por WhatsApp
+                <strong>antes</strong> de activar Pro manualmente en Firestore (suscripciones/{'{'}docenteUid{'}'}) — marcar como atendida aquí NO activa el plan por sí sola, solo quita el aviso de pendiente.
                 "Vence en" se recalcula cada vez que abres este panel, no en tiempo real.
             </div>
         `;
@@ -517,14 +507,12 @@ function renderPanel(docentes, eventosOnboardingAlumno, suscripciones, correoPor
 
         <div class="seccion">
             <h3>Docentes por escuela</h3>
-            <div class="tabla-scroll">
             <table>
                 <thead><tr><th>Escuela</th><th>Docentes activados</th></tr></thead>
                 <tbody>
                     ${escuelasOrdenadas.map(([esc, n]) => `<tr><td>${escaparHTML(esc)}</td><td>${n}</td></tr>`).join("")}
                 </tbody>
             </table>
-            </div>
         </div>
 
         <div class="seccion">

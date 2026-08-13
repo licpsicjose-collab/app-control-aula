@@ -1,164 +1,131 @@
 # CHANGELOG — Control de Aula V8
 
-## [V8.6.5] — Monto/titular en el modal de pago y actualización de documentos legales
+## [V8.6.5] — Migración de notificaciones_pago a solicitudes_pago
 
 ### Contexto
-Al revisar qué hacía falta para poder cobrarle a un cliente real bajo el
-modelo actual (transferencia manual, sin pasarela de pago automatizada
-todavía), se encontraron dos brechas: el modal de pago no indicaba cuánto
-transferir ni a nombre de quién, y los documentos legales seguían
-declarando "no procesamos pagos" cuando el flujo manual de notificación
-(V8.6.3) ya estaba en producción.
+Se decidió migrar del mecanismo construido en V8.6.3
+(`notificaciones_pago`, solo lectura para el admin, limpieza manual desde
+la consola) al que ya existía sin usar desde una sesión anterior
+(`solicitudes_pago`, con un campo `atendida` que el admin puede marcar
+directamente desde `panel-admin.html`). Migración acotada a propósito:
+solo los archivos y colecciones directamente involucrados, sin tocar
+ninguna otra funcionalidad ya construida.
 
-### Agregado — `panel-docente.html`
-- El modal de pago (`#modal-pago`) ahora muestra el **monto** ($399 MXN,
-  1 año) y el **nombre del titular de la cuenta** (José Cándido Díaz
-  Hernández), además de la CLABE y el WhatsApp ya existentes. Ningún
-  otro dato ni función del modal cambió — sigue sin activar Pro por sí
-  solo, sigue siendo `notificarPago()` la única acción que escribe algo.
+### Corregido — `panel-docente.html`
+- `notificarPago()` (mismo nombre de función, mismo botón, mismo modal —
+  nada de eso cambió) ahora escribe en `solicitudes_pago/{docenteUid}`
+  con el esquema exacto que exigía la regla ya existente: `correo`,
+  `fechaSolicitud` (antes `notificadoEn`), `atendida: false`. No se
+  incluye `estadoActual` — la regla lo permite (`hasOnly`, no `hasAll`),
+  así que no fue necesario inventarle un propósito.
 
-### Corregido — `TERMINOS_DE_USO.md` (v1.0 → v1.1)
-- Sección 2, 6 y 8: se reemplazó la afirmación de que el plan Pro "no
-  tiene un flujo de compra funcional" por la descripción real del
-  proceso vigente (transferencia SPEI + notificación manual dentro de la
-  app + activación manual del Responsable). Se conserva explícitamente
-  que **no existe una pasarela de pago automatizada** todavía, y que la
-  eventual integración de un procesador como Mercado Pago se anunciará
-  y documentará por separado cuando ocurra — sin comprometer una fecha.
+### Corregido — `panel-admin.html`
+- El Control de Pagos ahora lee `solicitudes_pago` en vez de
+  `notificaciones_pago`. Una fila se resalta como pendiente solo si
+  `atendida === false` — una solicitud ya marcada como atendida deja de
+  aparecer como urgente, sin necesidad de borrar nada.
+- Nueva columna con el botón **"Marcar atendida"**, visible solo en las
+  filas pendientes. Llama a `marcarSolicitudAtendida(uid)`, que pide
+  confirmación explícita ("¿ya activaste el Pro en Firestore?") antes de
+  escribir — para dejar claro que este botón **no activa Pro por sí
+  solo**, solo quita el aviso de pendiente.
+- Es la **primera y única escritura** que hace `panel-admin.html` en todo
+  el proyecto — hasta ahora era 100% de solo lectura. La escritura está
+  acotada exactamente a lo que la regla permite: el campo `atendida`,
+  nada más.
 
-### Corregido — `AVISO_PRIVACIDAD.md` (v1.0 → v1.1)
-- Sección 2.1 y 13 (renombrada de "Posible integración futura de Mercado
-  Pago" a "Pago manual y posible integración futura de un procesador de
-  pagos"): se documenta con precisión qué se almacena hoy cuando un
-  docente notifica un pago (correo y fecha de la notificación,
-  únicamente — nunca datos de tarjeta ni de la transferencia bancaria
-  en sí) y quién la consulta y para qué. Se conserva la referencia a
-  Mercado Pago como integración futura, sin cambios en su tratamiento
-  descrito.
+### Corregido — `firestore.rules`
+- Se retiró la regla de `notificaciones_pago` (ya no la usa ningún
+  código). `solicitudes_pago` no se modificó — ya estaba correctamente
+  diseñada, solo le faltaba una implementación que la usara.
+- Se corrigió, en el proceso, un encabezado de comentario duplicado y
+  huérfano que quedó de un primer intento de edición de esta misma
+  entrega — error propio, detectado y corregido antes de terminar.
 
-### Explícitamente NO modificado
-- Ninguna función de JavaScript — el cambio en `panel-docente.html` es
-  exclusivamente de contenido HTML dentro del modal ya existente.
-- El tema fiscal (facturación, régimen bajo el cual se emitirán CFDI si
-  corresponde) queda deliberadamente fuera de alcance de esta entrega,
-  por decisión explícita del Responsable, hasta que el crecimiento de la
-  plataforma lo requiera.
-- El uso del plan Firebase Spark (gratuito) — el proyecto sigue sin
-  usar Cloud Functions ni ningún servicio que obligue a escalar a Blaze.
+### NO implementado (fuera de alcance de esta migración)
+- Ningún cambio a la lógica de `suscripciones` — activar Pro sigue siendo
+  exclusivamente manual desde la consola de Firebase.
+- Ninguna limpieza automática de documentos viejos que hayan quedado en
+  `notificaciones_pago` de la V8.6.3 — si existen, quedan huérfanos e
+  inofensivos; se pueden borrar manualmente si se desea.
 
 ### Archivos modificados
-- `panel-docente.html`, `TERMINOS_DE_USO.md`, `AVISO_PRIVACIDAD.md`
+- `panel-docente.html`
+- `panel-admin.html`
+- `firestore.rules`
 
 ### Validación realizada
-- Balance de `<div>` en `panel-docente.html` tras el cambio: 40/40.
-- Sintaxis JavaScript de `panel-docente.html` verificada con
-  `node --check` — sin errores (el cambio no tocó ningún bloque
-  `<script>`).
+- Sintaxis JavaScript de ambos archivos verificada con `node --check` —
+  sin errores.
+- Balance de llaves/paréntesis/corchetes en `firestore.rules`: 47/47,
+  134/134, 17/17. Un solo bloque `match` por colección, sin duplicados.
+- Confirmado por `grep` que ningún código funcional (fuera de
+  comentarios) sigue referenciando `notificaciones_pago`.
+- **No se probó contra un proyecto Firebase real** — mismo motivo de
+  siempre. El botón "Marcar atendida" depende de que la regla de
+  `solicitudes_pago` esté desplegada tal cual está en este archivo.
 
 ---
 
-## [V8.6.4] — Fusión de la rama V8_5_MOBILE (optimizaciones móviles) a la rama principal
+## [V8.6.4] — Visor de documentos legales con retroceso funcional, y reubicación del pie de página
 
 ### Contexto
-Existían dos copias del proyecto avanzando en paralelo desde una base común
-V8.5: la rama principal (documentada hasta V8.6.3 en este mismo archivo) y
-una rama independiente, `Version_8_5_MOBILE`, enfocada exclusivamente en
-ajustes de visualización en pantallas de celular (viewport, media queries,
-`100dvh`, desplazamiento horizontal de tablas anchas) que nunca se
-integraron a la rama principal. Esta entrada consolida ambas en una sola
-versión, sin duplicar trabajo ni perder ninguna de las dos líneas de
-avance.
+Tres problemas reportados tras usar la app: los documentos legales
+(`AVISO_PRIVACIDAD.md`, `TERMINOS_DE_USO.md`, `POLITICA_SOPORTE.md`) se
+veían sin ningún estilo en móvil (son `.md` puros, sin CSS); al abrirse
+en pestaña nueva (`target="_blank"`), el botón de retroceso del teléfono
+salía de la aplicación en vez de regresar al panel; y la franja de
+enlaces quedaba visualmente pegada a la zona de configuración de la
+clase activa, dando la impresión de ser parte de esa sección.
 
-### Regla seguida en la fusión
-Ante cualquier archivo con diferencias entre ambas ramas, se conservó
-siempre la lógica de negocio y las funciones de la rama principal
-(V8.6.3, más avanzada en funcionalidad — modal de pago, notificaciones,
-`firestore.rules`), y se le añadió el CSS/HTML de optimización móvil de
-`V8_5_MOBILE`, sin alterar ninguna función de JavaScript ya existente en
-ninguna de las dos ramas.
+### Agregado — `visor-legal.html` (nuevo archivo)
+- Visor genérico: recibe `?doc=archivo.md&titulo=Texto` por la URL, hace
+  `fetch()` del `.md` real y lo convierte a HTML legible con un
+  convertidor de markdown deliberadamente simple (encabezados, negritas,
+  listas, líneas horizontales, un enlace — solo lo que estos tres
+  documentos usan de verdad, verificado antes de escribir el conversor).
+- **Deliberadamente no transcribe el texto legal a mano** — se muestra
+  siempre el contenido real del `.md`, eliminando cualquier riesgo de que
+  una copia manual altere el significado legal del documento.
+- Barra superior fija con "← Volver al panel docente", y navega en la
+  misma pestaña (no hay `target="_blank"` en los enlaces que apuntan
+  aquí) — el botón de retroceso del navegador/teléfono ahora regresa al
+  panel con normalidad.
+- Incluye `viewport` y tipografía pensada para pantalla de teléfono.
+- Probado el convertidor de markdown contra el contenido real de los tres
+  documentos (fuera del navegador, con Node) para confirmar que las
+  listas abren y cierran correctamente antes de dar por buena la lógica.
 
-### Agregado — `index.html`
-- `viewport-fit=cover` en la etiqueta viewport (ausente en la rama
-  principal).
-- `padding-left/right` y `box-sizing: border-box` en `body`, y bloque
-  `@media (max-width: 480px)` que apila los botones de entrada a ancho
-  completo en pantallas angostas.
+### Corregido — `panel-docente.html`
+- La franja de enlaces legales se movió de junto a los banners de
+  suscripción a un `<footer>` real, al final de todo el contenido de la
+  página — ya no da la impresión de formar parte de la configuración de
+  la clase activa.
+- Los tres enlaces ahora apuntan a `visor-legal.html?doc=...&titulo=...`
+  en vez de directamente al `.md`, sin `target="_blank"`.
 
-### Agregado — `login.html`
-- `viewport-fit=cover` en la etiqueta viewport.
-- Bloque `@media (max-width: 480px)`: alto automático con `100dvh`,
-  padding reducido, y `font-size: 16px` en los campos para evitar el
-  zoom automático de iOS al enfocar un input.
+### NO implementado (fuera de alcance de esta entrega)
+- No se tocó `CONSENTIMIENTO_INFORMADO_PADRES.html` — es un documento
+  para imprimir, no para navegar dentro de la app, así que el problema de
+  retroceso no le aplica.
+- No se instaló ningún parser de markdown de terceros — el conversor es
+  propio y mínimo, a propósito, para no agregar una dependencia externa a
+  un proyecto que hasta ahora no tiene ninguna.
 
-### Agregado — `panel-alumno.html`
-- Bloque `@media (max-width: 360px)` para pantallas muy angostas
-  (parpadeo, marcadores de estrellas/evaluación, encabezado de pantalla
-  pausada).
-- Soporte `@supports (height: 100dvh)` para que Safari en iOS no recorte
-  el contenido por la barra del navegador, sin afectar el resto de
-  navegadores que siguen usando `100vh` como antes.
-
-### Agregado — `panel-docente.html`
-- Bloques `@media (max-width: 600px)` y `@media (max-width: 480px)` con
-  ajustes de padding, tamaño de fuente, y botones de acción de clase
-  (Finalizar/Exportar/Retardo/Pausar) apilados a ancho completo en
-  móvil. `font-size: 16px` en inputs/selects por el mismo motivo que en
-  `login.html`.
-- **No se trasladó** la regla `header details > div` de la rama móvil,
-  porque el menú desplegable "📄 Documentos legales" que protegía fue
-  eliminado en V8.6.3 (sustituido por la franja de enlaces); la regla ya
-  no tenía ningún elemento al que aplicar.
-
-### Agregado — `panel-admin.html`
-- `flex-wrap` y `gap` en el header, y `box-sizing: border-box` en
-  `.container`.
-- Nueva clase `.tabla-scroll` (contenedor con `overflow-x: auto`) para
-  permitir desplazamiento horizontal en pantallas angostas sin alterar
-  el contenido ni la estructura de las tablas — aplicada a las tres
-  tablas del panel: distribución de pasos de onboarding, Control de
-  pagos, y Docentes por escuela. La tabla de Control de pagos ya incluye
-  la columna "Estado" y el resaltado en verde agregados en V8.6.3; solo
-  se le envolvió el `<table>` existente, sin tocar sus columnas, datos
-  ni lógica de orden.
-- Bloques `@media (max-width: 600px)` y `@media (max-width: 380px)` para
-  encabezado, tarjetas de resumen y tipografía de tablas.
-
-### Agregado — `CONSENTIMIENTO_INFORMADO_PADRES.html`
-- Botón **"← Volver"** (`volverAtras()`), junto al botón de imprimir ya
-  existente, que regresa a la pantalla anterior usando el historial del
-  navegador (o a `panel-docente.html` si no hay historial previo, por
-  ejemplo al abrirse en una pestaña nueva). Esta función no existía en
-  ninguna versión previa registrada en este changelog; se documenta aquí
-  por primera vez.
-- Bloque `@media (max-width: 600px)` para los campos de datos y la barra
-  de botones en pantallas angostas.
-
-### Explícitamente NO modificado
-- Ninguna función de JavaScript de negocio en ningún archivo — Firebase,
-  Firestore, autenticación, `firestore.rules` (se usó tal cual la
-  versión de V8.6.3, sin cambios), flujo de pago manual, participaciones,
-  evaluaciones, historial, exportación, onboarding docente/alumno.
-- Los documentos legales (`AVISO_PRIVACIDAD`, `TERMINOS_DE_USO`,
-  `POLITICA_SOPORTE`) se conservaron en el formato `.md` de la rama
-  principal, ya enlazado desde `panel-docente.html`; las copias `.html`
-  de la rama móvil quedaron obsoletas desde la migración de formato ya
-  documentada en V8.6.2 y no se reincorporaron.
-
-### Archivos modificados
-- `index.html`, `login.html`, `panel-alumno.html`, `panel-docente.html`,
-  `panel-admin.html`, `CONSENTIMIENTO_INFORMADO_PADRES.html`
+### Archivos modificados/creados
+- `visor-legal.html` (nuevo)
+- `panel-docente.html`
 
 ### Validación realizada
-- Sintaxis JavaScript de los cinco archivos `.html` con bloque `<script>`
-  verificada extrayendo el código y ejecutando `node --check` — sin
-  errores en ninguno.
-- Balance de `<div>` en `panel-admin.html`: 75/75.
-- Balance de llaves/paréntesis en `panel-admin.html`: 128/128, 176/176.
-- Balance de llaves/paréntesis en `panel-docente.html`: 295/295, 542/542.
-- Balance de llaves/paréntesis/corchetes en `firestore.rules` (sin
-  cambios respecto a V8.6.3): 51/51, 136/136, 18/18.
-- **No se probó en un teléfono real ni contra un proyecto Firebase
-  real** — mismo motivo que en entregas anteriores de este proyecto.
+- Sintaxis JavaScript de `visor-legal.html` y `panel-docente.html`
+  verificada con `node --check` — sin errores.
+- Balance de `<div>`/`</div>` en `panel-docente.html` tras mover el pie de
+  página: 37/37.
+- El convertidor de markdown se probó con Node contra el contenido real
+  de los tres documentos — las listas cierran correctamente en los tres.
+- **No se probó en un navegador ni en un teléfono real** — ni el
+  renderizado visual del visor, ni que el botón de retroceso del sistema
+  operativo efectivamente regrese al panel como se espera.
 
 ---
 

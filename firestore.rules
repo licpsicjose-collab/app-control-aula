@@ -85,14 +85,68 @@ service cloud.firestore {
       // Solo el propio docente autenticado puede crear/actualizar su clase,
       // y solo con el conjunto de campos que ya usa la aplicación
       // (iniciarClase, activarRetardo, pausarClase, reanudarClase).
-      // ✅ V8.3 (revisión): se agrega 'sensibilidad' — único campo nuevo autorizado.
-      allow create, update: if request.auth != null
-                            && request.auth.uid == docenteUid
-                            && request.resource.data.keys().hasOnly([
-                                 'escuela', 'materia', 'grupoClase',
-                                 'codigoInicial', 'codigoRetardo',
-                                 'inicio', 'pausada', 'modo', 'sensibilidad'
-                               ]);
+      // ✅ V8.3 (revisión): se agrega 'sensibilidad'.
+      // ✅ NUEVO — Material de Pausa: se agregan 'materialTitulo' y
+      // 'materialUrl'. El estado comercial (trial/free/pro) NO vive en este
+      // documento — vive en suscripciones/{docenteUid}. Por eso, escribir
+      // estos dos campos exige una consulta cruzada a esa colección para
+      // confirmar estado == 'pro'. Se separa create/update porque
+      // diff(resource.data) no es seguro de evaluar en 'create' (resource
+      // no existe todavía en ese momento). La pausa (clase.pausada) es una
+      // restricción de INTERFAZ, no de seguridad — la regla solo controla
+      // quién puede escribir el material, no cuándo.
+      allow create: if request.auth != null
+                    && request.auth.uid == docenteUid
+                    && request.resource.data.keys().hasOnly([
+                         'escuela', 'materia', 'grupoClase',
+                         'codigoInicial', 'codigoRetardo',
+                         'inicio', 'pausada', 'modo', 'sensibilidad',
+                         'materialTitulo', 'materialUrl', 'materialDisponible'
+                       ])
+                    && (
+                         (!('materialTitulo' in request.resource.data)
+                          && !('materialUrl' in request.resource.data))
+                         || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado == 'pro'
+                       )
+                    && (!('materialTitulo' in request.resource.data)
+                        || request.resource.data.materialTitulo == null
+                        || request.resource.data.materialTitulo is string)
+                    && (!('materialUrl' in request.resource.data)
+                        || request.resource.data.materialUrl == null
+                        || request.resource.data.materialUrl is string)
+                    // ✅ NUEVO — Caso 1: materialDisponible es el espejo, dentro
+                    // de clases/{docenteUid}, del estado Pro en vivo. Cualquiera
+                    // puede apagarlo (false); solo un Pro real puede encenderlo.
+                    && (!('materialDisponible' in request.resource.data)
+                        || request.resource.data.materialDisponible == false
+                        || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado == 'pro');
+
+      allow update: if request.auth != null
+                    && request.auth.uid == docenteUid
+                    && request.resource.data.keys().hasOnly([
+                         'escuela', 'materia', 'grupoClase',
+                         'codigoInicial', 'codigoRetardo',
+                         'inicio', 'pausada', 'modo', 'sensibilidad',
+                         'materialTitulo', 'materialUrl', 'materialDisponible'
+                       ])
+                    && (
+                         !request.resource.data.diff(resource.data).affectedKeys()
+                            .hasAny(['materialTitulo', 'materialUrl'])
+                         || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado == 'pro'
+                       )
+                    && (!('materialTitulo' in request.resource.data)
+                        || request.resource.data.materialTitulo == null
+                        || request.resource.data.materialTitulo is string)
+                    && (!('materialUrl' in request.resource.data)
+                        || request.resource.data.materialUrl == null
+                        || request.resource.data.materialUrl is string)
+                    // ✅ NUEVO — Caso 1: mismo criterio que en create. El
+                    // docente Free puede escribir 'materialDisponible: false'
+                    // (bajar la bandera es siempre seguro); solo Pro puede
+                    // subirla a true.
+                    && (!('materialDisponible' in request.resource.data)
+                        || request.resource.data.materialDisponible == false
+                        || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado == 'pro');
 
       // Solo el propio docente puede finalizar (borrar) su clase activa.
       allow delete: if request.auth != null && request.auth.uid == docenteUid;

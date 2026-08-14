@@ -98,9 +98,9 @@ button:hover {
 }
 
 .parpadeo {
-    font-size: 50px;
-    animation: blink 1.5s infinite;
-    margin: 20px 0;
+    font-size: 30px;
+    animation: blink 3.5s infinite;
+    margin: 14px 0;
 }
 
 .marcador-estrellas {
@@ -151,6 +151,30 @@ button:hover {
     border-radius: 50px;
     margin-top: 14px;
     color: #ffffff;
+    font-weight: bold;
+}
+
+/* ✅ NUEVO — Material de Pausa. width:90%/max-width evita overflow en
+   pantallas angostas, consistente con el resto de .pantalla-clase/.pantalla-pausada. */
+.tarjeta-material-alumno {
+    margin-top: 18px;
+    padding: 14px 18px;
+    background: #1e1b4b;
+    border: 2px solid #4338ca;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 320px;
+    box-sizing: border-box;
+    word-break: break-word;
+}
+.tarjeta-material-alumno a {
+    display: inline-block;
+    margin-top: 6px;
+    background: #3b82f6;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    text-decoration: none;
     font-weight: bold;
 }
 
@@ -227,20 +251,6 @@ button:hover {
 
 @media (max-width: 480px) {
     .guia-tarjeta { padding: 16px; }
-}
-
-/* ✅ Optimización móvil adicional (solo estilos — no altera la lógica) */
-@media (max-width: 360px) {
-    .form-box { padding: 22px 18px; }
-    .parpadeo { font-size: 42px; }
-    .marcador-estrellas, .marcador-evaluacion { font-size: 18px; padding: 8px 14px; }
-    .pantalla-pausada h2 { font-size: 24px; }
-}
-/* iOS Safari calcula 100vh incluyendo la barra del navegador; dvh evita
-   que el contenido quede cortado en pantallas de celular (donde el
-   navegador lo soporta; en el resto sigue funcionando 100vh como antes) */
-@supports (height: 100dvh) {
-    .pantalla-login, .pantalla-clase, .pantalla-pausada { height: 100dvh; }
 }
 </style>
 </head>
@@ -485,13 +495,39 @@ async function entrar(){
 
 // ✅ MEJORA 2: Pantalla visible de "CLASE PAUSADA"
 function activarPantallaPausa() {
+    let bloqueMaterial = "";
+    // ✅ Caso 1: además de URL válida, exige que el docente sea Pro EN ESTE
+    // MOMENTO (materialDisponible es el espejo en vivo del estado de
+    // suscripciones, mantenido por el docente). materialTitulo/materialUrl
+    // pueden seguir en el documento sin mostrarse — no se borran, solo se
+    // ocultan mientras el plan no sea Pro.
+    if (clase && clase.materialDisponible === true && clase.materialUrl && esUrlSegura(clase.materialUrl)) {
+        let tituloSeguro = escaparHTML(clase.materialTitulo || "Material de la clase");
+        let urlSegura = escaparHTML(clase.materialUrl);
+        bloqueMaterial = `
+            <div class="tarjeta-material-alumno">
+                <strong>📚 Material compartido por el docente</strong>
+                <p style="margin:6px 0;">${tituloSeguro}</p>
+                <a href="${urlSegura}" target="_blank" rel="noopener noreferrer">Abrir material</a>
+            </div>
+        `;
+    }
     document.getElementById("vista-app").innerHTML = `
         <div class="pantalla-pausada">
             <div class="icono-pausa">⏸️</div>
             <h2>CLASE PAUSADA</h2>
             <p style="color:#9ca3af; font-size:14px;">El profesor pausó la sesión. No se está contando tiempo ni salidas.</p>
+            ${bloqueMaterial}
         </div>
     `;
+}
+
+// ✅ NUEVO — Material de Pausa: solo se muestra el enlace si es http/https,
+// para evitar esquemas peligrosos (ej. javascript:, data:, file:) aunque el
+// campo solo lo puede escribir el propio docente (defensa en profundidad,
+// mismo criterio que escaparHTML()).
+function esUrlSegura(url) {
+    return /^https?:\/\//i.test(String(url).trim());
 }
 
 function activarPantallaBloqueo() {
@@ -652,6 +688,13 @@ const pasosGuiaAlumno = [
                 <li>✅ Grupo</li>
                 <li>✅ Código de Acceso</li>
             </ul>
+        `
+    },
+    {
+        titulo: "🔋 Sobre la batería",
+        mensajeHTML: `
+            <p>La app está diseñada para usar la batería lo menos posible mientras registra tu participación.</p>
+            <p>Aun así, como la pantalla debe permanecer encendida durante la actividad, te recomendamos bajar el brillo casi al mínimo antes de comenzar — así tu batería te durará toda la jornada.</p>
         `
     },
     {

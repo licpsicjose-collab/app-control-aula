@@ -444,6 +444,23 @@
                 <button class="btn btn-primary" onclick="pausarClase()" id="btn-pausar" style="background:#f59e0b;">⏸️ Pausar</button>
                 <button class="btn btn-primary" onclick="reanudarClase()" id="btn-reanudar" style="background:#16a34a; display:none;">▶️ Reanudar</button>
             </div>
+
+            <!-- ✅ NUEVO — Material de Pausa (exclusivo Pro). Solo visible
+                 mientras clase.pausada === true. Controlado por
+                 actualizarUIClaseActiva(), igual que btn-pausar/btn-reanudar.
+                 No se borra al reanudar: se reutiliza entre grupos/escuelas
+                 de la misma materia (decisión explícita). -->
+            <div id="tarjeta-material-pausa" style="display:none; margin-top:14px; padding:14px; background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px;">
+                <strong>📚 Material para la pausa</strong>
+                <div style="margin-top:8px;">
+                    <input type="text" id="input-material-titulo" placeholder="Título (ej. Guía de la actividad)"
+                           style="width:100%; padding:8px; margin-bottom:6px; border:1px solid #94a3b8; border-radius:6px; box-sizing:border-box;">
+                    <input type="url" id="input-material-url" placeholder="https://..."
+                           style="width:100%; padding:8px; margin-bottom:8px; border:1px solid #94a3b8; border-radius:6px; box-sizing:border-box;">
+                    <button class="btn btn-primary" onclick="compartirMaterial()" style="background:#0284c7;">Compartir material</button>
+                    <span id="msg-material-pausa" style="margin-left:8px; font-size:13px; color:#16a34a;"></span>
+                </div>
+            </div>
         </div>
         
         <div>
@@ -570,17 +587,24 @@ function actualizarUIModoYPausa(d) {
     let indicador = document.getElementById("indicador-estado-clase");
     let btnPausar = document.getElementById("btn-pausar");
     let btnReanudar = document.getElementById("btn-reanudar");
+    let tarjetaMaterial = document.getElementById("tarjeta-material-pausa");
 
     if (d.pausada) {
         indicador.innerText = "PAUSADA";
         indicador.className = "indicador-pausa pausada";
         btnPausar.style.display = "none";
         btnReanudar.style.display = "inline-block";
+        tarjetaMaterial.style.display = "block";
+        // Precarga lo ya guardado (reutilización entre grupos/escuelas —
+        // decisión explícita de NO borrar material al reanudar).
+        document.getElementById("input-material-titulo").value = d.materialTitulo || "";
+        document.getElementById("input-material-url").value = d.materialUrl || "";
     } else {
         indicador.innerText = "EN CURSO";
         indicador.className = "indicador-pausa activa";
         btnPausar.style.display = "inline-block";
         btnReanudar.style.display = "none";
+        tarjetaMaterial.style.display = "none";
     }
 }
 
@@ -600,6 +624,32 @@ function pausarClase() {
 
 function reanudarClase() {
     claseActivaRef.update({ pausada: false });
+}
+
+// ✅ NUEVO — Material de Pausa (exclusivo Pro). No se borra al reanudar
+// (decisión explícita: se reutiliza entre grupos/escuelas de la misma
+// materia). La regla de Firestore es la que valida Pro contra
+// suscripciones/{docenteUid} — aquí solo se intenta escribir.
+function compartirMaterial() {
+    let titulo = document.getElementById("input-material-titulo").value.trim();
+    let url = document.getElementById("input-material-url").value.trim();
+    let msg = document.getElementById("msg-material-pausa");
+
+    claseActivaRef.update({
+        materialTitulo: titulo || null,
+        materialUrl: url || null,
+        // ✅ Caso 1: se guarda el estado Pro conocido en este instante.
+        // La regla solo deja poner "true" si en verdad es pro.
+        materialDisponible: !!(datosSuscripcion && datosSuscripcion.estado === "pro")
+    }).then(() => {
+        msg.style.color = "#16a34a";
+        msg.innerText = "✅ Compartido";
+        setTimeout(() => { msg.innerText = ""; }, 3000);
+    }).catch((error) => {
+        // Si la regla de Firestore rechaza (docente no Pro), se avisa aquí.
+        msg.style.color = "#dc2626";
+        msg.innerText = "⚠️ Función exclusiva de Plan Pro";
+    });
 }
 
 async function iniciarClase() {
@@ -700,6 +750,22 @@ function cargarSuscripcion() {
         }
         actualizarTarjetaPlan();
         verificarTransicionAutomatica();
+
+        // ✅ Caso 1: si hay una clase activa CON material ya marcado como
+        // disponible y el docente dejó de ser Pro, se apaga
+        // materialDisponible sin esperar a que vuelva a pulsar "Compartir".
+        // Reutiliza este mismo listener (ya existente) — no agrega ningún
+        // listener ni lectura nueva. Solo escribe si hace falta corregir el
+        // valor (evita escrituras redundantes en cada snapshot). NO hay
+        // sincronización al cargar la página ni migración de clases
+        // antiguas — decisión explícita: materialDisponible puede quedar
+        // undefined hasta el próximo "Compartir material".
+        if (claseActivaRef && datosClaseActual && datosClaseActual.materialDisponible === true) {
+            let esPro = datosSuscripcion && datosSuscripcion.estado === "pro";
+            if (!esPro) {
+                claseActivaRef.update({ materialDisponible: false }).catch(() => {});
+            }
+        }
     });
 }
 

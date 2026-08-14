@@ -52,7 +52,8 @@ Free es el estado por defecto y permanente de cualquier docente que no paga. Deb
 | Atributo | Valor |
 |---|---|
 | Vigencia | 12 meses desde la fecha de activación |
-| Precio inicial | $399 MXN por año |
+| Precio de lanzamiento | $399 MXN por año (histórico — ver sección 17, punto 3) |
+| Precio vigente | $500 MXN por año (desde V8.6.6) |
 | Grupos | Ilimitados |
 | Alumnos | Ilimitados |
 | Funciones | Todas las funciones del producto, sin restricción |
@@ -181,7 +182,7 @@ Un grupo congelado no es una eliminación ni una degradación de datos — es ex
 ## 12. Flujo de actualización a Pro
 
 1. El docente, desde cualquier estado (`trial` o `free`), elige actualizar a Pro.
-2. Se le presenta el precio vigente en ese momento (no necesariamente $399 MXN, si el precio ha cambiado desde el lanzamiento — ver sección 17).
+2. Se le presenta el precio vigente en ese momento ($500 MXN/año desde V8.6.6 — no necesariamente el mismo si el precio vuelve a cambiar en el futuro, ver sección 17).
 3. El docente completa el pago a través del proveedor que se seleccione en una versión futura (fuera de alcance de esta entrega).
 4. Al confirmarse el pago: `estado = "pro"`, `proInicio = ahora`, `proVencimiento = ahora + 12 meses`, `precioPagado = <precio pagado en esa transacción>`.
 5. Si el docente venía de `free` con grupos congelados, `gruposCongelados` se vacía (todos vuelven a estar disponibles) y `grupoActivo` deja de tener efecto restrictivo mientras el estado sea `pro`.
@@ -228,7 +229,7 @@ Esta sección conecta directamente con la sección 4 ("Métricas de monetizació
 
 - Renovación automática o recurrente de Pro (cada renovación es una acción manual del docente).
 - Periodo de gracia entre el vencimiento de Pro y el paso a Free.
-- Planes mensuales, o cualquier variante de precio distinta a la anual de $399 MXN inicial.
+- Planes mensuales, o cualquier variante de precio distinta a la anual (ver sección 2.3 para el precio vigente).
 - Descuentos, cupones o precios promocionales.
 - Planes institucionales o facturación por escuela completa (esta versión factura únicamente por docente individual).
 - Reembolsos o cancelaciones a mitad de período.
@@ -243,7 +244,7 @@ Esta sección conecta directamente con la sección 4 ("Métricas de monetizació
 
 1. **El Trial es tiempo, no uso.** Corre por calendario desde el registro, no desde la primera clase — un docente no puede "pausar" su periodo de prueba por no usarlo.
 2. **Ningún cambio de plan borra datos.** Pasar de Pro a Free nunca elimina historial ni información de alumnos — solo restringe qué se puede crear de ahora en adelante.
-3. **Precio bloqueado para quien ya pagó.** Si el precio de Pro cambia en el futuro, quienes ya pagaron $399 MXN conservan ese precio en su próxima renovación, no el nuevo — por eso `precioPagado` se almacena por transacción, no se deriva de un precio global.
+3. **Precio bloqueado para quien ya pagó.** Si el precio de Pro cambia en el futuro, quienes ya pagaron conservan el precio que pagaron en su próxima renovación, no el nuevo — por eso `precioPagado` se almacena por transacción, no se deriva de un precio global. (Ejemplo real: quienes pagaron $399 MXN en el precio de lanzamiento conservan $399 en su renovación, aunque el precio vigente para nuevas altas sea $500 MXN desde V8.6.6.)
 4. **Las transiciones automáticas van siempre hacia el estado más restrictivo, nunca hacia el más permisivo.** El sistema nunca otorga Pro automáticamente; solo retira Pro automáticamente al vencer.
 5. **El patrocinio es exclusivo del plan gratuito.** Nunca convive con un plan pagado, y nunca aparece durante la evaluación (Trial).
 6. **Simplicidad operativa sobre sofisticación comercial.** Tres estados, un solo precio, sin niveles intermedios — apropiado para la etapa actual de un producto con un solo desarrollador, según ya se discutió en el análisis de viabilidad de negocio.

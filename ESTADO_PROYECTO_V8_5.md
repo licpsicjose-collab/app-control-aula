@@ -387,7 +387,7 @@ Psicología Aplicada
 
 Precio:
 
-$399 MXN anuales
+$500 MXN anuales (vigente desde V8.6.6 — precio de lanzamiento fue $399 MXN, ver `PLANES_Y_SUSCRIPCIONES.md` sección 17)
 
 Incluye:
 
@@ -550,6 +550,24 @@ Pendiente:
 - Aviso de Privacidad
 - Términos de Uso
 - Política de Soporte
+
+---
+
+## V8.6.6
+
+✅ Material de Pausa (exclusivo Pro) — campo, reglas de Firestore, UI
+docente y UI alumno completos. Ver `CHANGELOG_V8.md` para el detalle
+completo del diseño aprobado por partes.
+
+✅ Precio vigente de Plan Pro actualizado a $500 MXN/año (antes $399,
+ahora histórico — ver `PLANES_Y_SUSCRIPCIONES.md` sección 2.3 y 17).
+
+🟡 Reporte de campo sin resolver: el material compartido no apareció en
+algunos teléfonos al probar en condiciones reales. Causa más probable ya
+identificada (condición de carrera entre la carga de la suscripción y el
+botón "Compartir material") pero **deliberadamente sin corregir** —
+decisión explícita de esperar más reportes antes de intervenir, para
+confirmar que es un problema real y no un caso aislado.
 
 ---
 

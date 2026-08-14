@@ -1,6 +1,86 @@
 # CHANGELOG — Control de Aula V8
 
-## [V8.6.5] — Migración de notificaciones_pago a solicitudes_pago
+## [V8.6.6] — Material de Pausa (exclusivo Pro) + ajuste de precio vigente
+
+### Contexto
+Cierre de la funcionalidad "Material de Pausa", trabajada en varias
+sesiones de diseño (diff revisado y aprobado por partes: campo, reglas de
+Firestore, UI docente, UI alumno, y dos ajustes de reglas de negocio
+posteriores). Se marca esta entrega como versión final consolidada.
+
+### Agregado — `firestore.rules`
+- `clases/{docenteUid}` acepta ahora `materialTitulo`, `materialUrl` y
+  `materialDisponible`. Reglas de `create` y `update` separadas (antes
+  combinadas) porque `diff(resource.data)` no es seguro de evaluar en
+  `create`.
+- Escribir `materialTitulo`/`materialUrl`, o poner `materialDisponible`
+  en `true`, exige `suscripciones/{docenteUid}.estado == "pro"` —
+  validado con un `get()` cruzado a esa colección, nunca asumiendo un
+  campo `estado` dentro de `clases`. Poner `materialDisponible` en
+  `false` está siempre permitido (bajar la bandera nunca requiere
+  privilegio).
+- El material **no se borra** al reanudar la clase ni al perder el plan
+  Pro — solo se oculta. Decisión explícita: los materiales se reutilizan
+  entre grupos y escuelas de la misma materia.
+
+### Agregado — `panel-docente.html`
+- Tarjeta "📚 Material para la pausa" (título + URL + botón "Compartir
+  material"), visible únicamente mientras `clase.pausada === true`
+  (restricción de interfaz, no de seguridad).
+- `compartirMaterial()` escribe `materialTitulo`, `materialUrl` y
+  `materialDisponible` (reflejando el estado Pro conocido en ese
+  instante) en una sola escritura.
+- El listener ya existente de `suscripciones/{docenteUid}`
+  (`cargarSuscripcion()`) ahora también apaga `materialDisponible` si el
+  docente deja de ser Pro a media sesión — sin agregar ningún listener
+  nuevo. **Sin sincronización al cargar la página**: para clases activas
+  creadas antes de esta versión, `materialDisponible` puede quedar
+  `undefined` hasta el próximo "Compartir material" (decisión explícita,
+  evita escrituras de migración innecesarias).
+- Precio de "Actualizar a Pro" actualizado de $399 a **$500 MXN/año** en
+  el botón del header y en el modal de pago.
+
+### Agregado — `panel-alumno.html`
+- Dentro de `activarPantallaPausa()`, si `clase.materialDisponible ===
+  true` y `clase.materialUrl` es una URL segura, se muestra "📚 Material
+  compartido por el docente" con el título y un botón "Abrir material".
+- `escaparHTML()` sobre el título (mismo criterio XSS que el resto del
+  proyecto) y nueva función `esUrlSegura()` que solo permite esquemas
+  `http`/`https` (rechaza `javascript:`, `data:`, `file:`, etc.).
+- Enlace con `target="_blank" rel="noopener noreferrer"`.
+- Sin lógica nueva de `blur`/`visibilitychange`: la pausa ya desactiva el
+  conteo de salidas (`if (!enClase || clase?.pausada) return;`), así que
+  abrir el material no genera falsos positivos.
+- Ícono `🔴` reducido (50px → 30px) y animación ralentizada (1.5s → 3.5s)
+  para disminuir repintados; nuevo paso de tutorial "🔋 Sobre la
+  batería" explicando el motivo real del consumo (pantalla encendida) y
+  sugiriendo bajar el brillo.
+
+### Documentación
+- `PLANES_Y_SUSCRIPCIONES.md`: se separa "precio de lanzamiento" ($399,
+  histórico) de "precio vigente" ($500, desde esta versión), conservando
+  el principio ya existente de que quien pagó $399 conserva ese precio
+  en su renovación.
+
+### Pendiente (explícitamente fuera de esta entrega)
+- Reporte de campo: en algunos teléfonos, el material compartido no
+  apareció para el alumno. Causa más probable identificada (condición de
+  carrera entre `cargarSuscripcion()` y `compartirMaterial()` si el
+  docente comparte material antes de que llegue el primer snapshot de
+  suscripción), **sin corregir todavía** — se espera acumular más
+  reportes de campo antes de intervenir, para confirmar que es un
+  problema real y no un caso aislado.
+
+### Compatibilidad
+- `iniciarClase()`, `pausarClase()`, `reanudarClase()`,
+  `activarRetardo()`, historial, métricas, y el sistema Trial/Free/Pro:
+  sin cambios de comportamiento.
+- Sin listeners ni lecturas recurrentes nuevas de Firestore del lado del
+  alumno.
+
+---
+
+
 
 ### Contexto
 Se decidió migrar del mecanismo construido en V8.6.3

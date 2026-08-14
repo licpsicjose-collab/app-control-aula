@@ -378,7 +378,7 @@
     <h2>Panel del Docente</h2>
     <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
         <span id="tarjeta-plan" style="display:none;"></span>
-        <button id="btn-actualizar-pro" onclick="mostrarModalPago()" style="display:none; background:#059669; border:none; color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">💳 Actualizar a Pro — $399/año</button>
+        <button id="btn-actualizar-pro" onclick="mostrarModalPago()" style="display:none; background:#059669; border:none; color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">💳 Actualizar a Pro — $500/año</button>
         <a id="btn-consentimiento-padres" href="CONSENTIMIENTO_INFORMADO_PADRES.html" target="_blank" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer; text-decoration:none; display:inline-block;">📄 Consentimiento informado (padres)</a>
         <button id="btn-ver-recorrido" onclick="iniciarRecorrido(true)" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">❓ Ver recorrido nuevamente</button>
         <div id="info-usuario">Cargando sesión...</div>
@@ -1466,7 +1466,7 @@ firebase.auth().onAuthStateChanged(user => {
      del plan Pro sigue siendo manual, desde la consola de Firebase. -->
 <div id="overlay-modal-pago" onclick="if(event.target===this) ocultarModalPago()">
     <div id="modal-pago">
-        <h3>💳 Actualizar a Plan Pro — $399 MXN/año</h3>
+        <h3>💳 Actualizar a Plan Pro — $500 MXN/año</h3>
         <p>Realiza tu pago por transferencia (SPEI) a la siguiente cuenta:</p>
         <div class="dato-pago"><strong>CLABE</strong>072180012216110510</div>
         <p>Envía tu comprobante de pago y el correo de tu cuenta al siguiente número de WhatsApp:</p>

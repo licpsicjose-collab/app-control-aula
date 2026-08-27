@@ -281,6 +281,7 @@ let targetDocenteUid = "";
 let unsubscribeClaseAlumno = null;
 let unsubscribeEstrellas = null;
 let pausadaAnterior = false; // ✅ MEJORA 2: control para detectar transición de pausa
+let materialFirmaAnterior = ""; // ✅ FIX: control para detectar cambios de material durante la pausa
 let wakeLockRef = null; // ✅ NUEVO — referencia activa del Wake Lock (ver solicitarWakeLock())
 
 // Pintar formulario inicial
@@ -384,14 +385,22 @@ function escucharClaseMaestro(docenteId) {
         // ✅ MEJORA 2: Alternar pantalla de pausa solo cuando cambia el estado
         if (enClase) {
             let pausadaActual = !!data?.pausada;
+            let materialFirmaActual = pausadaActual
+                ? (data?.materialDisponible + "|" + (data?.materialUrl || "") + "|" + (data?.materialTitulo || ""))
+                : "";
             if (pausadaActual !== pausadaAnterior) {
                 pausadaAnterior = pausadaActual;
                 if (pausadaActual) {
+                    materialFirmaAnterior = materialFirmaActual;
                     activarPantallaPausa();
                 } else {
+                    materialFirmaAnterior = "";
                     activarPantallaBloqueo();
                     escucharEstrellasTiempoReal();
                 }
+            } else if (pausadaActual && materialFirmaActual !== materialFirmaAnterior) {
+                materialFirmaAnterior = materialFirmaActual;
+                activarPantallaPausa();
             }
         }
     });

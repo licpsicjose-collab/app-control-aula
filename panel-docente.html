@@ -181,6 +181,20 @@
         font-weight: bold;
     }
 
+    /* ✅ NUEVO — Recordatorio visual (no automático) para activar el modo
+       retardo. Color distinto al de .aviso-retardo para no confundirse con
+       el aviso de "retardo ya activo": este es solo una sugerencia. */
+    .recordatorio-retardo {
+        background: #eff6ff;
+        border: 1px solid #3b82f6;
+        color: #1d4ed8;
+        padding: 8px;
+        border-radius: 6px;
+        font-size: 13px;
+        margin-top: 10px;
+        font-weight: bold;
+    }
+
     /* ✅ V8 — ONBOARDING: overlay oscuro de fondo */
     .tour-overlay {
         position: fixed;
@@ -446,6 +460,11 @@
                 ⏰ Modo Retardo activo: solo el código de retardo permite entrar.
             </div>
 
+            <!-- ✅ NUEVO — Recordatorio visual (no automático) sugiriendo activar
+                 el modo retardo. El docente conserva el control total: esto NO
+                 cambia el modo por sí solo, solo lo recuerda (ver activarRecordatorioRetardo()). -->
+            <div class="recordatorio-retardo" id="recordatorio-activar-retardo" style="display:none;"></div>
+
             <div style="margin-top:12px;">
                 <span>Estado de la sesión:</span>
                 <span class="indicador-pausa activa" id="indicador-estado-clase">EN CURSO</span>
@@ -510,6 +529,15 @@ let listaAlumnosGlobal = [];
 let unsubscribeAlumnos = null;
 let intervaloRevisionConexion = null; // ✅ refresca las etiquetas de sin conexión aunque no llegue ningún snapshot nuevo
 let datosClaseActual = null; // ✅ Guarda el último snapshot de la clase (modo, pausada, escuela, materia, grupo)
+let intervaloRecordatorioRetardo = null; // ✅ NUEVO — refresca el recordatorio de retardo aunque no llegue ningún snapshot nuevo
+
+// ✅ NUEVO — Recordatorio visual (NO automático): pasado este umbral desde el
+// inicio de la clase, si el modo sigue en "normal", se sugiere al docente
+// activar el modo retardo. No cambia "modo" en Firestore por sí mismo — solo
+// activarRetardo() (disparado por el docente) lo hace. Mismo umbral que ya se
+// usaba antes de que el retardo automático por tiempo fuera reemplazado por
+// el modelo manual (ver comentario en activarRetardo()).
+const UMBRAL_RECORDATORIO_RETARDO_MS = 300000; // 5 minutos
 
 // ✅ Umbral para considerar a un alumno "sin conexión": 2.5x el respaldo de 60s
 // que el alumno envía normalmente (ver reportarAFirebase() en panel-alumno.html),
@@ -575,6 +603,12 @@ async function verificarClaseActiva() {
             document.getElementById("modulo-config").style.display = "none";
             document.getElementById("zona-codigos").style.display = "block";
             actualizarUIModoYPausa(d);
+            actualizarRecordatorioRetardo(); // ✅ NUEVO
+            if (!intervaloRecordatorioRetardo) {
+                // ✅ NUEVO — el umbral es por tiempo transcurrido, no por snapshot,
+                // así que necesita revisión periódica igual que intervaloRevisionConexion
+                intervaloRecordatorioRetardo = setInterval(actualizarRecordatorioRetardo, 30000);
+            }
             escucharAlumnos();
         } else {
             datosClaseActual = null;
@@ -582,8 +616,35 @@ async function verificarClaseActiva() {
             document.getElementById("zona-codigos").style.display = "none";
             if(unsubscribeAlumnos) unsubscribeAlumnos();
             if(intervaloRevisionConexion) clearInterval(intervaloRevisionConexion);
+            if(intervaloRecordatorioRetardo) { clearInterval(intervaloRecordatorioRetardo); intervaloRecordatorioRetardo = null; } // ✅ NUEVO
+            let banner = document.getElementById("recordatorio-activar-retardo");
+            if (banner) banner.style.display = "none"; // ✅ NUEVO
         }
     });
+}
+
+// ✅ NUEVO — Evalúa si corresponde mostrar el recordatorio de activar retardo.
+// Puramente visual: no escribe en Firestore ni cambia "modo". El docente sigue
+// siendo el único que puede activar el modo retardo (botón "Activar Retardo").
+function actualizarRecordatorioRetardo() {
+    let banner = document.getElementById("recordatorio-activar-retardo");
+    if (!banner) return;
+
+    let d = datosClaseActual;
+    let modo = (d && d.modo) ? d.modo : "normal";
+
+    if (!d || d.pausada || modo !== "normal" || !d.inicio) {
+        banner.style.display = "none";
+        return;
+    }
+
+    let transcurrido = Date.now() - d.inicio;
+    if (transcurrido > UMBRAL_RECORDATORIO_RETARDO_MS) {
+        banner.innerHTML = `⏰ Han pasado ${formatearTiempoHumano(transcurrido)} desde el inicio y el Código de Entrada Normal sigue activo. Considera activar el modo retardo para evitar que alguien lo comparta.`;
+        banner.style.display = "block";
+    } else {
+        banner.style.display = "none";
+    }
 }
 
 // ✅ Restaurado (V8.3, revisión): refleja modo retardo y estado de pausa en la interfaz

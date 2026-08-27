@@ -264,6 +264,8 @@ button:hover {
 <script src="firebase.js"></script>
 
 <script>
+const SMART_TUTOR_URL = "https://gemini.google.com/gem/1Ip7eqDIIOFUfkfhVTJMZ4oxoNJ-vjMtT?usp=sharing";
+
 let clase = null;
 let enClase = false;
 
@@ -279,6 +281,7 @@ let targetDocenteUid = "";
 let unsubscribeClaseAlumno = null;
 let unsubscribeEstrellas = null;
 let pausadaAnterior = false; // ✅ MEJORA 2: control para detectar transición de pausa
+let wakeLockRef = null; // ✅ NUEVO — referencia activa del Wake Lock (ver solicitarWakeLock())
 
 // Pintar formulario inicial
 mostrarFormulario();
@@ -308,6 +311,20 @@ function mostrarFormulario() {
             </div>
         </div>
     `;
+}
+
+// ✅ REINTEGRO — guarda en localStorage también tiempoFuera y salidas, para
+// que una reconexión tras reinicio del teléfono no reinicie esos contadores.
+function actualizarSesionLocal() {
+    localStorage.setItem("sesion_clase_activa", JSON.stringify({
+        targetId: targetDocenteUid,
+        nombre: nombreAlumno,
+        grupo: grupoAlumno,
+        docId: documentoAlumnoId,
+        inicio: inicio,
+        tiempoFuera: tiempoFuera,
+        salidas: salidas
+    }));
 }
 
 function comprobarSesionExistente() {
@@ -352,6 +369,7 @@ function escucharClaseMaestro(docenteId) {
             reportarAFirebase();
             localStorage.removeItem("sesion_clase_activa");
             if(unsubscribeEstrellas) unsubscribeEstrellas();
+            if(wakeLockRef) { wakeLockRef.release().catch(() => {}); wakeLockRef = null; } // ✅ NUEVO — ya no hace falta mantener la pantalla encendida
             
             document.getElementById("vista-app").innerHTML = `
                 <div class="pantalla-clase">
@@ -459,13 +477,7 @@ async function entrar(){
         let tardanza = Date.now() - clase.inicio;
 
         // Guardar estado local para prevenir cierres por botón de suspensión
-        localStorage.setItem("sesion_clase_activa", JSON.stringify({
-            targetId: targetDocenteUid,
-            nombre: n,
-            grupo: g,
-            docId: documentoAlumnoId,
-            inicio: inicio
-        }));
+        actualizarSesionLocal();
 
         activarPantallaBloqueo();
         escucharClaseMaestro(targetDocenteUid);
@@ -518,6 +530,7 @@ function activarPantallaPausa() {
             <h2>CLASE PAUSADA</h2>
             <p style="color:#9ca3af; font-size:14px;">El profesor pausó la sesión. No se está contando tiempo ni salidas.</p>
             ${bloqueMaterial}
+            <button onclick="mostrarAvisoSmartTutor()">🤖 Estudiar con SmartTutor</button>
         </div>
     `;
 }
@@ -544,6 +557,28 @@ function activarPantallaBloqueo() {
             </div>
         </div>
     `;
+    solicitarWakeLock(); // ✅ NUEVO — pide que la pantalla no se apague mientras dure el Modo de Atención
+}
+
+// ✅ NUEVO — Wake Lock API: mantiene la pantalla encendida durante el Modo de
+// Atención sin reproducir audio/video ni descargar nada (cero consumo de datos,
+// sin competir visualmente con la app). No toca Firestore ni firestore.rules —
+// es puramente del lado del navegador del alumno.
+// Soporte: Chrome/Android (2021+), Safari/iOS 16.4+. Si el navegador no la
+// soporta, esta función no hace nada y se conserva tal cual el aviso existente
+// de bajar el brillo (ver guía de onboarding, paso "🔋 Sobre la batería").
+async function solicitarWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    try {
+        wakeLockRef = await navigator.wakeLock.request('screen');
+        wakeLockRef.addEventListener('release', () => {
+            wakeLockRef = null;
+        });
+    } catch (err) {
+        // Falla silenciosa (p.ej. la pestaña no estaba visible en ese instante
+        // o el navegador la restringe): no rompe nada, la app sigue igual.
+        wakeLockRef = null;
+    }
 }
 
 // ✅ MITIGACIÓN XSS (V7.3): escapa el valor antes de insertarlo como HTML,
@@ -584,6 +619,8 @@ function reportarAFirebase() {
         salidas: salidas,
         ultimaActualizacion: Date.now()
     }).catch(() => {});
+
+    actualizarSesionLocal();
 }
 
 // ✅ V8.2 — OBJETIVO 1: umbral de detección configurable por clase (campo
@@ -622,6 +659,11 @@ document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
         salidaInicio = Date.now();
     } else {
+        // ✅ NUEVO — El navegador libera el Wake Lock automáticamente al ocultarse
+        // la página; se vuelve a pedir aquí, en el mismo punto donde ya se detecta
+        // el regreso del alumno. No afecta el conteo de salidas de abajo.
+        solicitarWakeLock();
+
         if (!salidaInicio) return;
         let tiempoSalida = Date.now() - salidaInicio;
         
@@ -780,6 +822,25 @@ function cerrarGuiaAlumno() {
     document.getElementById("guia-tarjeta").style.display = "none";
 }
 
+// ✅ SMARTTUTOR — aviso previo antes de salir a Gemini. Reutiliza las clases
+// guia-overlay/guia-tarjeta/guia-acciones/guia-btn-anterior/guia-btn-siguiente
+// (sin CSS nuevo), en elementos propios para no interferir con el estado del
+// tutorial de onboarding (pasoActualGuiaAlumno, etc.).
+function mostrarAvisoSmartTutor() {
+    document.getElementById("smarttutor-overlay").style.display = "block";
+    document.getElementById("smarttutor-tarjeta").style.display = "block";
+}
+
+function cerrarAvisoSmartTutor() {
+    document.getElementById("smarttutor-overlay").style.display = "none";
+    document.getElementById("smarttutor-tarjeta").style.display = "none";
+}
+
+function confirmarAbrirSmartTutor() {
+    window.open(SMART_TUTOR_URL);
+    cerrarAvisoSmartTutor();
+}
+
 // Disparo automático: solo la primera vez, tras cargar la pantalla de entrada.
 setTimeout(() => iniciarGuiaAlumno(false), 500);
 </script>
@@ -795,6 +856,19 @@ setTimeout(() => iniciarGuiaAlumno(false), 500);
             <button class="guia-btn-anterior" id="guia-btn-anterior" onclick="pasoAnteriorGuiaAlumno()">Anterior</button>
             <button class="guia-btn-siguiente" id="guia-btn-siguiente" onclick="siguientePasoGuiaAlumno()">Siguiente</button>
         </div>
+    </div>
+</div>
+
+<!-- ✅ SMARTTUTOR — aviso previo (reutiliza clases guia-*, sin CSS nuevo) -->
+<div class="guia-overlay" id="smarttutor-overlay"></div>
+<div class="guia-tarjeta" id="smarttutor-tarjeta">
+    <h3>🤖 SmartTutor</h3>
+    <p>Vas a salir temporalmente de SmartProf para utilizar Gemini de Google.</p>
+    <p>El uso de Gemini está sujeto a los términos, políticas y requisitos de cuenta de Google.</p>
+    <p>SmartTutor es un apoyo al aprendizaje y no sustituye las indicaciones de tu docente.</p>
+    <div class="guia-acciones">
+        <button class="guia-btn-anterior" style="display:inline-block;" onclick="cerrarAvisoSmartTutor()">Cancelar</button>
+        <button class="guia-btn-siguiente" onclick="confirmarAbrirSmartTutor()">Abrir SmartTutor</button>
     </div>
 </div>
 

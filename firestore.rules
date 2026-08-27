@@ -197,13 +197,16 @@ service cloud.firestore {
             && request.resource.data.salidas is number
           )
           ||
-          // Camino B — el docente registra participación o evaluación
-          // (agregarParticipacion() / setEstado() en panel-docente.html).
+          // Camino B — el docente registra participación, evaluación, o marca
+          // manualmente a un alumno sin batería (agregarParticipacion() /
+          // setEstado() / marcarSinBateria() en panel-docente.html).
           // Requiere autenticación y ser el dueño de la clase.
           ( request.auth != null
             && request.auth.uid == docenteUid
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['participaciones', 'estado', 'ultimaActualizacion'])
+                 .hasOnly(['participaciones', 'estado', 'ultimaActualizacion', 'sinBateriaManual'])
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinBateriaManual'])
+                || request.resource.data.sinBateriaManual is bool)
           );
 
         // Solo el docente borra alumnos (limpieza dentro de finalizarClase()).

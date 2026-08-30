@@ -608,12 +608,14 @@ function textoEvaluacion(estado) {
 function reportarAFirebase() {
     if (!enClase || !targetDocenteUid) return;
 
+    // ✅ CORRECCIÓN Bug 2: antes, durante la pausa, se reportaba tiempoTotal
+    // sin restar tiempoFuera — al reanudar, el siguiente reporte volvía a
+    // restarlo y el valor bajaba de golpe, chocando con la regla de Firestore
+    // que exige que "tiempo" nunca decrezca (la escritura completa quedaba
+    // rechazada, congelando tiempo/tiempoFuera/salidas/ultimaActualizacion).
+    // Ahora el cálculo es siempre el mismo, pausada o no.
     let tiempoTotal = Date.now() - inicio;
     let tiempoEnApp = tiempoTotal - tiempoFuera;
-
-    if (clase?.pausada){
-        tiempoEnApp = tiempoTotal;
-    }
 
     db.collection("clases")
     .doc(targetDocenteUid)

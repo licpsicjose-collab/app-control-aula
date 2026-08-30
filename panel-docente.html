@@ -461,7 +461,7 @@
             <div>Tu Código de Enlace Docente (Para buscarte):</div>
             <div class="codigo-grande" id="txt-codigo-maestro">-----</div>
             <div style="margin-top:10px; font-size:14px; color:#4b5563;" id="linea-codigos">
-                Código de Entrada Normal: <strong id="c-inicial" style="color:green;">...</strong> | 
+                <span id="bloque-codigo-normal">Código de Entrada Normal: <strong id="c-inicial" style="color:green;">...</strong> | </span>
                 Código de Entrada Retardo: <strong id="c-retardo" style="color:orange;">...</strong>
             </div>
 
@@ -669,18 +669,29 @@ function actualizarRecordatorioRetardo() {
 // ✅ Restaurado (V8.3, revisión): refleja modo retardo y estado de pausa en la interfaz
 function actualizarUIModoYPausa(d) {
     let modo = d.modo || "normal";
-    let lineaCodigos = document.getElementById("linea-codigos");
+    let bloqueNormal = document.getElementById("bloque-codigo-normal");
+    let campoInicial = document.getElementById("c-inicial");
+    let campoRetardo = document.getElementById("c-retardo");
     let avisoRetardo = document.getElementById("aviso-modo-retardo");
     let btnRetardo = document.getElementById("btn-activar-retardo");
 
+    // ✅ CORRECCIÓN Bug 1: antes esto reescribía el innerHTML completo de
+    // "linea-codigos", destruyendo permanentemente #c-inicial (o recreándolo
+    // con un nodo nuevo) — la siguiente vez que verificarClaseActiva() volvía
+    // a tocar el elemento original, ya no existía y truena
+    // "Cannot set properties of null". Ahora los nodos <strong> nunca se
+    // recrean: solo se actualiza su texto, y el bloque del código normal se
+    // muestra/oculta con display, sin tocar su contenido.
+    campoInicial.innerText = d.codigoInicial;
+    campoRetardo.innerText = d.codigoRetardo;
+
     if (modo === "retardo") {
-        // Cuando el modo retardo está activo: mostrar únicamente el código retardo
-        lineaCodigos.innerHTML = `Código de Entrada Retardo: <strong id="c-retardo" style="color:orange;">${d.codigoRetardo}</strong>`;
+        // Cuando el modo retardo está activo: ocultar el bloque del código normal
+        bloqueNormal.style.display = "none";
         avisoRetardo.style.display = "block";
         btnRetardo.style.display = "none";
     } else {
-        lineaCodigos.innerHTML = `Código de Entrada Normal: <strong id="c-inicial" style="color:green;">${d.codigoInicial}</strong> | 
-                Código de Entrada Retardo: <strong id="c-retardo" style="color:orange;">${d.codigoRetardo}</strong>`;
+        bloqueNormal.style.display = "inline";
         avisoRetardo.style.display = "none";
         btnRetardo.style.display = "inline-block";
     }

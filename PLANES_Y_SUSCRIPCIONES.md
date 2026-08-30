@@ -23,7 +23,7 @@ Dar a Control de Aula una vía de monetización sostenible sin sacrificar lo que
 
 | Atributo | Valor |
 |---|---|
-| Duración | 15 días naturales |
+| Duración | 20 días naturales |
 | Grupos | Ilimitados |
 | Alumnos | Ilimitados |
 | Funciones | Todas las funciones del producto, sin restricción |
@@ -89,8 +89,8 @@ Un documento por docente, con el mismo `docenteUid` que ya identifica al docente
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `estado` | string | `"trial"` \| `"free"` \| `"pro"` |
-| `trialInicio` | timestamp | Fecha de registro del docente — ancla el conteo de los 15 días (ver Observación de consistencia #1 en la respuesta de esta entrega) |
-| `trialFin` | timestamp | `trialInicio` + 15 días, calculado una sola vez y almacenado para no recalcular en cada lectura |
+| `trialInicio` | timestamp | Fecha de registro del docente — ancla el conteo de los 20 días (ver Observación de consistencia #1 en la respuesta de esta entrega) |
+| `trialFin` | timestamp | `trialInicio` + 20 días, calculado una sola vez y almacenado para no recalcular en cada lectura |
 | `proInicio` | timestamp \| null | Fecha en que se activó Pro (null si nunca ha sido Pro) |
 | `proVencimiento` | timestamp \| null | `proInicio` + 12 meses |
 | `precioPagado` | número \| null | Lo que efectivamente pagó ese docente, en MXN — no el precio vigente actual (ver sección 17) |
@@ -108,9 +108,9 @@ Un documento por docente, con el mismo `docenteUid` que ya identifica al docente
 Registro del docente
         │
         ▼
-   estado: "trial"  ──── (15 días) ────┐
+   estado: "trial"  ──── (20 días) ────┐
         │                               │
-        │ (el docente compra Pro        │ (pasan 15 días
+        │ (el docente compra Pro        │ (pasan 20 días
         │  en cualquier momento          │  sin comprar)
         │  durante el Trial)             │
         ▼                               ▼
@@ -220,7 +220,7 @@ Esta sección conecta directamente con la sección 4 ("Métricas de monetizació
 | El docente quiere cambiar manualmente cuál es su grupo activo en `free` | Debe ser una acción explícita y disponible en el producto (pantalla no diseñada en esta entrega); se recomienda limitar la frecuencia de cambio (p. ej. una vez cada 30 días) para evitar que alguien rote grupos para evadir el límite de alumnos |
 | Un docente crea una segunda cuenta con otro correo para obtener un nuevo Trial | Riesgo aceptado en esta versión — no hay verificación de identidad más allá del correo electrónico; se documenta como limitación conocida, no se resuelve aquí |
 | El pago de Pro se confirma pero la app no logra escribir `suscripciones/{docenteUid}` (falla de red) | Requiere una fuente de verdad externa (el proveedor de pagos) y un proceso de reconciliación — diseño pendiente para cuando se seleccione el proveedor |
-| Un docente en `trial` nunca crea ninguna clase durante los 15 días | El Trial vence de todas formas — es un límite de **tiempo**, no de **uso** (ver Observación de consistencia #1) |
+| Un docente en `trial` nunca crea ninguna clase durante los 20 días | El Trial vence de todas formas — es un límite de **tiempo**, no de **uso** (ver Observación de consistencia #1) |
 | Un alumno pertenece a un grupo que se congela a mitad de una clase activa | No aplica — la restricción de grupo activo/congelado solo bloquea la **creación** de clases nuevas, nunca interrumpe una clase ya en curso |
 
 ---

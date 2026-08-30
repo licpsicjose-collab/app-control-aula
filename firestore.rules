@@ -190,23 +190,47 @@ service cloud.firestore {
           // Camino A — el propio alumno reporta sus métricas de tiempo
           // (reportarAFirebase() en panel-alumno.html). Sin autenticación,
           // pero limitado estrictamente a estos 4 campos.
+          //
+          // ✅ NUEVO — Validación mínima de plausibilidad, sin lecturas
+          // adicionales (no se consulta el documento de la clase). Exige que
+          // tiempo/tiempoFuera/salidas nunca retrocedan respecto al valor ya
+          // guardado. Esto bloquea el vector de manipulación más directo:
+          // resetear salidas/tiempoFuera a 0 (o bajar tiempo) para ocultar
+          // ausencias ya registradas. No impone un tope superior contra el
+          // tiempo real transcurrido — eso requeriría leer el documento de la
+          // clase (una lectura extra por cada escritura) y queda fuera de
+          // este cambio para mantenerlo de bajo riesgo y sin costo adicional.
           ( request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['tiempo', 'tiempoFuera', 'salidas', 'ultimaActualizacion'])
             && request.resource.data.tiempo is number
             && request.resource.data.tiempoFuera is number
             && request.resource.data.salidas is number
+            && request.resource.data.tiempo >= 0
+            && request.resource.data.tiempoFuera >= 0
+            && request.resource.data.salidas >= 0
+            && request.resource.data.tiempo >= resource.data.tiempo
+            && request.resource.data.tiempoFuera >= resource.data.tiempoFuera
+            && request.resource.data.salidas >= resource.data.salidas
           )
           ||
           // Camino B — el docente registra participación, evaluación, o marca
           // manualmente a un alumno sin batería (agregarParticipacion() /
-          // setEstado() / marcarSinBateria() en panel-docente.html).
-          // Requiere autenticación y ser el dueño de la clase.
+          // setEstado() / marcarSinBateria() / setCalificacion() en
+          // panel-docente.html). Requiere autenticación y ser el dueño de la
+          // clase.
           ( request.auth != null
             && request.auth.uid == docenteUid
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['participaciones', 'estado', 'ultimaActualizacion', 'sinBateriaManual'])
+                 .hasOnly(['participaciones', 'estado', 'ultimaActualizacion', 'sinBateriaManual', 'calificacion'])
             && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['sinBateriaManual'])
                 || request.resource.data.sinBateriaManual is bool)
+            // ✅ NUEVO — Calificación: número entre 0 y 10 (escala mexicana
+            // estándar), o null para permitir borrarla/dejarla sin asignar.
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['calificacion'])
+                || request.resource.data.calificacion == null
+                || (request.resource.data.calificacion is number
+                    && request.resource.data.calificacion >= 0
+                    && request.resource.data.calificacion <= 10))
           );
 
         // Solo el docente borra alumnos (limpieza dentro de finalizarClase()).

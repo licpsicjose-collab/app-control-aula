@@ -264,8 +264,6 @@ button:hover {
 <script src="firebase.js"></script>
 
 <script>
-const SMART_TUTOR_URL = "https://gemini.google.com/gem/1Ip7eqDIIOFUfkfhVTJMZ4oxoNJ-vjMtT?usp=sharing";
-
 let clase = null;
 let enClase = false;
 
@@ -281,8 +279,10 @@ let targetDocenteUid = "";
 let unsubscribeClaseAlumno = null;
 let unsubscribeEstrellas = null;
 let pausadaAnterior = false; // ✅ MEJORA 2: control para detectar transición de pausa
-let materialFirmaAnterior = ""; // ✅ FIX: control para detectar cambios de material durante la pausa
+let materialFirmaAnterior = undefined; // ✅ NUEVO — detecta si el material cambió MIENTRAS ya está pausado (url+titulo+disponible)
 let wakeLockRef = null; // ✅ NUEVO — referencia activa del Wake Lock (ver solicitarWakeLock())
+
+const SMART_TUTOR_URL = "https://gemini.google.com/gem/1Ip7eqDIIOFUfkfhVTJMZ4oxoNJ-vjMtT?usp=sharing"; // ✅ NUEVO — SmartTutor (Gema oficial de Gemini)
 
 // Pintar formulario inicial
 mostrarFormulario();
@@ -312,20 +312,6 @@ function mostrarFormulario() {
             </div>
         </div>
     `;
-}
-
-// ✅ REINTEGRO — guarda en localStorage también tiempoFuera y salidas, para
-// que una reconexión tras reinicio del teléfono no reinicie esos contadores.
-function actualizarSesionLocal() {
-    localStorage.setItem("sesion_clase_activa", JSON.stringify({
-        targetId: targetDocenteUid,
-        nombre: nombreAlumno,
-        grupo: grupoAlumno,
-        docId: documentoAlumnoId,
-        inicio: inicio,
-        tiempoFuera: tiempoFuera,
-        salidas: salidas
-    }));
 }
 
 function comprobarSesionExistente() {
@@ -385,22 +371,23 @@ function escucharClaseMaestro(docenteId) {
         // ✅ MEJORA 2: Alternar pantalla de pausa solo cuando cambia el estado
         if (enClase) {
             let pausadaActual = !!data?.pausada;
-            let materialFirmaActual = pausadaActual
-                ? (data?.materialDisponible + "|" + (data?.materialUrl || "") + "|" + (data?.materialTitulo || ""))
-                : "";
             if (pausadaActual !== pausadaAnterior) {
                 pausadaAnterior = pausadaActual;
                 if (pausadaActual) {
-                    materialFirmaAnterior = materialFirmaActual;
                     activarPantallaPausa();
                 } else {
-                    materialFirmaAnterior = "";
                     activarPantallaBloqueo();
                     escucharEstrellasTiempoReal();
                 }
-            } else if (pausadaActual && materialFirmaActual !== materialFirmaAnterior) {
-                materialFirmaAnterior = materialFirmaActual;
-                activarPantallaPausa();
+            } else if (pausadaActual) {
+                // ✅ NUEVO — Sigue pausada (sin transición), pero el material pudo
+                // haberse compartido/actualizado DESPUÉS de pausar. Sin este chequeo,
+                // activarPantallaPausa() solo se repintaba en el borde de la pausa y
+                // el material nuevo no llegaba al alumno hasta el siguiente ciclo.
+                let firmaActual = JSON.stringify([data?.materialUrl, data?.materialTitulo, data?.materialDisponible]);
+                if (firmaActual !== materialFirmaAnterior) {
+                    activarPantallaPausa();
+                }
             }
         }
     });
@@ -486,7 +473,15 @@ async function entrar(){
         let tardanza = Date.now() - clase.inicio;
 
         // Guardar estado local para prevenir cierres por botón de suspensión
-        actualizarSesionLocal();
+        localStorage.setItem("sesion_clase_activa", JSON.stringify({
+            targetId: targetDocenteUid,
+            nombre: n,
+            grupo: g,
+            docId: documentoAlumnoId,
+            inicio: inicio,
+            tiempoFuera: 0,
+            salidas: 0
+        }));
 
         activarPantallaBloqueo();
         escucharClaseMaestro(targetDocenteUid);
@@ -516,6 +511,7 @@ async function entrar(){
 
 // ✅ MEJORA 2: Pantalla visible de "CLASE PAUSADA"
 function activarPantallaPausa() {
+    materialFirmaAnterior = JSON.stringify([clase?.materialUrl, clase?.materialTitulo, clase?.materialDisponible]); // ✅ NUEVO
     let bloqueMaterial = "";
     // ✅ Caso 1: además de URL válida, exige que el docente sea Pro EN ESTE
     // MOMENTO (materialDisponible es el espejo en vivo del estado de
@@ -539,7 +535,7 @@ function activarPantallaPausa() {
             <h2>CLASE PAUSADA</h2>
             <p style="color:#9ca3af; font-size:14px;">El profesor pausó la sesión. No se está contando tiempo ni salidas.</p>
             ${bloqueMaterial}
-            <button onclick="mostrarAvisoSmartTutor()">🤖 Estudiar con SmartTutor</button>
+            <button onclick="mostrarAvisoSmartTutor()" style="margin-top:14px; padding:8px 14px; border:none; border-radius:6px; background:#3b82f6; color:white; font-weight:500; cursor:pointer;">🤖 Abrir SmartTutor</button>
         </div>
     `;
 }
@@ -557,6 +553,7 @@ function activarPantallaBloqueo() {
         <div class="pantalla-clase">
             <h2 style="color:#ef4444; margin:0;">📵 Modo de Atención Activo</h2>
             <p style="color:#9ca3af; font-size:14px;">No salgas de esta pantalla ni bloquees el teléfono</p>
+            <p style="color:#9ca3af; font-size:12px;">Si sales de la app, se registra al regresar.</p>
             <div class="parpadeo">🔴</div>
             <div id="contador-estrellas-visual" class="marcador-estrellas">
                 Mis Participaciones:<br>Ninguna aún
@@ -627,9 +624,23 @@ function reportarAFirebase() {
         tiempoFuera: tiempoFuera,
         salidas: salidas,
         ultimaActualizacion: Date.now()
-    }).catch(() => {});
+    }).catch((err) => {
+        // ✅ NUEVO — Logging básico: antes este fallo era 100% silencioso.
+        // Solo consola del navegador — no agrega escrituras ni colecciones nuevas a Firestore.
+        console.error("[Control de Aula] Falló el reporte de métricas a Firestore:", err);
+    });
 
-    actualizarSesionLocal();
+    // ✅ NUEVO — Persistir tiempoFuera/salidas en localStorage para que sobrevivan
+    // a un reinicio del teléfono a mitad de clase (bug diagnosticado: antes se perdían).
+    localStorage.setItem("sesion_clase_activa", JSON.stringify({
+        targetId: targetDocenteUid,
+        nombre: nombreAlumno,
+        grupo: grupoAlumno,
+        docId: documentoAlumnoId,
+        inicio: inicio,
+        tiempoFuera: tiempoFuera,
+        salidas: salidas
+    }));
 }
 
 // ✅ V8.2 — OBJETIVO 1: umbral de detección configurable por clase (campo
@@ -726,6 +737,7 @@ const pasosGuiaAlumno = [
         mensajeHTML: `
             <p>La herramienta ayuda a promover el uso académico del dispositivo durante actividades de aprendizaje.</p>
             <p>Puede ayudar a identificar interrupciones relacionadas con actividades ajenas a la sesión académica cuando así lo determine el docente.</p>
+            <p>Si sales de la app durante la actividad (para abrir otra app, por ejemplo), esa salida se registra cuando regresas — no en el instante en que ocurre.</p>
             <p>La plataforma no fue diseñada como una herramienta de vigilancia.</p>
         `
     },
@@ -831,10 +843,10 @@ function cerrarGuiaAlumno() {
     document.getElementById("guia-tarjeta").style.display = "none";
 }
 
-// ✅ SMARTTUTOR — aviso previo antes de salir a Gemini. Reutiliza las clases
-// guia-overlay/guia-tarjeta/guia-acciones/guia-btn-anterior/guia-btn-siguiente
-// (sin CSS nuevo), en elementos propios para no interferir con el estado del
-// tutorial de onboarding (pasoActualGuiaAlumno, etc.).
+// ✅ NUEVO — SmartTutor: aviso de transparencia antes de abrir la Gema de Gemini.
+// No lee ni escribe en Firestore; no requiere autorización del docente ni
+// configuración adicional. Reutiliza el estilo visual guia-overlay/guia-tarjeta
+// del onboarding en elementos propios, para no interferir con esa guía.
 function mostrarAvisoSmartTutor() {
     document.getElementById("smarttutor-overlay").style.display = "block";
     document.getElementById("smarttutor-tarjeta").style.display = "block";
@@ -845,9 +857,13 @@ function cerrarAvisoSmartTutor() {
     document.getElementById("smarttutor-tarjeta").style.display = "none";
 }
 
-function confirmarAbrirSmartTutor() {
-    window.open(SMART_TUTOR_URL);
+function confirmarAperturaSmartTutor() {
     cerrarAvisoSmartTutor();
+    window.open(
+        SMART_TUTOR_URL,
+        "_blank",
+        "noopener,noreferrer"
+    );
 }
 
 // Disparo automático: solo la primera vez, tras cargar la pantalla de entrada.
@@ -868,16 +884,16 @@ setTimeout(() => iniciarGuiaAlumno(false), 500);
     </div>
 </div>
 
-<!-- ✅ SMARTTUTOR — aviso previo (reutiliza clases guia-*, sin CSS nuevo) -->
+<!-- ✅ NUEVO — SmartTutor: aviso de transparencia (mismo estilo visual del onboarding, elementos independientes) -->
 <div class="guia-overlay" id="smarttutor-overlay"></div>
 <div class="guia-tarjeta" id="smarttutor-tarjeta">
-    <h3>🤖 SmartTutor</h3>
-    <p>Vas a salir temporalmente de SmartProf para utilizar Gemini de Google.</p>
-    <p>El uso de Gemini está sujeto a los términos, políticas y requisitos de cuenta de Google.</p>
-    <p>SmartTutor es un apoyo al aprendizaje y no sustituye las indicaciones de tu docente.</p>
+    <h3>🤖 Antes de continuar</h3>
+    <p>Vas a abrir <strong>SmartTutor</strong>, un asistente basado en Gemini (Google), fuera de Control de Aula.</p>
+    <p>Tu profesor no verá lo que converses ahí ni recibe ningún dato de esa conversación.</p>
+    <p style="color:#9ca3af; font-size:13px;">La conversación queda sujeta a los términos y la política de privacidad de Google, no a los de Control de Aula.</p>
     <div class="guia-acciones">
-        <button class="guia-btn-anterior" style="display:inline-block;" onclick="cerrarAvisoSmartTutor()">Cancelar</button>
-        <button class="guia-btn-siguiente" onclick="confirmarAbrirSmartTutor()">Abrir SmartTutor</button>
+        <button class="guia-btn-omitir" onclick="cerrarAvisoSmartTutor()">Cancelar</button>
+        <button class="guia-btn-siguiente" onclick="confirmarAperturaSmartTutor()">Entendido, abrir</button>
     </div>
 </div>
 

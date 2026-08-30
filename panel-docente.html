@@ -135,6 +135,16 @@
         cursor: pointer;
     }
     .btn-emoji:hover { background: #e5e7eb; }
+
+    /* ✅ NUEVO — Cuadro de calificación numérica (0-10) por alumno */
+    .input-calificacion {
+        width: 52px;
+        font-size: 14px;
+        text-align: center;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 6px 4px;
+    }
     
     .estado-actual {
         font-size: 12px;
@@ -471,7 +481,7 @@
             </div>
 
             <div style="margin-top:12px;">
-                <button class="btn btn-danger" onclick="finalizarClase()">Finalizar y Archivar Clase</button>
+                <button class="btn btn-danger" id="btn-finalizar-clase" onclick="finalizarClase()">Finalizar y Archivar Clase</button>
                 <button class="btn btn-success" id="btn-exportar-csv" onclick="exportarCSV()">📥 Exportar Reporte (Excel)</button>
                 <button class="btn btn-primary" onclick="activarRetardo()" id="btn-activar-retardo">Activar Retardo</button>
                 <button class="btn btn-primary" onclick="pausarClase()" id="btn-pausar" style="background:#f59e0b;">⏸️ Pausar</button>
@@ -609,7 +619,16 @@ async function verificarClaseActiva() {
                 // así que necesita revisión periódica igual que intervaloRevisionConexion
                 intervaloRecordatorioRetardo = setInterval(actualizarRecordatorioRetardo, 30000);
             }
-            escucharAlumnos();
+            // ✅ NUEVO — escucharAlumnos() ya no se llama en cada snapshot de este
+            // documento (pausar/reanudar/compartir material/activar retardo también
+            // disparaban este bloque). Antes eso destruía y recreaba la suscripción
+            // a la subcolección de alumnos en cada uno de esos eventos, provocando
+            // una relectura completa innecesaria de todos los alumnos cada vez.
+            // Ahora solo se suscribe una vez por clase activa; unsubscribeAlumnos ya
+            // se limpia correctamente en la rama "else" cuando la clase termina.
+            if (!unsubscribeAlumnos) {
+                escucharAlumnos();
+            }
         } else {
             datosClaseActual = null;
             document.getElementById("modulo-config").style.display = "grid";
@@ -752,7 +771,9 @@ async function iniciarClase() {
         if (!datosSuscripcion.grupoActivo) {
             // Primera clase del docente ya en Free (p.ej. nunca tuvo Trial):
             // este grupo se convierte automáticamente en su grupo activo.
-            await suscripcionRef.set({ grupoActivo: grp, actualizadoEn: Date.now() }, { merge: true }).catch(() => {});
+            await suscripcionRef.set({ grupoActivo: grp, actualizadoEn: Date.now() }, { merge: true }).catch((err) => {
+                console.error("[Control de Aula] Falló al fijar grupoActivo:", err);
+            });
         } else if (datosSuscripcion.grupoActivo !== grp) {
             alert(`❄️ Tu plan Free solo permite iniciar clases en tu grupo activo (${datosSuscripcion.grupoActivo}). "${grp}" está congelado: no puedes iniciar clases nuevas ahí. Sus datos permanecen guardados. Actualiza a Pro para usar todos tus grupos sin restricción.`);
             return;
@@ -805,7 +826,9 @@ function registrarMetricaInicioClase(escuela) {
                 totalClases: firebase.firestore.FieldValue.increment(1)
             });
         }
-    }).catch(() => {}); // no debe interrumpir la creación de la clase si esto falla
+    }).catch((err) => {
+        console.error("[Control de Aula] Falló métrica totalClases (no interrumpe la creación de la clase):", err);
+    }); // no debe interrumpir la creación de la clase si esto falla
 }
 
 // ============================================================
@@ -845,7 +868,9 @@ function cargarSuscripcion() {
         if (claseActivaRef && datosClaseActual && datosClaseActual.materialDisponible === true) {
             let esPro = datosSuscripcion && datosSuscripcion.estado === "pro";
             if (!esPro) {
-                claseActivaRef.update({ materialDisponible: false }).catch(() => {});
+                claseActivaRef.update({ materialDisponible: false }).catch((err) => {
+                    console.error("[Control de Aula] Falló al apagar materialDisponible (no-Pro):", err);
+                });
             }
         }
     });
@@ -918,10 +943,12 @@ async function ejecutarTransicionAFree(origen) {
         grupoActivo: activo,
         gruposCongelados: congelados,
         actualizadoEn: ahora
-    }, { merge: true }).catch(() => {});
+    }, { merge: true }).catch((err) => {
+        console.error("[Control de Aula] Falló al guardar transición de suscripción a Free:", err);
+    });
 
     if (origen === "trial") {
-        alert("⏳ Tu período de prueba de 15 días terminó. Tu cuenta ahora está en el plan Free. Puedes seguir usando Control de Aula con tu grupo activo, o actualizar a Pro cuando quieras.");
+        alert("⏳ Tu período de prueba de 20 días terminó. Tu cuenta ahora está en el plan Free. Puedes seguir usando Control de Aula con tu grupo activo, o actualizar a Pro cuando quieras.");
     } else {
         alert("📅 Tu plan Pro venció. Tu cuenta volvió al plan Free. Todo tu historial se conserva. Puedes renovar Pro cuando quieras.");
     }
@@ -1116,6 +1143,7 @@ function renderAlumnos() {
                     <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="❌ No trabajó">❌</button>
                     <button class="btn btn-primary" style="padding:6px 10px;" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-accion="participacion">⭐ +</button>
                     <button class="btn-emoji btn-bateria ${sinBateria ? 'activo' : ''}" title="Marcar/desmarcar sin batería" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-accion="togglebateria">🔋${sinBateria ? '✅' : ''}</button>
+                    <input type="number" class="input-calificacion" min="0" max="10" step="0.1" placeholder="Calif." title="Calificación (0-10)" value="${(a.calificacion !== undefined && a.calificacion !== null) ? a.calificacion : ''}" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-accion="calificacion">
                 </div>
             </div>
         `;
@@ -1128,7 +1156,12 @@ function renderAlumnos() {
 // leyendo los valores desde data-* (texto plano, nunca ejecutado como código),
 // en vez de concatenarlos dentro de un atributo onclick="...".
 function adjuntarEventosAcciones(contenedor) {
-    contenedor.querySelectorAll('.btn-emoji').forEach(btn => {
+    // ✅ CORRECCIÓN — ":not(.btn-bateria)" evita que este selector también
+    // capture el botón de batería (comparte la clase "btn-emoji"), lo que
+    // antes disparaba un setEstado(nombre, grupo, undefined) no intencional
+    // en cada clic de "sin batería" (Firestore rechaza 'undefined' como
+    // valor de campo). No cambia el comportamiento visible de ningún botón.
+    contenedor.querySelectorAll('.btn-emoji:not(.btn-bateria)').forEach(btn => {
         btn.addEventListener('click', () => {
             setEstado(btn.dataset.nombre, btn.dataset.grupo, btn.dataset.estado);
         });
@@ -1141,6 +1174,14 @@ function adjuntarEventosAcciones(contenedor) {
     contenedor.querySelectorAll('[data-accion="togglebateria"]').forEach(btn => {
         btn.addEventListener('click', () => {
             marcarSinBateria(btn.dataset.nombre, btn.dataset.grupo);
+        });
+    });
+    // ✅ NUEVO — Cuadro de calificación (0-10). Se guarda al salir del campo
+    // (blur) o presionar Enter, no en cada tecla, para no generar una
+    // escritura a Firestore por cada dígito.
+    contenedor.querySelectorAll('[data-accion="calificacion"]').forEach(input => {
+        input.addEventListener('change', () => {
+            setCalificacion(input.dataset.nombre, input.dataset.grupo, input.value);
         });
     });
 }
@@ -1159,6 +1200,33 @@ function agregarParticipacion(nombre, grupo){
 function setEstado(nombre, grupo, estadoSeleccionado){
     let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_');
     claseActivaRef.collection("alumnos").doc(alumnoDocId).update({ estado: estadoSeleccionado });
+}
+
+// ✅ NUEVO — Calificación numérica (0-10) por alumno. Valida en el cliente
+// como espejo de la misma regla ya aplicada en firestore.rules: vacío borra
+// la calificación (null), fuera de rango o no numérico se ignora sin
+// escribir nada (evita rechazos de Firestore que solo aparecerían en consola).
+function setCalificacion(nombre, grupo, valorTexto){
+    let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_');
+    let ref = claseActivaRef.collection("alumnos").doc(alumnoDocId);
+
+    if (valorTexto === "" || valorTexto === null || valorTexto === undefined) {
+        ref.update({ calificacion: null }).catch((err) => {
+            console.error("[Control de Aula] Falló al borrar calificación:", err);
+        });
+        return;
+    }
+
+    let valor = parseFloat(valorTexto);
+    if (isNaN(valor) || valor < 0 || valor > 10) {
+        alert("La calificación debe ser un número entre 0 y 10.");
+        renderAlumnos(); // revierte el input al valor guardado, ya que el escrito no es válido
+        return;
+    }
+
+    ref.update({ calificacion: valor }).catch((err) => {
+        console.error("[Control de Aula] Falló al guardar calificación:", err);
+    });
 }
 
 // ✅ Marca/desmarca manualmente a un alumno como "sin batería". No borra ni
@@ -1208,28 +1276,29 @@ function sanitizarCSV(valor) {
 }
 
 // ✅ EXPORTACIÓN EN FORMATO COMPRENSIBLE MINUTOS/SEGUNDOS
-function exportarCSV() {
-    if (listaAlumnosGlobal.length === 0) {
+function exportarCSV(alumnos = listaAlumnosGlobal, infoClase = datosClaseActual) {
+    if (alumnos.length === 0) {
         alert("No hay datos de alumnos para exportar.");
         return;
     }
 
     let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-    csvContent += "Nombre,Grupo,Permanencia,Num Salidas,Tiempo Fuera,Participaciones,Evaluacion\n";
+    csvContent += "Nombre,Grupo,Permanencia,Num Salidas,Tiempo Fuera,Participaciones,Calificacion,Evaluacion\n";
 
-    listaAlumnosGlobal.forEach(a => {
+    alumnos.forEach(a => {
         let permanenciaStr = formatearTiempoHumano(a.tiempo).replace(/,/g, '');
         let fueraStr = formatearTiempoHumano(a.tiempoFuera).replace(/,/g, '');
         let nombreSeguro = sanitizarCSV(a.nombre);
         let grupoSeguro = sanitizarCSV(a.grupo);
+        let calificacionSegura = sanitizarCSV((a.calificacion !== undefined && a.calificacion !== null) ? a.calificacion : 'Sin calificar');
         let estadoSeguro = sanitizarCSV(a.estado || 'Sin evaluar');
-        let fila = `"${nombreSeguro}","${grupoSeguro}","${permanenciaStr}",${a.salidas},"${fueraStr}",${a.participaciones || 0},"${estadoSeguro}"\n`;
+        let fila = `"${nombreSeguro}","${grupoSeguro}","${permanenciaStr}",${a.salidas},"${fueraStr}",${a.participaciones || 0},"${calificacionSegura}","${estadoSeguro}"\n`;
         csvContent += fila;
     });
 
-    let escuelaTxt = limpiarTexto(datosClaseActual?.escuela);
-    let materiaTxt = limpiarTexto(datosClaseActual?.materia);
-    let grupoTxt = limpiarTexto(datosClaseActual?.grupoClase);
+    let escuelaTxt = limpiarTexto(infoClase?.escuela);
+    let materiaTxt = limpiarTexto(infoClase?.materia);
+    let grupoTxt = limpiarTexto(infoClase?.grupoClase);
     let nombreArchivo = `${escuelaTxt}_${materiaTxt}_${grupoTxt}_${fechaHoyTexto()}.csv`;
 
     let encodedUri = encodeURI(csvContent);
@@ -1254,46 +1323,78 @@ function calcularFechaEliminacion(fechaBase) {
     return fecha.getTime();
 }
 
+let procesandoFinalizacion = false; // ✅ evita doble clic / doble ejecución concurrente
+
 async function finalizarClase() {
+    if (procesandoFinalizacion) return; // ya se está procesando, ignora clics repetidos
+
     if (listaAlumnosGlobal.length > 0) {
         let seguro = confirm("⚠️ ¿Ya descargaste el reporte en Excel? Si finalizas la clase sin exportar, perderás las métricas de esta sesión.");
         if (!seguro) return;
     }
 
-    let infoClase = await claseActivaRef.get();
-    let dataClase = infoClase.data();
-    let ahoraFin = Date.now();
-    let fechaEliminacion = calcularFechaEliminacion(ahoraFin);
+    procesandoFinalizacion = true;
+    let btnFinalizar = document.getElementById("btn-finalizar-clase");
+    if (btnFinalizar) btnFinalizar.disabled = true;
 
-    // Guardar en historial maestro incluyendo el filtro estricto del docenteUid
-    let historialRef = db.collection("historial").doc();
-    await historialRef.set({
-        ...dataClase,
-        docenteId: docenteUid,
-        fechaFin: ahoraFin,
-        eliminarEn: fechaEliminacion
-    });
+    // ✅ Copia congelada ANTES de cualquier borrado: listaAlumnosGlobal se
+    // vacía en vivo a medida que el ciclo de abajo borra a cada alumno (el
+    // listener de alumnos sigue activo). Sin esto, el reporte automático
+    // podría generarse vacío o incompleto.
+    let alumnosCongelados = [...listaAlumnosGlobal];
+    let claseCongelada = { ...datosClaseActual };
 
-    // Mover registros de alumnos al historial interno
-    for (let al of listaAlumnosGlobal) {
-        let idAlumno = `${al.nombre}_${al.grupo}`.replace(/\s+/g, '_');
-        // ✅ V8.4 — MÉTRICAS: se agrega docenteId al alumno archivado (mismo write,
-        // sin costo adicional), para poder consultar "alumnos de este docente"
-        // en el futuro sin escanear todo historial.
-        await historialRef.collection("alumnos").doc(idAlumno).set({
-            ...al,
+    try {
+        let infoClase = await claseActivaRef.get();
+        let dataClase = infoClase.data();
+        let ahoraFin = Date.now();
+        let fechaEliminacion = calcularFechaEliminacion(ahoraFin);
+
+        // Guardar en historial maestro incluyendo el filtro estricto del docenteUid
+        let historialRef = db.collection("historial").doc();
+        await historialRef.set({
+            ...dataClase,
             docenteId: docenteUid,
+            fechaFin: ahoraFin,
             eliminarEn: fechaEliminacion
         });
-        // Limpieza de la celda activa
-        await claseActivaRef.collection("alumnos").doc(idAlumno).delete();
+
+        // Mover registros de alumnos al historial interno
+        for (let al of alumnosCongelados) {
+            let idAlumno = `${al.nombre}_${al.grupo}`.replace(/\s+/g, '_');
+            // ✅ V8.4 — MÉTRICAS: se agrega docenteId al alumno archivado (mismo write,
+            // sin costo adicional), para poder consultar "alumnos de este docente"
+            // en el futuro sin escanear todo historial.
+            await historialRef.collection("alumnos").doc(idAlumno).set({
+                ...al,
+                docenteId: docenteUid,
+                eliminarEn: fechaEliminacion
+            });
+            // Limpieza de la celda activa
+            await claseActivaRef.collection("alumnos").doc(idAlumno).delete();
+        }
+
+        registrarMetricaFinClase(dataClase.grupoClase); // ✅ V8.4 — métricas (no bloquea el cierre de la clase)
+
+        // Borrar la sesión activa del servidor
+        await claseActivaRef.delete();
+
+        // ✅ Historial ya confirmado (todo lo anterior resolvió sin error).
+        // Solo ahora se intenta la exportación automática, con los datos
+        // congelados al inicio — nunca con las variables en vivo.
+        try {
+            exportarCSV(alumnosCongelados, claseCongelada);
+            alert("Clase guardada en el historial de forma segura. Se descargó el reporte automáticamente.");
+        } catch (errExport) {
+            alert("El historial fue guardado correctamente.\nUtiliza el botón Exportar Reporte como respaldo.");
+        }
+
+    } catch (errHistorial) {
+        alert("Ocurrió un error al guardar el historial. La clase NO se cerró — puedes intentar de nuevo. Si el problema persiste, exporta manualmente antes de reintentar.");
+    } finally {
+        procesandoFinalizacion = false;
+        if (btnFinalizar) btnFinalizar.disabled = false;
     }
-
-    registrarMetricaFinClase(dataClase.grupoClase); // ✅ V8.4 — métricas (no bloquea el cierre de la clase)
-
-    // Borrar la sesión activa del servidor
-    await claseActivaRef.delete();
-    alert("Clase guardada en el historial de forma segura.");
 }
 
 // ✅ V8.4 — MÉTRICAS: alumnos distintos como SUBCOLECCIÓN (no array), para no hacer
@@ -1309,13 +1410,17 @@ function registrarMetricaFinClase(grupoClase) {
     metricaRef.set({
         ultimaActividad: Date.now(),
         gruposVistos: firebase.firestore.FieldValue.arrayUnion(grupoClase)
-    }, { merge: true }).catch(() => {});
+    }, { merge: true }).catch((err) => {
+        console.error("[Control de Aula] Falló métrica ultimaActividad/gruposVistos:", err);
+    });
 
     listaAlumnosGlobal.forEach(al => {
         let idAlumno = `${al.nombre}_${al.grupo}`.replace(/\s+/g, '_');
         metricaRef.collection("alumnosVistos").doc(idAlumno)
             .set({ primeraVez: Date.now(), eliminarEn: calcularFechaEliminacion(Date.now()) }, { merge: true })
-            .catch(() => {});
+            .catch((err) => {
+                console.error("[Control de Aula] Falló registro alumnosVistos (TTL):", err);
+            });
     });
 }
 
@@ -1330,7 +1435,7 @@ function registrarMetricaFinClase(grupoClase) {
 const pasosRecorrido = [
     {
         titulo: "Bienvenida a Control de Aula",
-        mensaje: "Control de Aula te ayuda a dar seguimiento en tiempo real a la permanencia, participación y evaluación de tus alumnos durante la clase. Este recorrido rápido te muestra lo esencial.",
+        mensaje: "Control de Aula te ayuda a dar seguimiento a la permanencia, participación y evaluación de tus alumnos durante la clase. Las salidas se confirman cuando el alumno regresa a la app, no en el instante en que ocurren. Este recorrido rápido te muestra lo esencial.",
         target: null
     },
     {
@@ -1523,7 +1628,9 @@ function registrarMetricaOnboardingDocente(estado, pasoOmitido) {
     }
     db.collection("metricas_docentes").doc(docenteUid)
         .set(datos, { merge: true })
-        .catch(() => {});
+        .catch((err) => {
+            console.error("[Control de Aula] Falló al guardar metricas_docentes:", err);
+        });
 }
 
 function cerrarRecorrido() {

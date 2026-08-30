@@ -633,7 +633,7 @@ async function verificarClaseActiva() {
             datosClaseActual = null;
             document.getElementById("modulo-config").style.display = "grid";
             document.getElementById("zona-codigos").style.display = "none";
-            if(unsubscribeAlumnos) unsubscribeAlumnos();
+            if(unsubscribeAlumnos) { unsubscribeAlumnos(); unsubscribeAlumnos = null; } // ✅ FIX Hallazgo #1: sin este reset, escucharAlumnos() nunca se volvía a ejecutar en la siguiente clase
             if(intervaloRevisionConexion) clearInterval(intervaloRevisionConexion);
             if(intervaloRecordatorioRetardo) { clearInterval(intervaloRecordatorioRetardo); intervaloRecordatorioRetardo = null; } // ✅ NUEVO
             let banner = document.getElementById("recordatorio-activar-retardo");
@@ -750,9 +750,10 @@ function compartirMaterial() {
     claseActivaRef.update({
         materialTitulo: titulo || null,
         materialUrl: url || null,
-        // ✅ Caso 1: se guarda el estado Pro conocido en este instante.
-        // La regla solo deja poner "true" si en verdad es pro.
-        materialDisponible: !!(datosSuscripcion && datosSuscripcion.estado === "pro")
+        // ✅ Caso 1: se guarda el estado Pro/Trial conocido en este instante.
+        // La regla solo deja poner "true" si en verdad es pro o trial.
+        // ✅ FIX Hallazgo #2: Trial debe tener el mismo acceso que Pro a Material de Pausa.
+        materialDisponible: !!(datosSuscripcion && (datosSuscripcion.estado === "pro" || datosSuscripcion.estado === "trial"))
     }).then(() => {
         msg.style.color = "#16a34a";
         msg.innerText = "✅ Compartido";
@@ -877,8 +878,8 @@ function cargarSuscripcion() {
         // antiguas — decisión explícita: materialDisponible puede quedar
         // undefined hasta el próximo "Compartir material".
         if (claseActivaRef && datosClaseActual && datosClaseActual.materialDisponible === true) {
-            let esPro = datosSuscripcion && datosSuscripcion.estado === "pro";
-            if (!esPro) {
+            let esProOTrial = datosSuscripcion && (datosSuscripcion.estado === "pro" || datosSuscripcion.estado === "trial"); // ✅ FIX Hallazgo #2: mismo criterio que compartirMaterial() y firestore.rules
+            if (!esProOTrial) {
                 claseActivaRef.update({ materialDisponible: false }).catch((err) => {
                     console.error("[Control de Aula] Falló al apagar materialDisponible (no-Pro):", err);
                 });

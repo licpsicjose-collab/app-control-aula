@@ -1,5 +1,5 @@
 {
-  "name": "Control de Aula — Alumno",
+  "name": "SmartProf — Alumno",
   "short_name": "Zona de Clase",
   "description": "Conexión del alumno a la clase en tiempo real: participaciones, evaluación y modo de atención activo.",
   "start_url": "./panel-alumno.html",

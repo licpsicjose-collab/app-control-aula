@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Docente</title>
+<title>Dashboard Docente — SmartProf</title>
 
 <!-- ✅ V7.4 — PWA: manifest, favicon e íconos (no afecta lógica ni Firebase) -->
 <link rel="manifest" href="manifest.json">
@@ -13,7 +13,7 @@
 <meta name="theme-color" content="#1e3a8a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Control de Aula">
+<meta name="apple-mobile-web-app-title" content="SmartProf">
 <style>
     body {
         margin: 0;
@@ -135,6 +135,20 @@
         cursor: pointer;
     }
     .btn-emoji:hover { background: #e5e7eb; }
+
+    /* ✅ UX — Calificación en su propia sección de la tarjeta, separada de
+       los botones de acción rápida (antes compartía fila con 👍😄😐❌⭐🔋) */
+    .seccion-calificacion {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #f3f4f6;
+        font-size: 13px;
+        color: #374151;
+    }
+    .seccion-calificacion label { font-weight: 600; }
 
     /* ✅ NUEVO — Cuadro de calificación numérica (0-10) por alumno */
     .input-calificacion {
@@ -425,7 +439,7 @@
 
 <div class="container">
     <!-- ✅ V8.5 — SUSCRIPCIONES: patrocinio (solo plan free) y aviso de grupo congelado -->
-    <div id="banner-patrocinio">💜 Control de Aula Free está patrocinado por <strong>Psicología Aplicada</strong></div>
+    <div id="banner-patrocinio">💜 SmartProf Free está patrocinado por <strong>Psicología Aplicada</strong></div>
     <div id="banner-grupo-congelado"></div>
 
     <!-- Bloque de configuración con memoria local -->
@@ -481,11 +495,11 @@
             </div>
 
             <div style="margin-top:12px;">
-                <button class="btn btn-danger" id="btn-finalizar-clase" onclick="finalizarClase()">Finalizar y Archivar Clase</button>
-                <button class="btn btn-success" id="btn-exportar-csv" onclick="exportarCSV()">📥 Exportar Reporte (Excel)</button>
-                <button class="btn btn-primary" onclick="activarRetardo()" id="btn-activar-retardo">Activar Retardo</button>
                 <button class="btn btn-primary" onclick="pausarClase()" id="btn-pausar" style="background:#f59e0b;">⏸️ Pausar</button>
                 <button class="btn btn-primary" onclick="reanudarClase()" id="btn-reanudar" style="background:#16a34a; display:none;">▶️ Reanudar</button>
+                <button class="btn btn-primary" onclick="activarRetardo()" id="btn-activar-retardo">Activar Retardo</button>
+                <button class="btn btn-success" id="btn-exportar-csv" onclick="exportarCSV()">📥 Exportar Reporte (Excel)</button>
+                <button class="btn btn-danger" id="btn-finalizar-clase" onclick="finalizarClase()">Finalizar y Archivar Clase</button>
             </div>
 
             <!-- ✅ NUEVO — Material de Pausa (exclusivo Pro). Solo visible
@@ -960,7 +974,7 @@ async function ejecutarTransicionAFree(origen) {
     });
 
     if (origen === "trial") {
-        alert("⏳ Tu período de prueba de 20 días terminó. Tu cuenta ahora está en el plan Free. Puedes seguir usando Control de Aula con tu grupo activo, o actualizar a Pro cuando quieras.");
+        alert("⏳ Tu período de prueba de 20 días terminó. Tu cuenta ahora está en el plan Free. Puedes seguir usando SmartProf con tu grupo activo, o actualizar a Pro cuando quieras.");
     } else {
         alert("📅 Tu plan Pro venció. Tu cuenta volvió al plan Free. Todo tu historial se conserva. Puedes renovar Pro cuando quieras.");
     }
@@ -1124,6 +1138,9 @@ function renderAlumnos() {
 
         let estrellas = "⭐".repeat(a.participaciones || 0);
 
+        // ✅ Solo para accesibilidad del <label for="..."> de calificación — no es un ID de Firestore
+        let idAlumnoAttr = escaparHTML(`${a.nombre}_${a.grupo}`.replace(/\s+/g, '_'));
+
         // ✅ Estado de conexión: no penaliza ni reemplaza ninguna métrica existente,
         // solo informa. "Sin batería" (marcado manual) tiene prioridad visual sobre
         // "sin conexión" (automático) porque el docente ya confirmó la causa.
@@ -1149,13 +1166,16 @@ function renderAlumnos() {
                     🏅 <strong>Participaciones:</strong> ${estrellas || 'Ninguna'}
                 </div>
                 <div class="acciones-alumno">
-                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="😄 Excelente">😄</button>
-                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="👍 Bien">👍</button>
-                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="😐 Regular">😐</button>
-                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="❌ No trabajó">❌</button>
+                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="😄 Excelente" title="Excelente">😄</button>
+                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="👍 Bien" title="Bien">👍</button>
+                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="😐 Regular" title="Regular">😐</button>
+                    <button class="btn-emoji" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-estado="❌ No trabajó" title="No trabajó">❌</button>
                     <button class="btn btn-primary" style="padding:6px 10px;" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-accion="participacion">⭐ +</button>
                     <button class="btn-emoji btn-bateria ${sinBateria ? 'activo' : ''}" title="Marcar/desmarcar sin batería" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-accion="togglebateria">🔋${sinBateria ? '✅' : ''}</button>
-                    <input type="number" class="input-calificacion" min="0" max="10" step="0.1" placeholder="Calif." title="Calificación (0-10)" value="${(a.calificacion !== undefined && a.calificacion !== null) ? a.calificacion : ''}" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-accion="calificacion">
+                </div>
+                <div class="seccion-calificacion">
+                    <label for="calif-${idAlumnoAttr}">Calificación:</label>
+                    <input type="number" id="calif-${idAlumnoAttr}" class="input-calificacion" min="0" max="10" step="0.1" placeholder="Calif." title="Calificación (0-10)" value="${(a.calificacion !== undefined && a.calificacion !== null) ? a.calificacion : ''}" data-nombre="${escaparHTML(a.nombre)}" data-grupo="${escaparHTML(a.grupo)}" data-accion="calificacion">
                 </div>
             </div>
         `;
@@ -1341,7 +1361,7 @@ async function finalizarClase() {
     if (procesandoFinalizacion) return; // ya se está procesando, ignora clics repetidos
 
     if (listaAlumnosGlobal.length > 0) {
-        let seguro = confirm("⚠️ ¿Ya descargaste el reporte en Excel? Si finalizas la clase sin exportar, perderás las métricas de esta sesión.");
+        let seguro = confirm("¿Deseas finalizar y archivar esta clase? El reporte se descargará automáticamente.");
         if (!seguro) return;
     }
 
@@ -1396,9 +1416,9 @@ async function finalizarClase() {
         // congelados al inicio — nunca con las variables en vivo.
         try {
             exportarCSV(alumnosCongelados, claseCongelada);
-            alert("Clase guardada en el historial de forma segura. Se descargó el reporte automáticamente.");
+            alert("✅ Clase archivada correctamente. El reporte se descargó automáticamente a tu dispositivo.");
         } catch (errExport) {
-            alert("El historial fue guardado correctamente.\nUtiliza el botón Exportar Reporte como respaldo.");
+            alert("✅ Clase archivada correctamente, aunque no se pudo descargar el reporte automáticamente. Usa el botón 📥 Exportar Reporte para generarlo de nuevo.");
         }
 
     } catch (errHistorial) {
@@ -1446,8 +1466,8 @@ function registrarMetricaFinClase(grupoClase) {
 
 const pasosRecorrido = [
     {
-        titulo: "Bienvenida a Control de Aula",
-        mensaje: "Control de Aula te ayuda a dar seguimiento a la permanencia, participación y evaluación de tus alumnos durante la clase. Las salidas se confirman cuando el alumno regresa a la app, no en el instante en que ocurren. Este recorrido rápido te muestra lo esencial.",
+        titulo: "Bienvenida a SmartProf",
+        mensaje: "SmartProf te ayuda a dar seguimiento a la permanencia, participación y evaluación de tus alumnos durante la clase. Las salidas se confirman cuando el alumno regresa a la app, no en el instante en que ocurren. Este recorrido rápido te muestra lo esencial.",
         target: null
     },
     {
@@ -1494,7 +1514,7 @@ const pasosRecorrido = [
     },
     {
         titulo: "¡Listo!",
-        mensaje: "¡Listo! Ya conoces las funciones principales de Control de Aula.",
+        mensaje: "¡Listo! Ya conoces las funciones principales de SmartProf.",
         target: null
     }
 ];
@@ -1672,9 +1692,9 @@ firebase.auth().onAuthStateChanged(user => {
 <!-- ✅ V8 (actualización) — Pantalla introductoria de privacidad, previa al Paso 1 -->
 <div class="tour-privacidad" id="tour-privacidad">
     <h3>🔒 Privacidad y Funcionamiento</h3>
-    <p>Control de Aula fue diseñado para apoyar el uso académico de dispositivos durante actividades de aprendizaje.</p>
+    <p>SmartProf fue diseñado para apoyar el uso académico de dispositivos durante actividades de aprendizaje.</p>
     <p>La herramienta ayuda a reducir distracciones asociadas al uso no académico del dispositivo durante una sesión de trabajo, cuando así lo determine el docente.</p>
-    <p><strong>Control de Aula:</strong></p>
+    <p><strong>SmartProf:</strong></p>
     <ul>
         <li>✅ No solicita permisos especiales del dispositivo.</li>
         <li>✅ No accede a fotografías.</li>

@@ -1,6 +1,6 @@
 {
-  "name": "Control de Aula",
-  "short_name": "Control de Aula",
+  "name": "SmartProf",
+  "short_name": "SmartProf",
   "description": "Selecciona si vas a entrar como docente o como alumno.",
   "start_url": "./index.html",
   "scope": "./",

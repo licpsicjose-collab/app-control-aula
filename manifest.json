@@ -1,6 +1,6 @@
 {
-  "name": "Control de Aula — Docente",
-  "short_name": "Control de Aula",
+  "name": "SmartProf — Docente",
+  "short_name": "SmartProf",
   "description": "Panel docente: monitoreo de clase en tiempo real, participaciones y evaluaciones.",
   "start_url": "./login.html",
   "scope": "./",

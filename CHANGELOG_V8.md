@@ -1,5 +1,52 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.6.11] — Hallazgos técnicos #1/#2 + Rebranding visual + Auditoría UX final
+
+### Contexto
+Cierre de dos rondas de auditoría (técnica y UX) previas al piloto real
+con docentes. Cambios quirúrgicos, sin refactorización ni cambios de
+arquitectura, tal como fue solicitado y aprobado por partes.
+
+### Corregido — `panel-docente.html`
+- **Hallazgo #1**: `unsubscribeAlumnos` no se reseteaba a `null` al
+  finalizar una clase, por lo que `escucharAlumnos()` nunca volvía a
+  ejecutarse en la siguiente clase y las tarjetas de alumnos dejaban de
+  aparecer. Corregido en la rama donde la clase deja de existir.
+- **Hallazgo #2**: Material de Pausa solo permitía `estado === "pro"`,
+  excluyendo a las cuentas en Trial pese a que Trial debe tener el mismo
+  acceso que Pro. Corregido en `compartirMaterial()` y en el listener de
+  `suscripciones/{docenteUid}` que apaga `materialDisponible` cuando la
+  cuenta deja de calificar.
+
+### Corregido — `firestore.rules`
+- **Hallazgo #2**: las 4 condiciones de `create`/`update` sobre
+  `materialTitulo`/`materialUrl`/`materialDisponible` ahora aceptan
+  `estado in ['pro', 'trial']` en vez de exigir únicamente `'pro'`,
+  igualando el criterio del cliente.
+
+### Rebranding visual
+- "Control de Aula" → "SmartProf" en títulos de pestaña, encabezados,
+  banners, alertas y textos de onboarding/tour visibles al usuario, en
+  `index.html`, `login.html`, `panel-admin.html`, `panel-docente.html`,
+  `panel-alumno.html` y los 3 manifests PWA.
+- Sin cambios en nombres internos de variables ni en los prefijos
+  `[Control de Aula]` de los `console.error()` (no son visibles al
+  usuario).
+
+### UX — `panel-docente.html`
+- La calificación (0-10) se movió de la fila de acciones rápidas
+  (👍😄😐❌⭐🔋) a su propia sección dentro de la tarjeta del alumno, con
+  etiqueta "Calificación:". Misma lógica y mismo `data-accion`.
+- Botones de clase activa reordenados: Pausar → Reanudar → Retardo →
+  Exportar → Finalizar (antes "Finalizar" aparecía primero). Sin cambio
+  de funcionalidad.
+- El `confirm()` previo a finalizar clase ya no pregunta "¿ya
+  exportaste?" (la exportación es automática desde V8.6.6); ahora
+  confirma la acción de archivar la clase.
+- El mensaje de éxito al finalizar ya no promete una consulta del
+  historial que todavía no existe como pantalla.
+- Tooltips agregados a los 4 botones de evaluación por emoji.
+
 ## [V8.6.6] — Material de Pausa (exclusivo Pro) + ajuste de precio vigente
 
 ### Contexto

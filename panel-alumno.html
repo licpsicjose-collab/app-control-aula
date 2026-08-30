@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Zona de Clase - Alumno</title>
+<title>Zona de Clase - Alumno — SmartProf</title>
 
 <!-- ✅ V7.4 — PWA: manifest, favicon e íconos (no afecta lógica ni Firebase) -->
 <link rel="manifest" href="manifest-alumno.json">
@@ -715,13 +715,13 @@ setInterval(() => {
 
 const pasosGuiaAlumno = [
     {
-        titulo: "👋 Bienvenido a Control de Aula",
+        titulo: "👋 Bienvenido a SmartProf",
         mensajeHTML: "<p>Esta herramienta apoya las actividades académicas propuestas por tu docente durante la sesión de clase.</p>"
     },
     {
         titulo: "🔒 Privacidad y funcionamiento",
         mensajeHTML: `
-            <p><strong>Control de Aula:</strong></p>
+            <p><strong>SmartProf:</strong></p>
             <ul>
                 <li>✅ No solicita permisos especiales.</li>
                 <li>✅ No accede a fotografías.</li>
@@ -890,9 +890,9 @@ setTimeout(() => iniciarGuiaAlumno(false), 500);
 <div class="guia-overlay" id="smarttutor-overlay"></div>
 <div class="guia-tarjeta" id="smarttutor-tarjeta">
     <h3>🤖 Antes de continuar</h3>
-    <p>Vas a abrir <strong>SmartTutor</strong>, un asistente basado en Gemini (Google), fuera de Control de Aula.</p>
+    <p>Vas a abrir <strong>SmartTutor</strong>, un asistente basado en Gemini (Google), fuera de SmartProf.</p>
     <p>Tu profesor no verá lo que converses ahí ni recibe ningún dato de esa conversación.</p>
-    <p style="color:#9ca3af; font-size:13px;">La conversación queda sujeta a los términos y la política de privacidad de Google, no a los de Control de Aula.</p>
+    <p style="color:#9ca3af; font-size:13px;">La conversación queda sujeta a los términos y la política de privacidad de Google, no a los de SmartProf.</p>
     <div class="guia-acciones">
         <button class="guia-btn-omitir" onclick="cerrarAvisoSmartTutor()">Cancelar</button>
         <button class="guia-btn-siguiente" onclick="confirmarAperturaSmartTutor()">Entendido, abrir</button>

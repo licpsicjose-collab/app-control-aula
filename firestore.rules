@@ -90,7 +90,7 @@ service cloud.firestore {
       // 'materialUrl'. El estado comercial (trial/free/pro) NO vive en este
       // documento — vive en suscripciones/{docenteUid}. Por eso, escribir
       // estos dos campos exige una consulta cruzada a esa colección para
-      // confirmar estado == 'pro'. Se separa create/update porque
+      // confirmar estado == 'pro' o 'trial'. Se separa create/update porque
       // diff(resource.data) no es seguro de evaluar en 'create' (resource
       // no existe todavía en ese momento). La pausa (clase.pausada) es una
       // restricción de INTERFAZ, no de seguridad — la regla solo controla
@@ -106,7 +106,8 @@ service cloud.firestore {
                     && (
                          (!('materialTitulo' in request.resource.data)
                           && !('materialUrl' in request.resource.data))
-                         || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado == 'pro'
+                         // ✅ FIX Hallazgo #2: Trial tiene el mismo acceso que Pro a Material de Pausa.
+                         || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado in ['pro', 'trial']
                        )
                     && (!('materialTitulo' in request.resource.data)
                         || request.resource.data.materialTitulo == null
@@ -119,7 +120,8 @@ service cloud.firestore {
                     // puede apagarlo (false); solo un Pro real puede encenderlo.
                     && (!('materialDisponible' in request.resource.data)
                         || request.resource.data.materialDisponible == false
-                        || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado == 'pro');
+                        // ✅ FIX Hallazgo #2: Trial tiene el mismo acceso que Pro a Material de Pausa.
+                        || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado in ['pro', 'trial']);
 
       allow update: if request.auth != null
                     && request.auth.uid == docenteUid
@@ -132,7 +134,8 @@ service cloud.firestore {
                     && (
                          !request.resource.data.diff(resource.data).affectedKeys()
                             .hasAny(['materialTitulo', 'materialUrl'])
-                         || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado == 'pro'
+                         // ✅ FIX Hallazgo #2: Trial tiene el mismo acceso que Pro a Material de Pausa.
+                         || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado in ['pro', 'trial']
                        )
                     && (!('materialTitulo' in request.resource.data)
                         || request.resource.data.materialTitulo == null
@@ -146,7 +149,8 @@ service cloud.firestore {
                     // subirla a true.
                     && (!('materialDisponible' in request.resource.data)
                         || request.resource.data.materialDisponible == false
-                        || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado == 'pro');
+                        // ✅ FIX Hallazgo #2: Trial tiene el mismo acceso que Pro a Material de Pausa.
+                        || get(/databases/$(database)/documents/suscripciones/$(docenteUid)).data.estado in ['pro', 'trial']);
 
       // Solo el propio docente puede finalizar (borrar) su clase activa.
       allow delete: if request.auth != null && request.auth.uid == docenteUid;

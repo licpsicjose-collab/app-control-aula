@@ -433,6 +433,7 @@
         <button id="btn-actualizar-pro" onclick="mostrarModalPago()" style="display:none; background:#059669; border:none; color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">💳 Actualizar a Pro — $500/año</button>
         <a id="btn-consentimiento-padres" href="CONSENTIMIENTO_INFORMADO_PADRES.html" target="_blank" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer; text-decoration:none; display:inline-block;">📄 Consentimiento informado (padres)</a>
         <button id="btn-ver-recorrido" onclick="iniciarRecorrido(true)" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer;">❓ Ver recorrido nuevamente</button>
+        <a id="btn-enviar-comentario" href="#" target="_blank" rel="noopener noreferrer" style="background:none; border:1px solid rgba(255,255,255,0.5); color:white; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer; text-decoration:none; display:inline-block;">💬 Enviar comentario</a>
         <div id="info-usuario">Cargando sesión...</div>
     </div>
 </header>
@@ -567,6 +568,12 @@ const UMBRAL_RECORDATORIO_RETARDO_MS = 300000; // 5 minutos
 // que el alumno envía normalmente (ver reportarAFirebase() en panel-alumno.html),
 // dejando margen para variaciones normales de red antes de mostrar la alerta.
 const UMBRAL_SIN_CONEXION_MS = 150000;
+
+// ✅ NUEVO — Botón "💬 Enviar comentario" del header. Sin Firestore, sin
+// colecciones, sin autenticación: solo abre un enlace externo (mismo patrón
+// que el botón de WhatsApp del modal de pago, línea ~1755). Editar aquí la
+// URL de destino no requiere tocar el HTML ni ningún otro punto del archivo.
+const URL_RETROALIMENTACION_DOCENTE = "https://wa.me/5215537566087?text=" + encodeURIComponent("Hola. Quiero compartir un comentario sobre SmartProf:\n\n");
 
 // ✅ V8.5 — SUSCRIPCIONES
 let suscripcionRef = null;
@@ -1006,14 +1013,17 @@ function actualizarTarjetaPlan() {
         let diasRestantes = Math.max(0, Math.ceil((datosSuscripcion.trialFin - Date.now()) / (24 * 60 * 60 * 1000)));
         tarjeta.classList.add("plan-trial");
         tarjeta.innerText = `🚀 Trial · ${diasRestantes} día${diasRestantes === 1 ? '' : 's'} restante${diasRestantes === 1 ? '' : 's'}`;
+        tarjeta.title = "Al terminar el Trial, tu cuenta pasa automáticamente al plan Free (1 grupo activo, sin costo). Puedes actualizar a Pro cuando quieras para grupos ilimitados.";
     } else if (datosSuscripcion.estado === "pro") {
         tarjeta.classList.add("plan-pro");
         // ✅ V8.5.1 — LICENCIAS PERPETUAS: mismo estilo visual que Pro,
         // solo cambia la etiqueta de texto.
         tarjeta.innerText = (datosSuscripcion.perpetuo === true) ? "⭐ Plan Pro Perpetuo" : "⭐ Plan Pro";
+        tarjeta.title = "";
     } else {
         tarjeta.classList.add("plan-free");
         tarjeta.innerText = "Plan Free";
+        tarjeta.title = "El plan Free permite 1 grupo activo. Actualiza a Pro para grupos ilimitados.";
     }
 
     // ✅ Patrocinio exclusivo del plan Free (nunca en trial ni en pro)
@@ -1416,9 +1426,9 @@ async function finalizarClase() {
         // congelados al inicio — nunca con las variables en vivo.
         try {
             exportarCSV(alumnosCongelados, claseCongelada);
-            alert("✅ Clase archivada correctamente. El reporte se descargó automáticamente a tu dispositivo.");
+            alert("✅ Clase archivada correctamente. El reporte se descargó automáticamente a tu dispositivo.\n\nLas clases se archivan internamente. La consulta del historial desde la interfaz estará disponible en futuras versiones.");
         } catch (errExport) {
-            alert("✅ Clase archivada correctamente, aunque no se pudo descargar el reporte automáticamente. Usa el botón 📥 Exportar Reporte para generarlo de nuevo.");
+            alert("✅ Clase archivada correctamente, aunque no se pudo descargar el reporte automáticamente. Usa el botón 📥 Exportar Reporte para generarlo de nuevo.\n\nLas clases se archivan internamente. La consulta del historial desde la interfaz estará disponible en futuras versiones.");
         }
 
     } catch (errHistorial) {
@@ -1468,6 +1478,11 @@ const pasosRecorrido = [
     {
         titulo: "Bienvenida a SmartProf",
         mensaje: "SmartProf te ayuda a dar seguimiento a la permanencia, participación y evaluación de tus alumnos durante la clase. Las salidas se confirman cuando el alumno regresa a la app, no en el instante en que ocurren. Este recorrido rápido te muestra lo esencial.",
+        target: null
+    },
+    {
+        titulo: "Tu plan actual",
+        mensaje: "✅ Tienes acceso completo y sin restricciones durante 20 días (Trial).<br><br>✅ Al terminar el Trial, tu cuenta pasa automáticamente al plan Free: 1 grupo activo, sin costo, para siempre.<br><br>Puedes actualizar a Pro en cualquier momento para tener grupos ilimitados.",
         target: null
     },
     {
@@ -1723,6 +1738,14 @@ firebase.auth().onAuthStateChanged(user => {
     </div>
 </div>
 
+<!-- ✅ NUEVO — Botón "💬 Enviar comentario": la URL se define en una sola
+     constante (URL_RETROALIMENTACION_DOCENTE, arriba en el script) para
+     poder cambiarla sin tocar el resto del archivo. No depende de sesión
+     ni de Firestore — se asigna al cargar la página. -->
+<script>
+document.getElementById("btn-enviar-comentario").href = URL_RETROALIMENTACION_DOCENTE;
+</script>
+
 <!-- ✅ V8.6.3 — MODAL DE PAGO: sin pasarela automática (sigue sin existir), solo
      muestra los datos para pagar por transferencia y permite notificar el pago
      para que aparezca marcado en el panel administrativo. La activación real
@@ -1730,16 +1753,18 @@ firebase.auth().onAuthStateChanged(user => {
 <div id="overlay-modal-pago" onclick="if(event.target===this) ocultarModalPago()">
     <div id="modal-pago">
         <h3>💳 Actualizar a Plan Pro — $500 MXN/año</h3>
+        <p style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; padding:10px 12px; border-radius:8px; font-size:13px; margin:0 0 14px 0;">
+            ℹ️ La activación del plan Pro se confirma manualmente.<br>Normalmente se realiza en menos de 48 horas.
+        </p>
         <p>Realiza tu pago por transferencia (SPEI) a la siguiente cuenta:</p>
         <div class="dato-pago"><strong>CLABE</strong>072180012216110510</div>
         <p>Envía tu comprobante de pago y el correo de tu cuenta al siguiente número de WhatsApp:</p>
         <div class="dato-pago"><strong>WhatsApp</strong>55 3756 6087</div>
-        <a href="https://wa.me/5215537566087?text=Hola.%20Solicito%20activar%20Plan%20Pro%20de%20Control%20de%20Aula.%0A%0ACorreo%20de%20mi%20cuenta%3A%20%0A%0AAdjunto%20mi%20comprobante%20de%20pago."
+        <a href="https://wa.me/5215537566087?text=Hola.%20Solicito%20activar%20Plan%20Pro%20de%20SmartProf.%0A%0ACorreo%20de%20mi%20cuenta%3A%20%0A%0AAdjunto%20mi%20comprobante%20de%20pago."
            target="_blank" rel="noopener"
            style="display:block; text-align:center; background:#25D366; color:white; padding:12px 18px; border-radius:8px; text-decoration:none; font-weight:600; font-size:14px; margin:10px 0;">
            💬 Abrir chat de WhatsApp
         </a>
-        <p>Una vez que confirmemos tu pago, activaremos tu Plan Pro manualmente — normalmente en menos de 48 horas.</p>
         <div class="modal-botones">
             <button class="btn-cerrar" onclick="ocultarModalPago()">Cerrar</button>
             <button class="btn-notificar" onclick="notificarPago()">Ya pagué, notificar</button>

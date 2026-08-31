@@ -1,5 +1,51 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.6.13] — Sprint de comunicación y expectativas (solo texto, sin lógica nueva)
+
+### Contexto
+Recomendaciones del comité de lanzamiento previo al piloto con 100
+docentes: no hay ningún riesgo de código, el riesgo es de expectativas
+no comunicadas alrededor de tres dependencias humanas del producto
+(vigencia del plan, activación de pago, y consulta del historial).
+Todos los cambios de esta entrada son de texto/comunicación — cero
+lógica nueva, cero Firestore, cero Firestore Rules.
+
+### Agregado — `panel-docente.html`
+- Nuevo paso "Tu plan actual" en el recorrido de bienvenida (segundo
+  paso), explicando que el Trial da acceso completo por 20 días y que,
+  al terminar, la cuenta pasa automáticamente a Free (1 grupo activo).
+- Tooltip (`title`) permanente en el badge de plan del header — visible
+  todo el tiempo, no solo durante el recorrido — con el mismo mensaje
+  adaptado al estado actual de la cuenta (Trial o Free).
+- Aviso destacado al inicio del modal de pago Pro: "La activación del
+  plan Pro se confirma manualmente. Normalmente se realiza en menos de
+  48 horas." (antes existía un texto similar, pero al final del modal,
+  después del botón de WhatsApp — poco visible).
+- Aclaración agregada a los dos mensajes de confirmación al finalizar
+  una clase: "Las clases se archivan internamente. La consulta del
+  historial desde la interfaz estará disponible en futuras versiones."
+  No se construyó ninguna pantalla de historial — solo se comunica la
+  situación actual con claridad.
+
+## [V8.6.12] — Botón de retroalimentación docente + fix residual de rebranding
+
+### Agregado — `panel-docente.html`
+- Botón "💬 Enviar comentario" en el header, mismo estilo visual (outline)
+  que "❓ Ver recorrido nuevamente" y "📄 Consentimiento informado". Abre
+  WhatsApp (`wa.me`) con un mensaje precargado, al mismo número ya usado
+  para pagos (`55 3756 6087`).
+- Sin Firestore, sin colecciones nuevas, sin autenticación ni
+  almacenamiento: es un enlace externo (`<a target="_blank">`), igual que
+  el botón de WhatsApp ya existente en el modal de pago.
+- URL centralizada en una sola constante, `URL_RETROALIMENTACION_DOCENTE`,
+  para poder cambiarla (número, mensaje, o incluso migrar a un Google
+  Form) sin tocar el resto del archivo.
+
+### Corregido — `panel-docente.html`
+- Mensaje precargado del botón de WhatsApp del modal de pago todavía
+  decía "Control de Aula" (quedó fuera de la ronda de rebranding V8.6.11
+  por estar codificado dentro de una URL). Ahora dice "SmartProf".
+
 ## [V8.6.11] — Hallazgos técnicos #1/#2 + Rebranding visual + Auditoría UX final
 
 ### Contexto

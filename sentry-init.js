@@ -26,10 +26,10 @@ const SMARTPROF_VERSION = "8.6.14";
 //    cambiando esta única constante a false.
 const SENTRY_ENABLED = true;
 
-// ✅ DSN de Sentry. Sustituir por el DSN real del proyecto antes
-//    de publicar. Mientras esté vacío, la inicialización no se
-//    ejecuta (ver más abajo) para no generar errores en consola.
-const SENTRY_DSN = "https://TU_CLAVE_PUBLICA@oXXXXXX.ingest.us.sentry.io/PROYECTO_ID";
+// ✅ DSN de Sentry del proyecto SmartProf. El DSN es un identificador
+//    público (no es secreto) diseñado para ir embebido en código
+//    cliente — así lo documenta y lo distribuye el propio Sentry.
+const SENTRY_DSN = "https://f47fdd1bd3fef88e390250d6090178ef@o4512009120186368.ingest.us.sentry.io/4512009176285184";
 
 // ✅ Catálogo centralizado de nombres de eventos/breadcrumbs.
 //    Usar SIEMPRE SMARTPROF_EVENTOS.X en vez de cadenas literales.

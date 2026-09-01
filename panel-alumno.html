@@ -15,6 +15,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Zona de Clase">
 
+<!-- ✅ SENTRY -- Error Monitoring (ver sentry-init.js). Sustituir por el Loader Script real del proyecto de Sentry. -->
+<script src="https://js.sentry-cdn.com/TU_LOADER_ID.min.js" crossorigin="anonymous"></script>
+<script src="sentry-init.js"></script>
+<script>smartprofSentrySetTags(SMARTPROF_TIPOS_USUARIO.ALUMNO);</script>
+
+
 <style>
 body {
     margin: 0;
@@ -446,6 +452,8 @@ function escucharEstrellasTiempoReal() {
 }
 
 async function entrar(){
+    smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.ALUMNO, SMARTPROF_EVENTOS.ALUMNO_INGRESO);
+
     let codigoCorto = document.getElementById("idDocente").value.trim().toUpperCase();
     let n = document.getElementById("nombre").value.trim();
     let g = document.getElementById("grupo").value.trim();
@@ -510,6 +518,7 @@ async function entrar(){
             salidas: 0
         }));
 
+        smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.ALUMNO, SMARTPROF_EVENTOS.ALUMNO_ATENCION);
         activarPantallaBloqueo();
         escucharClaseMaestro(targetDocenteUid);
         escucharEstrellasTiempoReal();
@@ -538,6 +547,8 @@ async function entrar(){
 
 // ✅ MEJORA 2: Pantalla visible de "CLASE PAUSADA"
 function activarPantallaPausa() {
+    smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.ALUMNO, SMARTPROF_EVENTOS.ALUMNO_PAUSA);
+
     materialFirmaAnterior = JSON.stringify([clase && clase.materialUrl, clase && clase.materialTitulo, clase && clase.materialDisponible]); // ✅ NUEVO
     let bloqueMaterial = "";
     // ✅ Caso 1: además de URL válida, exige que el docente sea Pro EN ESTE
@@ -546,6 +557,7 @@ function activarPantallaPausa() {
     // pueden seguir en el documento sin mostrarse — no se borran, solo se
     // ocultan mientras el plan no sea Pro.
     if (clase && clase.materialDisponible === true && clase.materialUrl && esUrlSegura(clase.materialUrl)) {
+        smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.ALUMNO, SMARTPROF_EVENTOS.ALUMNO_MATERIAL);
         let tituloSeguro = escaparHTML(clase.materialTitulo || "Material de la clase");
         let urlSegura = escaparHTML(clase.materialUrl);
         bloqueMaterial = `
@@ -877,6 +889,8 @@ function cerrarGuiaAlumno() {
 // configuración adicional. Reutiliza el estilo visual guia-overlay/guia-tarjeta
 // del onboarding en elementos propios, para no interferir con esa guía.
 function mostrarAvisoSmartTutor() {
+    smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.ALUMNO, SMARTPROF_EVENTOS.ALUMNO_SMARTTUTOR);
+
     document.getElementById("smarttutor-overlay").style.display = "block";
     document.getElementById("smarttutor-tarjeta").style.display = "block";
 }

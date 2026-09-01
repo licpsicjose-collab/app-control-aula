@@ -14,6 +14,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SmartProf">
+
+<!-- ✅ SENTRY -- Error Monitoring (ver sentry-init.js). Sustituir por el Loader Script real del proyecto de Sentry. -->
+<script src="https://js.sentry-cdn.com/TU_LOADER_ID.min.js" crossorigin="anonymous"></script>
+<script src="sentry-init.js"></script>
+<script>smartprofSentrySetTags(SMARTPROF_TIPOS_USUARIO.DOCENTE);</script>
+
 <style>
     body {
         margin: 0;
@@ -747,15 +753,21 @@ function actualizarUIModoYPausa(d) {
 // (evitan que un alumno ausente reciba el código normal por WhatsApp/redes
 // después de iniciada la clase), no solo una marca de tardanza.
 function activarRetardo() {
+    smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.DOCENTE, SMARTPROF_EVENTOS.DOCENTE_RETARDO);
+
     claseActivaRef.update({ modo: "retardo" });
 }
 
 // ✅ MEJORA 2: Pausar/Reanudar usando el campo "pausada" que ya se guardaba en Firebase
 function pausarClase() {
+    smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.DOCENTE, SMARTPROF_EVENTOS.DOCENTE_PAUSA);
+
     claseActivaRef.update({ pausada: true });
 }
 
 function reanudarClase() {
+    smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.DOCENTE, SMARTPROF_EVENTOS.DOCENTE_REANUDAR);
+
     claseActivaRef.update({ pausada: false });
 }
 
@@ -787,6 +799,8 @@ function compartirMaterial() {
 }
 
 async function iniciarClase() {
+    smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.DOCENTE, SMARTPROF_EVENTOS.DOCENTE_CREAR_CLASE);
+
     let esc = document.getElementById("escuela").value.trim();
     let mat = document.getElementById("materia").value.trim();
     let grp = document.getElementById("grupoClase").value.trim();
@@ -1319,6 +1333,8 @@ function sanitizarCSV(valor) {
 
 // ✅ EXPORTACIÓN EN FORMATO COMPRENSIBLE MINUTOS/SEGUNDOS
 function exportarCSV(alumnos = listaAlumnosGlobal, infoClase = datosClaseActual) {
+    smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.DOCENTE, SMARTPROF_EVENTOS.DOCENTE_EXPORTACION);
+
     if (alumnos.length === 0) {
         alert("No hay datos de alumnos para exportar.");
         return;
@@ -1368,6 +1384,8 @@ function calcularFechaEliminacion(fechaBase) {
 let procesandoFinalizacion = false; // ✅ evita doble clic / doble ejecución concurrente
 
 async function finalizarClase() {
+    smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.DOCENTE, SMARTPROF_EVENTOS.DOCENTE_FINALIZACION);
+
     if (procesandoFinalizacion) return; // ya se está procesando, ignora clics repetidos
 
     if (listaAlumnosGlobal.length > 0) {

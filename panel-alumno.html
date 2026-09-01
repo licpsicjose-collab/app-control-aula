@@ -256,6 +256,13 @@ button:hover {
 </head>
 <body>
 
+<!-- 🔍 INSTRUMENTACIÓN TEMPORAL (diagnóstico de pantalla blanca) — PASO 1.
+     Bloque <script> independiente a propósito: si el bloque principal más
+     abajo llegara a fallar en parsear, este log de todos modos aparece,
+     lo que ayuda a aislar en qué punto se detiene la carga. Quitar esta
+     instrumentación una vez cerrado el diagnóstico. -->
+<script>console.log("PASO 1: <body> iniciado, antes de cargar Firebase");</script>
+
 <div id="vista-app">
     </div>
 
@@ -263,7 +270,13 @@ button:hover {
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase.js"></script>
 
+<!-- 🔍 INSTRUMENTACIÓN TEMPORAL — PASO 2. Confirma si los SDKs de Firebase
+     se cargaron y ejecutaron (typeof será "undefined" si fallaron). -->
+<script>console.log("PASO 2: SDKs de Firebase cargados. firebase=", typeof firebase, "db=", typeof db);</script>
+
 <script>
+console.log("PASO 3: bloque principal de panel-alumno.html empezó a ejecutarse"); // 🔍 INSTRUMENTACIÓN TEMPORAL — si este log NUNCA aparece, es un error de sintaxis que impide parsear todo el bloque
+
 let clase = null;
 let enClase = false;
 
@@ -286,9 +299,11 @@ const SMART_TUTOR_URL = "https://gemini.google.com/gem/1Ip7eqDIIOFUfkfhVTJMZ4oxo
 
 // Pintar formulario inicial
 mostrarFormulario();
+console.log("PASO 4: formulario dibujado"); // 🔍 INSTRUMENTACIÓN TEMPORAL
 
 // ✅ REENGANCHE AUTOMÁTICO: Revisa si el alumno ya estaba en clase activa antes de que se apagara el cel
 comprobarSesionExistente();
+console.log("PASO 5: comprobación de sesión existente lanzada"); // 🔍 INSTRUMENTACIÓN TEMPORAL
 
 function mostrarFormulario() {
     document.getElementById("vista-app").innerHTML = `
@@ -315,7 +330,19 @@ function mostrarFormulario() {
 }
 
 function comprobarSesionExistente() {
-    let sesionGuardada = localStorage.getItem("sesion_clase_activa");
+    // ✅ FIX (auditoría pantalla blanca): localStorage.getItem() puede lanzar
+    // una excepción en navegadores con el almacenamiento restringido (ej.
+    // Safari con "Bloquear todas las cookies", o ciertos WebViews embebidos).
+    // Sin este try/catch, esa excepción interrumpía el resto del script,
+    // incluyendo el registro de los listeners de blur/focus/visibilitychange
+    // más abajo en el archivo. Misma lógica: si falla, se trata igual que
+    // "no hay sesión guardada".
+    let sesionGuardada = null;
+    try {
+        sesionGuardada = localStorage.getItem("sesion_clase_activa");
+    } catch (errStorage) {
+        sesionGuardada = null;
+    }
     if (sesionGuardada) {
         let datos = JSON.parse(sesionGuardada);
         // Verificar si la clase sigue existiendo en el servidor de manera fresca
@@ -370,7 +397,7 @@ function escucharClaseMaestro(docenteId) {
 
         // ✅ MEJORA 2: Alternar pantalla de pausa solo cuando cambia el estado
         if (enClase) {
-            let pausadaActual = !!data?.pausada;
+            let pausadaActual = !!(data && data.pausada);
             if (pausadaActual !== pausadaAnterior) {
                 pausadaAnterior = pausadaActual;
                 if (pausadaActual) {
@@ -384,7 +411,7 @@ function escucharClaseMaestro(docenteId) {
                 // haberse compartido/actualizado DESPUÉS de pausar. Sin este chequeo,
                 // activarPantallaPausa() solo se repintaba en el borde de la pausa y
                 // el material nuevo no llegaba al alumno hasta el siguiente ciclo.
-                let firmaActual = JSON.stringify([data?.materialUrl, data?.materialTitulo, data?.materialDisponible]);
+                let firmaActual = JSON.stringify([data && data.materialUrl, data && data.materialTitulo, data && data.materialDisponible]);
                 if (firmaActual !== materialFirmaAnterior) {
                     activarPantallaPausa();
                 }
@@ -511,7 +538,7 @@ async function entrar(){
 
 // ✅ MEJORA 2: Pantalla visible de "CLASE PAUSADA"
 function activarPantallaPausa() {
-    materialFirmaAnterior = JSON.stringify([clase?.materialUrl, clase?.materialTitulo, clase?.materialDisponible]); // ✅ NUEVO
+    materialFirmaAnterior = JSON.stringify([clase && clase.materialUrl, clase && clase.materialTitulo, clase && clase.materialDisponible]); // ✅ NUEVO
     let bloqueMaterial = "";
     // ✅ Caso 1: además de URL válida, exige que el docente sea Pro EN ESTE
     // MOMENTO (materialDisponible es el espejo en vivo del estado de
@@ -658,7 +685,7 @@ function obtenerUmbralSalida() {
 
 // ===== DETECCIONES MEJORADAS (ANTI-FALSOS POSITIVOS, UMBRAL SEGÚN SENSIBILIDAD) =====
 window.addEventListener("blur", () => {
-    if (!enClase || clase?.pausada) return;
+    if (!enClase || (clase && clase.pausada)) return;
     salidaInicio = Date.now();
 });
 
@@ -676,7 +703,7 @@ window.addEventListener("focus", () => {
 });
 
 document.addEventListener("visibilitychange", () => {
-    if (!enClase || clase?.pausada) return;
+    if (!enClase || (clase && clase.pausada)) return;
 
     if (document.visibilityState === "hidden") {
         salidaInicio = Date.now();

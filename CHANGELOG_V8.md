@@ -1,5 +1,47 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.6.14] — Fix de pantalla blanca en alumnos (compatibilidad de navegador) + instrumentación temporal
+
+### Contexto
+Reporte de una prueba real: algunos alumnos (algunos iPhone, algunos
+Android), todos usando la app por primera vez, veían una pantalla
+completamente en blanco al entrar — sin formulario, sin mensaje de
+error. Diagnóstico confirmado: el uso de optional chaining (`?.`) en
+`panel-alumno.html` es sintaxis no soportada por motores JS más antiguos
+(Safari < 13.4 / iOS < 13.4, Chrome/WebView < versión 80). Como todo el
+JavaScript del archivo vive en un único bloque `<script>`, un solo `?.`
+en cualquier parte del archivo impedía que el navegador parseara — y por
+lo tanto ejecutara — el bloque completo, incluyendo la función que dibuja
+el formulario de ingreso. Esto explica el patrón exacto reportado: sin
+mensaje de error (falla de parseo, no de ejecución), sin relación con
+caché o versión de PWA, y dependiente de la versión del sistema
+operativo/navegador, no del modelo del dispositivo.
+
+### Corregido — `panel-alumno.html`
+- **Corrección 1:** eliminadas las 5 apariciones de optional chaining
+  (`?.`), reemplazadas por su equivalente compatible (`x && x.y`), sin
+  cambiar la lógica: `data?.pausada`, `data?.materialUrl/materialTitulo/
+  materialDisponible` (dos veces, en dos funciones distintas), y
+  `clase?.pausada` (en los listeners de `blur` y `visibilitychange`).
+- **Corrección 2:** `localStorage.getItem("sesion_clase_activa")` en
+  `comprobarSesionExistente()` ahora está protegido con `try/catch` — si
+  el navegador restringe el almacenamiento (Safari con cookies
+  bloqueadas, ciertos WebViews embebidos), se trata igual que "no hay
+  sesión guardada" en vez de lanzar una excepción sin controlar que
+  podía impedir el registro de los `addEventListener` de detección de
+  salida más abajo en el archivo.
+
+### Agregado (temporal) — `panel-alumno.html`
+- Instrumentación de diagnóstico con `console.log()` únicamente (sin
+  Firestore, sin almacenamiento, sin métricas): PASO 1 (`<body>`
+  iniciado) y PASO 2 (SDKs de Firebase cargados) en bloques `<script>`
+  independientes del bloque principal — para que sigan apareciendo
+  incluso si el bloque principal llegara a fallar en parsear en el
+  futuro —, y PASO 3 (bloque principal empezó a ejecutarse), PASO 4
+  (formulario dibujado) y PASO 5 (comprobación de sesión lanzada) dentro
+  del bloque principal. **Pendiente de retirar** una vez cerrado el
+  monitoreo post-lanzamiento de este fix.
+
 ## [V8.6.13] — Sprint de comunicación y expectativas (solo texto, sin lógica nueva)
 
 ### Contexto

@@ -509,7 +509,7 @@
                 <button class="btn btn-danger" id="btn-finalizar-clase" onclick="finalizarClase()">Finalizar y Archivar Clase</button>
             </div>
 
-            <!-- ✅ NUEVO — Material de Pausa (exclusivo Pro). Solo visible
+            <!-- ✅ NUEVO — Material de Pausa (Trial y Pro). Solo visible
                  mientras clase.pausada === true. Controlado por
                  actualizarUIClaseActiva(), igual que btn-pausar/btn-reanudar.
                  No se borra al reanudar: se reutiliza entre grupos/escuelas
@@ -771,30 +771,54 @@ function reanudarClase() {
     claseActivaRef.update({ pausada: false });
 }
 
-// ✅ NUEVO — Material de Pausa (exclusivo Pro). No se borra al reanudar
+// ✅ NUEVO — Material de Pausa (disponible en Trial y Pro; V8.6.15 lo hace
+// explícito en textos y documentación). No se borra al reanudar
 // (decisión explícita: se reutiliza entre grupos/escuelas de la misma
-// materia). La regla de Firestore es la que valida Pro contra
+// materia). La regla de Firestore es la que valida Trial/Pro contra
 // suscripciones/{docenteUid} — aquí solo se intenta escribir.
-function compartirMaterial() {
+//
+// ✅ V8.6.15 — Corrección de la condición de carrera reportada en campo
+// (el material no aparecía en algunos teléfonos): antes, si el docente
+// pulsaba "Compartir material" ANTES de que el listener de suscripción
+// entregara su primer snapshot, datosSuscripcion era null y
+// materialDisponible se guardaba en false — el alumno nunca veía el
+// material y el docente veía "✅ Compartido" igual. Ahora, si
+// datosSuscripcion todavía no llegó, se lee el documento de suscripción
+// una sola vez antes de decidir el valor. Si ya llegó (caso normal), no
+// hay ninguna lectura adicional.
+async function compartirMaterial() {
     let titulo = document.getElementById("input-material-titulo").value.trim();
     let url = document.getElementById("input-material-url").value.trim();
     let msg = document.getElementById("msg-material-pausa");
 
+    let suscripcionActual = datosSuscripcion;
+    if (!suscripcionActual) {
+        try {
+            let refSuscripcion = suscripcionRef || (docenteUid ? db.collection("suscripciones").doc(docenteUid) : null);
+            if (refSuscripcion) {
+                let docSuscripcion = await refSuscripcion.get();
+                if (docSuscripcion.exists) suscripcionActual = docSuscripcion.data();
+            }
+        } catch (errSuscripcion) {
+            console.error("[Control de Aula] No se pudo leer la suscripción antes de compartir material:", errSuscripcion);
+        }
+    }
+
     claseActivaRef.update({
         materialTitulo: titulo || null,
         materialUrl: url || null,
-        // ✅ Caso 1: se guarda el estado Pro/Trial conocido en este instante.
+        // ✅ Caso 1: se guarda el estado Trial/Pro conocido en este instante.
         // La regla solo deja poner "true" si en verdad es pro o trial.
         // ✅ FIX Hallazgo #2: Trial debe tener el mismo acceso que Pro a Material de Pausa.
-        materialDisponible: !!(datosSuscripcion && (datosSuscripcion.estado === "pro" || datosSuscripcion.estado === "trial"))
+        materialDisponible: !!(suscripcionActual && (suscripcionActual.estado === "pro" || suscripcionActual.estado === "trial"))
     }).then(() => {
         msg.style.color = "#16a34a";
         msg.innerText = "✅ Compartido";
         setTimeout(() => { msg.innerText = ""; }, 3000);
     }).catch((error) => {
-        // Si la regla de Firestore rechaza (docente no Pro), se avisa aquí.
+        // Si la regla de Firestore rechaza (docente Free, sin Trial ni Pro), se avisa aquí.
         msg.style.color = "#dc2626";
-        msg.innerText = "⚠️ Función exclusiva de Plan Pro";
+        msg.innerText = "⚠️ Función disponible durante la Prueba y en el Plan Pro";
     });
 }
 
@@ -1354,9 +1378,13 @@ function exportarCSV(alumnos = listaAlumnosGlobal, infoClase = datosClaseActual)
         csvContent += fila;
     });
 
-    let escuelaTxt = limpiarTexto(infoClase?.escuela);
-    let materiaTxt = limpiarTexto(infoClase?.materia);
-    let grupoTxt = limpiarTexto(infoClase?.grupoClase);
+    // ✅ V8.6.16 — Compatibilidad: se reemplazó optional chaining (?.) por
+    // "&&". Mismo resultado (limpiarTexto devuelve "SinDato" ante cualquier
+    // valor vacío, incluido null/undefined), pero sin sintaxis ES2020 que
+    // detenía TODO el panel en navegadores viejos (iOS < 13.4, Chrome < 80).
+    let escuelaTxt = limpiarTexto(infoClase && infoClase.escuela);
+    let materiaTxt = limpiarTexto(infoClase && infoClase.materia);
+    let grupoTxt = limpiarTexto(infoClase && infoClase.grupoClase);
     let nombreArchivo = `${escuelaTxt}_${materiaTxt}_${grupoTxt}_${fechaHoyTexto()}.csv`;
 
     let encodedUri = encodeURI(csvContent);

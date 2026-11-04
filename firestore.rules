@@ -117,7 +117,7 @@ service cloud.firestore {
                         || request.resource.data.materialUrl is string)
                     // ✅ NUEVO — Caso 1: materialDisponible es el espejo, dentro
                     // de clases/{docenteUid}, del estado Pro en vivo. Cualquiera
-                    // puede apagarlo (false); solo un Pro real puede encenderlo.
+                    // puede apagarlo (false); solo un docente Trial o Pro real puede encenderlo.
                     && (!('materialDisponible' in request.resource.data)
                         || request.resource.data.materialDisponible == false
                         // ✅ FIX Hallazgo #2: Trial tiene el mismo acceso que Pro a Material de Pausa.
@@ -145,7 +145,7 @@ service cloud.firestore {
                         || request.resource.data.materialUrl is string)
                     // ✅ NUEVO — Caso 1: mismo criterio que en create. El
                     // docente Free puede escribir 'materialDisponible: false'
-                    // (bajar la bandera es siempre seguro); solo Pro puede
+                    // (bajar la bandera es siempre seguro); solo Trial o Pro puede
                     // subirla a true.
                     && (!('materialDisponible' in request.resource.data)
                         || request.resource.data.materialDisponible == false

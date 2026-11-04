@@ -20,7 +20,7 @@
    ------------------------------------------------------------ */
 
 // ✅ Cambiar SOLO este valor en cada nueva versión publicada.
-const SMARTPROF_VERSION = "8.6.14";
+const SMARTPROF_VERSION = "8.6.16";
 
 // ✅ Apagar Sentry por completo (sin quitar código ni scripts)
 //    cambiando esta única constante a false.
@@ -231,6 +231,35 @@ function smartprofSentryBreadcrumb(evento, datos) {
       message: evento,
       level: "info",
       data: datos || {}
+    });
+  } catch (e) { /* nunca romper la app por telemetría */ }
+}
+
+/**
+ * ✅ V8.6.15 — Reporta a Sentry un error que la app YA manejó con
+ * try/catch (y por eso Sentry no lo captura solo). Sirve para que
+ * fallos como "no se pudo conectar a Firestore" dejen rastro con su
+ * código (unavailable, resource-exhausted, permission-denied...).
+ *
+ * Privacidad: solo viaja el objeto de error del SDK (código, mensaje
+ * técnico y traza) y tags de fase/origen/código. NO se envían datos
+ * del alumno, del docente ni del formulario.
+ * Nunca lanza excepciones: la telemetría no debe romper la app.
+ */
+function smartprofSentryError(error, evento, origen) {
+  if (!SENTRY_ENABLED || !window.Sentry) return;
+  try {
+    let codigo = (error && error.code) ? String(error.code) : "sin_codigo";
+    let objetoError = (error instanceof Error)
+      ? error
+      : new Error("Error no estandar (codigo: " + codigo + ")");
+    window.Sentry.withScope(function (scope) {
+      if (evento) scope.setTag("fase_actual", evento);
+      scope.setTag("origen_error", origen || "desconocido");
+      scope.setTag("codigo_error", codigo);
+      // Agrupa por origen+código: 40 alumnos con "unavailable" = 1 issue.
+      scope.setFingerprint(["smartprof", origen || "desconocido", codigo]);
+      window.Sentry.captureException(objetoError);
     });
   } catch (e) { /* nunca romper la app por telemetría */ }
 }

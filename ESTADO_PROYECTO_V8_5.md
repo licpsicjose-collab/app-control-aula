@@ -120,7 +120,7 @@ Baja = 10 segundos
 
 ## UX
 
-✅ Onboarding docente (10 pasos declarados / 8 pasos implementados en código — ver nota)
+✅ Onboarding docente — 10 pasos, confirmado por conteo directo en `pasosRecorrido[]` dentro de `panel-docente.html` (verificado en V8.5.4; una versión anterior de este documento afirmaba incorrectamente "8 pasos implementados" sin haberlo verificado contra el código — era un error de documentación, no del código, ya corregido)
 
 Incluye:
 
@@ -217,7 +217,9 @@ coincidir.
 
 ✅ `panel-admin.html` — construido en V8.5.1, exclusivamente sobre métricas V8.4
 
-🟡 Métricas de monetización (trial/free/pro, ARPU, conversión) en el panel — explícitamente fuera de esta entrega, pendiente para cuando se retome el trabajo de suscripciones/pagos
+✅ Control de pagos (suscripciones) — agregado en V8.6.2: plan actual, días restantes y aviso visual de vencimiento próximo por docente. Solo lectura, no reemplaza ningún flujo de pago.
+
+🟡 ARPU, tasa de conversión trial→pro, y otras métricas de monetización más allá del estado actual por docente — todavía no calculadas
 
 🟡 Gráficas, filtros por fecha, exportación del panel
 
@@ -387,7 +389,7 @@ Psicología Aplicada
 
 Precio:
 
-$500 MXN anuales (vigente desde V8.6.6 — precio de lanzamiento fue $399 MXN, ver `PLANES_Y_SUSCRIPCIONES.md` sección 17)
+$399 MXN anuales
 
 Incluye:
 
@@ -427,6 +429,37 @@ Campos (implementados):
 - grupoActivo
 - gruposCongelados
 - actualizadoEn
+- perpetuo (boolean — V8.5.3, licencias Pro sin vencimiento; ver sección "Licencias perpetuas")
+
+---
+
+# LICENCIAS PERPETUAS (V8.5.3)
+
+Campo `perpetuo` (boolean) en `suscripciones/{docenteUid}`, nace siempre en
+`false` al registrarse.
+
+Cuando `perpetuo == true`:
+
+- Se ignoran `trialFin` y `proVencimiento` por completo — sin importar la
+  fecha, no dispara ninguna transición automática.
+- Se ignora la transición `trial → free` y `pro → free`.
+- Se mantienen los beneficios de Pro (sin restricción de grupo activo,
+  sin patrocinio) mientras `estado == "pro"`.
+- La tarjeta de plan muestra "Plan Pro Perpetuo" en vez de "Plan Pro".
+
+Asignación: **exclusivamente manual, desde la consola de Firebase**,
+editando directamente el documento `suscripciones/{docenteUid}` de un
+docente y poniendo `estado: "pro"` y `perpetuo: true`. No existe ninguna
+pantalla ni ruta de código dentro de la aplicación que asigne esto —
+tal como con `admins/{uid}` (V8.5.1, panel administrativo), esta también es una
+capacidad exclusivamente operativa.
+
+No implica ningún cambio en el flujo de pago (sigue sin existir) ni en las
+reglas comerciales de Trial/Free/Pro para el resto de los docentes.
+
+`panel-admin.html` no se modificó — no usa datos de `suscripciones` (fuera
+de alcance desde V8.5.1, sección "Panel administrativo"), por lo que no
+hay ninguna incompatibilidad que resolver ahí.
 
 ---
 
@@ -545,29 +578,24 @@ Contenido:
 
 ## V8.6
 
+✅ Aviso de Privacidad — redactado (`AVISO_PRIVACIDAD.md`)
+
+✅ Términos de Uso — redactado (`TERMINOS_DE_USO.md`)
+
+✅ Política de Soporte — redactado (`POLITICA_SOPORTE.md`)
+
+✅ Los tres anteriores enlazados desde `panel-docente.html` en V8.6.2 (franja de enlaces debajo de los banners de suscripción).
+
+✅ Consentimiento informado para padres/tutores de alumnos **menores de edad** — `CONSENTIMIENTO_INFORMADO_PADRES.html`, documento imprimible con bloque de firma, generado en V8.6. Enlazado desde el header de `panel-docente.html` ("📄 Consentimiento informado (padres)"). No aplica a alumnos mayores de edad — para ellos no se requiere firma de tutor. Ni la firma ni una eventual copia de identificación anexa se reciben o almacenan por la plataforma; quedan en resguardo físico del plantel/docente.
+
+✅ Borrado automático de datos de alumnos a 6 meses (TTL de Firestore) — decidido y agregado en el código en V8.6.1; **falta configurar las 3 políticas TTL en la consola de Firebase**, ver `CHANGELOG_V8.md`.
+
+✅ Control de pagos en `panel-admin.html` — agregado en V8.6.2.
+
 Pendiente:
 
-- Aviso de Privacidad
-- Términos de Uso
-- Política de Soporte
-
----
-
-## V8.6.6
-
-✅ Material de Pausa (exclusivo Pro) — campo, reglas de Firestore, UI
-docente y UI alumno completos. Ver `CHANGELOG_V8.md` para el detalle
-completo del diseño aprobado por partes.
-
-✅ Precio vigente de Plan Pro actualizado a $500 MXN/año (antes $399,
-ahora histórico — ver `PLANES_Y_SUSCRIPCIONES.md` sección 2.3 y 17).
-
-🟡 Reporte de campo sin resolver: el material compartido no apareció en
-algunos teléfonos al probar en condiciones reales. Causa más probable ya
-identificada (condición de carrera entre la carga de la suscripción y el
-botón "Compartir material") pero **deliberadamente sin corregir** —
-decisión explícita de esperar más reportes antes de intervenir, para
-confirmar que es un problema real y no un caso aislado.
+- Configurar las políticas TTL en Firestore (paso manual, no es código — ver `CHANGELOG_V8.md` V8.6.1).
+- Revisión legal profesional de los cuatro documentos — ninguno ha sido revisado por un abogado.
 
 ---
 

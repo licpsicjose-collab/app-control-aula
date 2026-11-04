@@ -538,10 +538,33 @@ async function entrar(){
             tardanza: tardanza,
             retardoManual: (c === clase.codigoRetardo),
             ultimaActualizacion: Date.now()
+        }).catch((errRegistro) => {
+            // ✅ V8.6.15 — Este set() no se espera con await, así que su
+            // fallo nunca pasaba por el catch de entrar(). Solo se registra
+            // en consola y en Sentry; NO cambia el flujo ni muestra alertas.
+            console.error("[Control de Aula] Falló el registro inicial del alumno:", errRegistro);
+            try {
+                if (typeof smartprofSentryError === "function") {
+                    smartprofSentryError(errRegistro, SMARTPROF_EVENTOS.ALUMNO_INGRESO, "registro_alumno");
+                }
+            } catch (errTelemetria) { /* la telemetría nunca debe romper la app */ }
         });
 
     } catch(err) {
-        alert("Error de conexión. Revisa tus datos móviles.");
+        // ✅ V8.6.15 — Diagnóstico: antes, CUALQUIER fallo (sin red, cuota
+        // agotada, servidor no alcanzable, regla que rechaza) mostraba el
+        // mismo texto y no dejaba rastro, porque un error ya manejado no
+        // llega solo a Sentry. Ahora el mensaje conserva su texto original
+        // y agrega el código del error entre paréntesis (ej. "unavailable",
+        // "resource-exhausted", "permission-denied", "deadline-exceeded"),
+        // y el error se reporta a Sentry. El flujo de entrada NO cambia.
+        let codigoError = (err && err.code) ? err.code : "sin_codigo";
+        alert("Error de conexión. Revisa tus datos móviles. (" + codigoError + ")");
+        try {
+            if (typeof smartprofSentryError === "function") {
+                smartprofSentryError(err, SMARTPROF_EVENTOS.ALUMNO_INGRESO, "entrar");
+            }
+        } catch (errTelemetria) { /* la telemetría nunca debe romper la entrada */ }
     }
 }
 

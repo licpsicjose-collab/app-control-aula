@@ -429,6 +429,8 @@
     #modal-pago .btn-notificar { background: #059669; color: white; }
     #modal-pago .btn-cerrar { background: #f3f4f6; color: #374151; }
 </style>
+<!-- ✅ V8.6.16 — Service Worker (solo caché de archivos estáticos; ver SERVICE_WORKER.md) -->
+<script src="sw-registro.js" defer></script>
 </head>
 <body>
 
@@ -509,7 +511,7 @@
                 <button class="btn btn-danger" id="btn-finalizar-clase" onclick="finalizarClase()">Finalizar y Archivar Clase</button>
             </div>
 
-            <!-- ✅ NUEVO — Material de Pausa (Trial y Pro). Solo visible
+            <!-- ✅ NUEVO — Material de Pausa (exclusivo Pro). Solo visible
                  mientras clase.pausada === true. Controlado por
                  actualizarUIClaseActiva(), igual que btn-pausar/btn-reanudar.
                  No se borra al reanudar: se reutiliza entre grupos/escuelas
@@ -771,54 +773,40 @@ function reanudarClase() {
     claseActivaRef.update({ pausada: false });
 }
 
-// ✅ NUEVO — Material de Pausa (disponible en Trial y Pro; V8.6.15 lo hace
-// explícito en textos y documentación). No se borra al reanudar
+// ✅ NUEVO — Material de Pausa (exclusivo Pro). No se borra al reanudar
 // (decisión explícita: se reutiliza entre grupos/escuelas de la misma
-// materia). La regla de Firestore es la que valida Trial/Pro contra
+// materia). La regla de Firestore es la que valida Pro contra
 // suscripciones/{docenteUid} — aquí solo se intenta escribir.
-//
-// ✅ V8.6.15 — Corrección de la condición de carrera reportada en campo
-// (el material no aparecía en algunos teléfonos): antes, si el docente
-// pulsaba "Compartir material" ANTES de que el listener de suscripción
-// entregara su primer snapshot, datosSuscripcion era null y
-// materialDisponible se guardaba en false — el alumno nunca veía el
-// material y el docente veía "✅ Compartido" igual. Ahora, si
-// datosSuscripcion todavía no llegó, se lee el documento de suscripción
-// una sola vez antes de decidir el valor. Si ya llegó (caso normal), no
-// hay ninguna lectura adicional.
 async function compartirMaterial() {
+    // ✅ V8.6.15 — Race condition: si el docente pulsa "Compartir" antes de que
+    // onSnapshot haya cargado la suscripción, se leía null y se guardaba
+    // materialDisponible:false. Ahora se espera una lectura puntual en ese caso.
+    let susActual = datosSuscripcion;
+    if (!susActual && suscripcionRef) {
+        try {
+            let docSus = await suscripcionRef.get();
+            susActual = docSus.exists ? docSus.data() : null;
+        } catch (errSus) { susActual = null; }
+    }
     let titulo = document.getElementById("input-material-titulo").value.trim();
     let url = document.getElementById("input-material-url").value.trim();
     let msg = document.getElementById("msg-material-pausa");
 
-    let suscripcionActual = datosSuscripcion;
-    if (!suscripcionActual) {
-        try {
-            let refSuscripcion = suscripcionRef || (docenteUid ? db.collection("suscripciones").doc(docenteUid) : null);
-            if (refSuscripcion) {
-                let docSuscripcion = await refSuscripcion.get();
-                if (docSuscripcion.exists) suscripcionActual = docSuscripcion.data();
-            }
-        } catch (errSuscripcion) {
-            console.error("[Control de Aula] No se pudo leer la suscripción antes de compartir material:", errSuscripcion);
-        }
-    }
-
     claseActivaRef.update({
         materialTitulo: titulo || null,
         materialUrl: url || null,
-        // ✅ Caso 1: se guarda el estado Trial/Pro conocido en este instante.
+        // ✅ Caso 1: se guarda el estado Pro/Trial conocido en este instante.
         // La regla solo deja poner "true" si en verdad es pro o trial.
         // ✅ FIX Hallazgo #2: Trial debe tener el mismo acceso que Pro a Material de Pausa.
-        materialDisponible: !!(suscripcionActual && (suscripcionActual.estado === "pro" || suscripcionActual.estado === "trial"))
+        materialDisponible: !!(susActual && (susActual.estado === "pro" || susActual.estado === "trial"))
     }).then(() => {
         msg.style.color = "#16a34a";
         msg.innerText = "✅ Compartido";
         setTimeout(() => { msg.innerText = ""; }, 3000);
     }).catch((error) => {
-        // Si la regla de Firestore rechaza (docente Free, sin Trial ni Pro), se avisa aquí.
+        // Si la regla de Firestore rechaza (docente no Pro), se avisa aquí.
         msg.style.color = "#dc2626";
-        msg.innerText = "⚠️ Función disponible durante la Prueba y en el Plan Pro";
+        msg.innerText = "⚠️ Función exclusiva de Plan Pro";
     });
 }
 
@@ -1187,7 +1175,7 @@ function renderAlumnos() {
         let estrellas = "⭐".repeat(a.participaciones || 0);
 
         // ✅ Solo para accesibilidad del <label for="..."> de calificación — no es un ID de Firestore
-        let idAlumnoAttr = escaparHTML(`${a.nombre}_${a.grupo}`.replace(/\s+/g, '_'));
+        let idAlumnoAttr = escaparHTML(`${a.nombre}_${a.grupo}`.replace(/\s+/g, '_').replace(/\//g, '-'));
 
         // ✅ Estado de conexión: no penaliza ni reemplaza ninguna métrica existente,
         // solo informa. "Sin batería" (marcado manual) tiene prioridad visual sobre
@@ -1267,7 +1255,7 @@ function adjuntarEventosAcciones(contenedor) {
 }
 
 function agregarParticipacion(nombre, grupo){
-    let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_');
+    let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_').replace(/\//g, '-');
     let ref = claseActivaRef.collection("alumnos").doc(alumnoDocId);
     
     ref.get().then(doc => {
@@ -1278,7 +1266,7 @@ function agregarParticipacion(nombre, grupo){
 }
 
 function setEstado(nombre, grupo, estadoSeleccionado){
-    let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_');
+    let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_').replace(/\//g, '-');
     claseActivaRef.collection("alumnos").doc(alumnoDocId).update({ estado: estadoSeleccionado });
 }
 
@@ -1287,7 +1275,7 @@ function setEstado(nombre, grupo, estadoSeleccionado){
 // la calificación (null), fuera de rango o no numérico se ignora sin
 // escribir nada (evita rechazos de Firestore que solo aparecerían en consola).
 function setCalificacion(nombre, grupo, valorTexto){
-    let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_');
+    let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_').replace(/\//g, '-');
     let ref = claseActivaRef.collection("alumnos").doc(alumnoDocId);
 
     if (valorTexto === "" || valorTexto === null || valorTexto === undefined) {
@@ -1313,7 +1301,7 @@ function setCalificacion(nombre, grupo, valorTexto){
 // reinterpreta ninguna métrica existente (tiempo, salidas, participaciones
 // siguen intactas) — solo agrega una etiqueta informativa para el docente.
 function marcarSinBateria(nombre, grupo){
-    let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_');
+    let alumnoDocId = `${nombre}_${grupo}`.replace(/\s+/g, '_').replace(/\//g, '-');
     let ref = claseActivaRef.collection("alumnos").doc(alumnoDocId);
 
     ref.get().then(doc => {
@@ -1378,13 +1366,9 @@ function exportarCSV(alumnos = listaAlumnosGlobal, infoClase = datosClaseActual)
         csvContent += fila;
     });
 
-    // ✅ V8.6.16 — Compatibilidad: se reemplazó optional chaining (?.) por
-    // "&&". Mismo resultado (limpiarTexto devuelve "SinDato" ante cualquier
-    // valor vacío, incluido null/undefined), pero sin sintaxis ES2020 que
-    // detenía TODO el panel en navegadores viejos (iOS < 13.4, Chrome < 80).
-    let escuelaTxt = limpiarTexto(infoClase && infoClase.escuela);
-    let materiaTxt = limpiarTexto(infoClase && infoClase.materia);
-    let grupoTxt = limpiarTexto(infoClase && infoClase.grupoClase);
+    let escuelaTxt = limpiarTexto(infoClase?.escuela);
+    let materiaTxt = limpiarTexto(infoClase?.materia);
+    let grupoTxt = limpiarTexto(infoClase?.grupoClase);
     let nombreArchivo = `${escuelaTxt}_${materiaTxt}_${grupoTxt}_${fechaHoyTexto()}.csv`;
 
     let encodedUri = encodeURI(csvContent);
@@ -1449,7 +1433,7 @@ async function finalizarClase() {
 
         // Mover registros de alumnos al historial interno
         for (let al of alumnosCongelados) {
-            let idAlumno = `${al.nombre}_${al.grupo}`.replace(/\s+/g, '_');
+            let idAlumno = `${al.nombre}_${al.grupo}`.replace(/\s+/g, '_').replace(/\//g, '-');
             // ✅ V8.4 — MÉTRICAS: se agrega docenteId al alumno archivado (mismo write,
             // sin costo adicional), para poder consultar "alumnos de este docente"
             // en el futuro sin escanear todo historial.
@@ -1503,7 +1487,7 @@ function registrarMetricaFinClase(grupoClase) {
     });
 
     listaAlumnosGlobal.forEach(al => {
-        let idAlumno = `${al.nombre}_${al.grupo}`.replace(/\s+/g, '_');
+        let idAlumno = `${al.nombre}_${al.grupo}`.replace(/\s+/g, '_').replace(/\//g, '-');
         metricaRef.collection("alumnosVistos").doc(idAlumno)
             .set({ primeraVez: Date.now(), eliminarEn: calcularFechaEliminacion(Date.now()) }, { merge: true })
             .catch((err) => {

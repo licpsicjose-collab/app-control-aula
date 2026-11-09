@@ -52,6 +52,7 @@ firebase deploy --only firestore:rules
 | V7.0 – V7.1 | Integrada | Umbral de detección de salidas ajustado (45s → 5s) |
 | V7.2 | Integrada | Recuperación de contraseña para docentes vía Firebase Auth |
 | V7.3 | Estable (`Version_7_3_Estable`, solo lectura) | Mitigación de XSS y CSV Injection |
+| V8.6.16 | Candidato | Service Worker (solo caché de archivos estáticos; ver `SERVICE_WORKER.md`) |
 | V7.4 | En desarrollo (`Version_7_4_Desarrollo`) | PWA básica instalable (manifest, íconos, meta tags) — **sin service worker ni modo offline todavía** |
 
 Cada versión estable se conserva en su propia carpeta de solo lectura; todo desarrollo nuevo parte de una copia de la última versión estable, nunca se edita directamente sobre ella.

@@ -26,7 +26,7 @@ Dar a Control de Aula una vía de monetización sostenible sin sacrificar lo que
 | Duración | 20 días naturales |
 | Grupos | Ilimitados |
 | Alumnos | Ilimitados |
-| Funciones | Todas las funciones del producto, sin restricción — incluye Material de Pausa (confirmado en V8.6.15) |
+| Funciones | Todas las funciones del producto, sin restricción |
 | Costo | Sin costo, sin captura de método de pago |
 | Se activa | Automáticamente al registrarse un nuevo docente |
 | Termina | Automáticamente, por tiempo, nunca por acción manual del docente |
@@ -40,7 +40,7 @@ El Trial existe para que el docente experimente el producto en condiciones reale
 | Duración | Indefinida |
 | Grupos | 1 grupo activo (ver definición en sección 10) |
 | Alumnos | Máximo 60 alumnos distintos dentro del grupo activo |
-| Funciones incluidas | Participaciones, evaluaciones, retardos, historial, exportación, PWA. **No incluye Material de Pausa** (disponible solo en Trial y Pro) |
+| Funciones incluidas | Participaciones, evaluaciones, retardos, historial, exportación, PWA |
 | Costo | Sin costo |
 | Se activa | Automáticamente al terminar el Trial, o automáticamente al vencer un plan Pro no renovado |
 | Patrocinio | Sí — Psicología Aplicada (ver sección 13) |
@@ -56,7 +56,7 @@ Free es el estado por defecto y permanente de cualquier docente que no paga. Deb
 | Precio vigente | $500 MXN por año (desde V8.6.6) |
 | Grupos | Ilimitados |
 | Alumnos | Ilimitados |
-| Funciones | Todas las funciones del producto, sin restricción — incluye Material de Pausa |
+| Funciones | Todas las funciones del producto, sin restricción |
 | Patrocinio | No se muestra ningún patrocinio |
 | Renovación | No automática en esta versión (ver sección 16) |
 

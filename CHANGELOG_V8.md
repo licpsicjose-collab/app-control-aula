@@ -1,85 +1,20 @@
 # CHANGELOG — Control de Aula V8
 
-## [V8.6.16] — Compatibilidad: `exportarCSV()` sin optional chaining
+## [V8.6.16] — Service Worker (CANDIDATO, pendiente de aprobación)
 
-### Corregido
-- `panel-docente.html`, `exportarCSV()`: las 3 líneas que usaban `?.`
-  (`infoClase?.escuela`, `infoClase?.materia`, `infoClase?.grupoClase`) ahora
-  usan `infoClase && infoClase.<campo>`. Resultado idéntico: `limpiarTexto()`
-  devuelve `"SinDato"` ante cualquier valor vacío (incluido `null` y
-  `undefined`). Con esto ya no queda ningún `?.` ni `??` en ningún archivo
-  del proyecto (misma clase de sintaxis que causó la pantalla blanca de
-  V8.6.14 en el panel del alumno).
-- Resuelve el "Pendiente identificado" de V8.6.15.
+- Nuevos: `sw.js`, `sw-registro.js`, `SERVICE_WORKER.md`.
+- `index.html`, `login.html`, `panel-alumno.html`, `panel-docente.html`: una sola línea (`<script src="sw-registro.js" defer>`) antes de `</head>`.
+- `sentry-init.js`: `SMARTPROF_VERSION` 8.6.16 (también versiona el Service Worker).
+- Sin cambios en lógica, Firestore, reglas, manifests ni flujo de clase. Detalle, riesgos e interruptor de emergencia en `SERVICE_WORKER.md`.
 
-### Explícitamente NO modificado
-- Nada más: el nombre del archivo CSV, su contenido, el flujo de exportación
-  y todo lo demás permanecen exactamente igual.
+## [V8.6.15] — Endurecimiento de bajo riesgo (sin cambios de flujo)
 
-## [V8.6.15] — Trial con funciones Pro (textos/documentos) + corrección de carrera en Material de Pausa + diagnóstico de entrada del alumno
-
-### Contexto
-Tres solicitudes del titular tras la revisión de la prueba en clases
-reales: (1) que el periodo de prueba incluya todas las funciones de Pro,
-Material de Pausa incluido; (2) corregir la condición de carrera
-documentada en V8.6.6 que impedía que el material llegara a algunos
-alumnos; (3) poder diagnosticar por qué algunos teléfonos (Android y
-iPhone) no podían entrar a la sesión y veían solo "Error de conexión".
-
-### Hallazgo previo (1): el Trial YA tenía acceso
-Revisado el código antes de cambiar nada: `firestore.rules` y
-`panel-docente.html` ya aceptaban `estado in ['pro','trial']` para
-Material de Pausa (FIX Hallazgo #2, V8.6.x). **No se modificó ninguna
-condición de reglas ni de código para eso.** Lo pendiente eran textos y
-documentos que seguían diciendo "exclusivo Pro".
-
-### Cambiado
-- `panel-docente.html`: el mensaje que ve un docente Free cuando las
-  reglas rechazan compartir material pasa de "⚠️ Función exclusiva de Plan
-  Pro" a "⚠️ Función disponible durante la Prueba y en el Plan Pro".
-  Comentarios actualizados (Trial y Pro).
-- `firestore.rules`: SOLO dos comentarios (la lógica no cambió, por lo que
-  no es necesario republicar reglas para que el Trial funcione).
-- `PLANES_Y_SUSCRIPCIONES.md`: Trial y Pro aclaran que incluyen Material
-  de Pausa; Free aclara que no lo incluye.
-- `ESTADO_PROYECTO_V8_5.md`: Material de Pausa (Trial y Pro) y reporte de
-  campo marcado como corregido.
-
-### Corregido (2): carrera en "Compartir material"
-- Si el docente pulsaba "Compartir material" antes de que el listener de
-  suscripción entregara su primer snapshot, `datosSuscripcion` era `null`,
-  `materialDisponible` se guardaba en `false` y el alumno nunca veía el
-  material (el docente veía "✅ Compartido" igualmente).
-- Ahora `compartirMaterial()` es `async`: si `datosSuscripcion` aún no
-  llegó, lee el documento de suscripción una vez antes de decidir. Caso
-  normal (ya cargado): cero lecturas adicionales.
-- Sin cambios en reglas, en el espejo `materialDisponible` ni en el
-  listener de suscripción.
-
-### Agregado (3): diagnóstico de entrada del alumno
-- `panel-alumno.html`, `entrar()`: el `alert` conserva su texto y agrega el
-  código del error entre paréntesis, p. ej. "Error de conexión. Revisa tus
-  datos móviles. (unavailable)". Códigos esperados: `unavailable` (no se
-  conectó), `resource-exhausted` (cuota), `permission-denied` (reglas),
-  `deadline-exceeded` (demasiado lento), `sin_codigo`.
-- El error se reporta a Sentry (tags `fase_actual`, `origen_error`,
-  `codigo_error`; agrupado por origen+código).
-- El `.set()` del registro inicial del alumno (que no se espera con
-  `await`) ahora tiene `.catch()` que solo registra en consola y Sentry.
-  No muestra alertas ni cambia el flujo.
-- `sentry-init.js`: nueva función `smartprofSentryError()` y
-  `SMARTPROF_VERSION = "8.6.15"`. Sin datos del alumno en el envío.
-
-### Explícitamente NO modificado
-- Firestore (esquema, listeners, intervalos de reporte), SmartTutor,
-  Exportación, Finalización, modelo Trial/Free/Pro, límites de grupos,
-  lógica de entrada/validación de códigos, `firebase.js`, manifests.
-
-### Pendiente identificado (no tocado en esta entrega — RESUELTO en V8.6.16)
-- `panel-docente.html`, `exportarCSV()`: usa optional chaining (`?.`) en 3
-  líneas — la misma clase de sintaxis que causó la pantalla blanca de
-  V8.6.14 en el panel del alumno. En navegadores sin ES2020 (iOS < 13.4,
-  Chrome/WebView < 80) todo el panel docente dejaría de ejecutarse.
+- `panel-alumno.html`: Sentry con `async` (ya no bloquea el render); `localStorage` protegido con `lsGet/lsSet/lsRemove` (nunca lanzan) y `JSON.parse` tolerante; IDs de alumno sin `/`.
+- `panel-docente.html`: IDs de alumno sin `/` (mismos 7 sitios + historial); `compartirMaterial()` espera la suscripción si aún no cargó (race condition).
+- `sentry-init.js`: `try/catch` en `init`; limpieza de correos/API keys en mensajes y URL; reintento de carga hasta 30 s.
+- `firestore.rules`: Trial validado (inicio ≈ hora servidor, duración 20 días); `grupoActivo` no reasignable; límite de grupo Free también en servidor (create) y `grupoClase` inmutable en update; `solicitudes_pago.correo` = correo autenticado.
+- `docs/ESTADO_PROYECTO_V8_5.md`: Trial 15→20 días; PWA aclarada (sin Service Worker).
+- No incluido (requiere diseño/aprobación): `entrar()` con get previo, `finalizarClase()` idempotente, App Check, Service Worker, N+1 de panel-admin.
 
 ## [V8.6.14] — Fix de pantalla blanca en alumnos (compatibilidad de navegador) + instrumentación temporal
 
@@ -217,8 +152,6 @@ arquitectura, tal como fue solicitado y aprobado por partes.
 - Tooltips agregados a los 4 botones de evaluación por emoji.
 
 ## [V8.6.6] — Material de Pausa (exclusivo Pro) + ajuste de precio vigente
-
-> Nota V8.6.15: el acceso se amplió a Trial y Pro (el código y las reglas ya lo aceptaban desde "Hallazgo #2"). El texto de esta entrada se conserva como registro histórico.
 
 ### Contexto
 Cierre de la funcionalidad "Material de Pausa", trabajada en varias

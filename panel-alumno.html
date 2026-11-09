@@ -16,7 +16,8 @@
 <meta name="apple-mobile-web-app-title" content="Zona de Clase">
 
 <!-- ✅ SENTRY -- Error Monitoring (ver sentry-init.js). DSN configurado. -->
-<script src="https://browser.sentry-cdn.com/10.70.0/bundle.min.js" crossorigin="anonymous"></script>
+<!-- ✅ V8.6.15 — async: Sentry ya no bloquea el render en redes lentas. Los tags se asignan al cargar el bundle. -->
+<script src="https://browser.sentry-cdn.com/10.70.0/bundle.min.js" crossorigin="anonymous" async onload="window.smartprofSentrySetTags && smartprofSentrySetTags(SMARTPROF_TIPOS_USUARIO.ALUMNO);"></script>
 <script src="sentry-init.js"></script>
 <script>smartprofSentrySetTags(SMARTPROF_TIPOS_USUARIO.ALUMNO);</script>
 
@@ -259,6 +260,8 @@ button:hover {
     .guia-tarjeta { padding: 16px; }
 }
 </style>
+<!-- ✅ V8.6.16 — Service Worker (solo caché de archivos estáticos; ver SERVICE_WORKER.md) -->
+<script src="sw-registro.js" defer></script>
 </head>
 <body>
 
@@ -282,6 +285,13 @@ button:hover {
 
 <script>
 console.log("PASO 3: bloque principal de panel-alumno.html empezó a ejecutarse"); // 🔍 INSTRUMENTACIÓN TEMPORAL — si este log NUNCA aparece, es un error de sintaxis que impide parsear todo el bloque
+
+// ✅ V8.6.15 — localStorage seguro: en navegadores integrados o con almacenamiento
+// bloqueado, getItem/setItem/removeItem pueden lanzar excepción. Estas funciones
+// nunca lanzan: si falla, la app sigue funcionando (solo sin recuperación de sesión).
+function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { window.localStorage.setItem(k, v); } catch (e) {} }
+function lsRemove(k) { try { window.localStorage.removeItem(k); } catch (e) {} }
 
 let clase = null;
 let enClase = false;
@@ -336,7 +346,7 @@ function mostrarFormulario() {
 }
 
 function comprobarSesionExistente() {
-    // ✅ FIX (auditoría pantalla blanca): localStorage.getItem() puede lanzar
+    // ✅ FIX (auditoría pantalla blanca): lsGet() puede lanzar
     // una excepción en navegadores con el almacenamiento restringido (ej.
     // Safari con "Bloquear todas las cookies", o ciertos WebViews embebidos).
     // Sin este try/catch, esa excepción interrumpía el resto del script,
@@ -345,12 +355,14 @@ function comprobarSesionExistente() {
     // "no hay sesión guardada".
     let sesionGuardada = null;
     try {
-        sesionGuardada = localStorage.getItem("sesion_clase_activa");
+        sesionGuardada = lsGet("sesion_clase_activa");
     } catch (errStorage) {
         sesionGuardada = null;
     }
     if (sesionGuardada) {
-        let datos = JSON.parse(sesionGuardada);
+        let datos = null;
+        try { datos = JSON.parse(sesionGuardada); } catch (errParse) { datos = null; }
+        if (!datos || !datos.targetId) { lsRemove("sesion_clase_activa"); return; }
         // Verificar si la clase sigue existiendo en el servidor de manera fresca
         db.collection("clases").doc(datos.targetId).get({ source: "server" })
         .then(doc => {
@@ -370,10 +382,10 @@ function comprobarSesionExistente() {
                 escucharEstrellasTiempoReal();
             } else {
                 // La clase ya caducó en el servidor, limpiar memoria
-                localStorage.removeItem("sesion_clase_activa");
+                lsRemove("sesion_clase_activa");
             }
         }).catch(() => {
-            localStorage.removeItem("sesion_clase_activa");
+            lsRemove("sesion_clase_activa");
         });
     }
 }
@@ -387,7 +399,7 @@ function escucharClaseMaestro(docenteId) {
         if (!data && enClase) {
             enClase = false;
             reportarAFirebase();
-            localStorage.removeItem("sesion_clase_activa");
+            lsRemove("sesion_clase_activa");
             if(unsubscribeEstrellas) unsubscribeEstrellas();
             if(wakeLockRef) { wakeLockRef.release().catch(() => {}); wakeLockRef = null; } // ✅ NUEVO — ya no hace falta mantener la pantalla encendida
             
@@ -503,12 +515,12 @@ async function entrar(){
         grupoAlumno = g;
         
         // ✅ CONTROL ANTI-DUPLICADOS: Combina Nombre y Grupo en el ID de documento
-        documentoAlumnoId = `${n}_${g}`.replace(/\s+/g, '_'); 
+        documentoAlumnoId = `${n}_${g}`.replace(/\s+/g, '_').replace(/\//g, '-'); 
 
         let tardanza = Date.now() - clase.inicio;
 
         // Guardar estado local para prevenir cierres por botón de suspensión
-        localStorage.setItem("sesion_clase_activa", JSON.stringify({
+        lsSet("sesion_clase_activa", JSON.stringify({
             targetId: targetDocenteUid,
             nombre: n,
             grupo: g,
@@ -538,33 +550,10 @@ async function entrar(){
             tardanza: tardanza,
             retardoManual: (c === clase.codigoRetardo),
             ultimaActualizacion: Date.now()
-        }).catch((errRegistro) => {
-            // ✅ V8.6.15 — Este set() no se espera con await, así que su
-            // fallo nunca pasaba por el catch de entrar(). Solo se registra
-            // en consola y en Sentry; NO cambia el flujo ni muestra alertas.
-            console.error("[Control de Aula] Falló el registro inicial del alumno:", errRegistro);
-            try {
-                if (typeof smartprofSentryError === "function") {
-                    smartprofSentryError(errRegistro, SMARTPROF_EVENTOS.ALUMNO_INGRESO, "registro_alumno");
-                }
-            } catch (errTelemetria) { /* la telemetría nunca debe romper la app */ }
         });
 
     } catch(err) {
-        // ✅ V8.6.15 — Diagnóstico: antes, CUALQUIER fallo (sin red, cuota
-        // agotada, servidor no alcanzable, regla que rechaza) mostraba el
-        // mismo texto y no dejaba rastro, porque un error ya manejado no
-        // llega solo a Sentry. Ahora el mensaje conserva su texto original
-        // y agrega el código del error entre paréntesis (ej. "unavailable",
-        // "resource-exhausted", "permission-denied", "deadline-exceeded"),
-        // y el error se reporta a Sentry. El flujo de entrada NO cambia.
-        let codigoError = (err && err.code) ? err.code : "sin_codigo";
-        alert("Error de conexión. Revisa tus datos móviles. (" + codigoError + ")");
-        try {
-            if (typeof smartprofSentryError === "function") {
-                smartprofSentryError(err, SMARTPROF_EVENTOS.ALUMNO_INGRESO, "entrar");
-            }
-        } catch (errTelemetria) { /* la telemetría nunca debe romper la entrada */ }
+        alert("Error de conexión. Revisa tus datos móviles.");
     }
 }
 
@@ -696,7 +685,7 @@ function reportarAFirebase() {
 
     // ✅ NUEVO — Persistir tiempoFuera/salidas en localStorage para que sobrevivan
     // a un reinicio del teléfono a mitad de clase (bug diagnosticado: antes se perdían).
-    localStorage.setItem("sesion_clase_activa", JSON.stringify({
+    lsSet("sesion_clase_activa", JSON.stringify({
         targetId: targetDocenteUid,
         nombre: nombreAlumno,
         grupo: grupoAlumno,
@@ -838,7 +827,7 @@ let pasoActualGuiaAlumno = 0;
 // Punto de entrada: automático la primera vez, o manual desde "❓ Ver guía nuevamente"
 // (forzado=true no altera localStorage).
 function iniciarGuiaAlumno(forzado) {
-    if (!forzado && localStorage.getItem("tutorialAlumnoVisto") === "true") return;
+    if (!forzado && lsGet("tutorialAlumnoVisto") === "true") return;
     pasoActualGuiaAlumno = 0;
     document.getElementById("guia-overlay").style.display = "block";
     mostrarPasoGuiaAlumno(0);
@@ -871,18 +860,18 @@ function pasoAnteriorGuiaAlumno() {
 }
 
 function omitirGuiaAlumno() {
-    let yaReportado = localStorage.getItem("tutorialAlumnoVisto") === "true";
+    let yaReportado = lsGet("tutorialAlumnoVisto") === "true";
     cerrarGuiaAlumno();
-    localStorage.setItem("tutorialAlumnoVisto", "true");
+    lsSet("tutorialAlumnoVisto", "true");
     if (!yaReportado) {
         registrarMetricaOnboardingAlumno("omitido", pasoActualGuiaAlumno);
     }
 }
 
 function finalizarGuiaAlumno() {
-    let yaReportado = localStorage.getItem("tutorialAlumnoVisto") === "true";
+    let yaReportado = lsGet("tutorialAlumnoVisto") === "true";
     cerrarGuiaAlumno();
-    localStorage.setItem("tutorialAlumnoVisto", "true");
+    lsSet("tutorialAlumnoVisto", "true");
     if (!yaReportado) {
         registrarMetricaOnboardingAlumno("completado", null);
     }

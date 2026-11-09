@@ -132,7 +132,7 @@ Incluye:
 
 5 pasos
 
-✅ PWA
+✅ PWA básica (manifest e íconos; sin Service Worker ni offline)
 
 ✅ Manifest
 
@@ -156,7 +156,7 @@ Incluye:
 
 ✅ Creación automática de Trial al registrarse (`login.html` → `registrar()`)
 
-✅ Transición automática `trial → free` al vencer los 15 días (verificada del lado del cliente al cargar `panel-docente.html`)
+✅ Transición automática `trial → free` al vencer los 20 días (verificada del lado del cliente al cargar `panel-docente.html`)
 
 ✅ Transición automática `pro → free` al vencer `proVencimiento` (mismo mecanismo)
 
@@ -350,7 +350,7 @@ Pendiente:
 
 Duración:
 
-15 días
+20 días
 
 Incluye:
 
@@ -465,7 +465,7 @@ hay ninguna incompatibilidad que resolver ahí.
 
 # TRANSICIONES APROBADAS
 
-Registro → Trial (15 días) → Free
+Registro → Trial (20 días) → Free
 
 Free → Compra → Pro
 

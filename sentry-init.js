@@ -91,7 +91,7 @@ const SMARTPROF_TIPOS_USUARIO = Object.freeze({
         if (window.Sentry) {
           clearInterval(temporizador);
           cb();
-        } else if (intentos > 20) {
+        } else if (intentos > 300) {
           clearInterval(temporizador);
         }
       }, 100);
@@ -99,6 +99,8 @@ const SMARTPROF_TIPOS_USUARIO = Object.freeze({
   }
 
   onSentryListo(function () {
+    // ✅ V8.6.15 — si Sentry falla al iniciar, la app NO debe romperse.
+    try {
     window.Sentry.init({
       // ✅ SOLO Error Monitoring.
       integrations: [],           // ❌ sin Replay, ❌ sin BrowserTracing
@@ -130,6 +132,7 @@ const SMARTPROF_TIPOS_USUARIO = Object.freeze({
         return depurarEvento(event);
       }
     });
+    } catch (errInitSentry) { /* nunca romper la app por telemetría */ }
   });
 })();
 
@@ -182,10 +185,29 @@ function depurarBreadcrumb(breadcrumb) {
   return breadcrumb;
 }
 
+// ✅ V8.6.15 — Quita correos y claves tipo API key (AIza...) de cualquier texto.
+function limpiarTextoSentry(texto) {
+  if (typeof texto !== "string") return texto;
+  return texto
+    .replace(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/g, "[correo]")
+    .replace(/AIza[0-9A-Za-z_\-]{35}/g, "[api-key]");
+}
+
 function depurarEvento(event) {
   if (!event) return event;
-  if (event.extra) event.extra = depurarObjeto(event.extra);
-  if (event.contexts) event.contexts = depurarObjeto(event.contexts);
+  try {
+    if (event.extra) event.extra = depurarObjeto(event.extra);
+    if (event.contexts) event.contexts = depurarObjeto(event.contexts);
+    if (event.message) event.message = limpiarTextoSentry(event.message);
+    if (event.exception && event.exception.values) {
+      event.exception.values.forEach(function (v) {
+        if (v && v.value) v.value = limpiarTextoSentry(v.value);
+      });
+    }
+    if (event.request && event.request.url) {
+      event.request.url = limpiarTextoSentry(String(event.request.url).split("#")[0].split("?")[0]);
+    }
+  } catch (e) { /* si falla la depuración, se envía el evento tal cual */ }
   return event;
 }
 
@@ -231,35 +253,6 @@ function smartprofSentryBreadcrumb(evento, datos) {
       message: evento,
       level: "info",
       data: datos || {}
-    });
-  } catch (e) { /* nunca romper la app por telemetría */ }
-}
-
-/**
- * ✅ V8.6.15 — Reporta a Sentry un error que la app YA manejó con
- * try/catch (y por eso Sentry no lo captura solo). Sirve para que
- * fallos como "no se pudo conectar a Firestore" dejen rastro con su
- * código (unavailable, resource-exhausted, permission-denied...).
- *
- * Privacidad: solo viaja el objeto de error del SDK (código, mensaje
- * técnico y traza) y tags de fase/origen/código. NO se envían datos
- * del alumno, del docente ni del formulario.
- * Nunca lanza excepciones: la telemetría no debe romper la app.
- */
-function smartprofSentryError(error, evento, origen) {
-  if (!SENTRY_ENABLED || !window.Sentry) return;
-  try {
-    let codigo = (error && error.code) ? String(error.code) : "sin_codigo";
-    let objetoError = (error instanceof Error)
-      ? error
-      : new Error("Error no estandar (codigo: " + codigo + ")");
-    window.Sentry.withScope(function (scope) {
-      if (evento) scope.setTag("fase_actual", evento);
-      scope.setTag("origen_error", origen || "desconocido");
-      scope.setTag("codigo_error", codigo);
-      // Agrupa por origen+código: 40 alumnos con "unavailable" = 1 issue.
-      scope.setFingerprint(["smartprof", origen || "desconocido", codigo]);
-      window.Sentry.captureException(objetoError);
     });
   } catch (e) { /* nunca romper la app por telemetría */ }
 }

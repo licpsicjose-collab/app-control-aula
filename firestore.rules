@@ -23,6 +23,17 @@ service cloud.firestore {
              && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // ✅ V8.6.15 — Límite de grupo en plan Free, aplicado también en el servidor.
+    // Docentes sin documento de suscripción (anteriores a V8.5) quedan sin
+    // restricción, igual que en el cliente.
+    function grupoClasePermitido(docenteUid) {
+      let susPath = /databases/$(database)/documents/suscripciones/$(docenteUid);
+      return !exists(susPath)
+             || get(susPath).data.estado != 'free'
+             || get(susPath).data.grupoActivo == null
+             || request.resource.data.grupoClase == get(susPath).data.grupoActivo;
+    }
+
     // ==========================================================================
     // admins/{uid}
     // Lista de administradores con acceso a panel-admin.html (V8.5). Un
@@ -97,6 +108,7 @@ service cloud.firestore {
       // quién puede escribir el material, no cuándo.
       allow create: if request.auth != null
                     && request.auth.uid == docenteUid
+                    && grupoClasePermitido(docenteUid)
                     && request.resource.data.keys().hasOnly([
                          'escuela', 'materia', 'grupoClase',
                          'codigoInicial', 'codigoRetardo',
@@ -117,7 +129,7 @@ service cloud.firestore {
                         || request.resource.data.materialUrl is string)
                     // ✅ NUEVO — Caso 1: materialDisponible es el espejo, dentro
                     // de clases/{docenteUid}, del estado Pro en vivo. Cualquiera
-                    // puede apagarlo (false); solo un docente Trial o Pro real puede encenderlo.
+                    // puede apagarlo (false); solo un Pro real puede encenderlo.
                     && (!('materialDisponible' in request.resource.data)
                         || request.resource.data.materialDisponible == false
                         // ✅ FIX Hallazgo #2: Trial tiene el mismo acceso que Pro a Material de Pausa.
@@ -125,6 +137,8 @@ service cloud.firestore {
 
       allow update: if request.auth != null
                     && request.auth.uid == docenteUid
+                    // ✅ V8.6.15 — el grupo de una clase activa no cambia (evita saltarse el límite Free)
+                    && request.resource.data.grupoClase == resource.data.grupoClase
                     && request.resource.data.keys().hasOnly([
                          'escuela', 'materia', 'grupoClase',
                          'codigoInicial', 'codigoRetardo',
@@ -145,7 +159,7 @@ service cloud.firestore {
                         || request.resource.data.materialUrl is string)
                     // ✅ NUEVO — Caso 1: mismo criterio que en create. El
                     // docente Free puede escribir 'materialDisponible: false'
-                    // (bajar la bandera es siempre seguro); solo Trial o Pro puede
+                    // (bajar la bandera es siempre seguro); solo Pro puede
                     // subirla a true.
                     && (!('materialDisponible' in request.resource.data)
                         || request.resource.data.materialDisponible == false
@@ -347,6 +361,12 @@ service cloud.firestore {
                     && request.resource.data.estado == 'trial'
                     && request.resource.data.trialInicio is number
                     && request.resource.data.trialFin is number
+                    // ✅ V8.6.15 — el cliente ya no puede inventar el Trial: inicio
+                    // cercano a la hora del servidor (±1 día por desfase de reloj)
+                    // y duración exacta de 20 días (igual que login.html).
+                    && request.resource.data.trialInicio >= request.time.toMillis() - 86400000
+                    && request.resource.data.trialInicio <= request.time.toMillis() + 86400000
+                    && request.resource.data.trialFin == request.resource.data.trialInicio + 1728000000
                     && request.resource.data.proInicio == null
                     && request.resource.data.proVencimiento == null
                     && request.resource.data.precioPagado == null
@@ -385,6 +405,11 @@ service cloud.firestore {
                     && request.resource.data.actualizadoEn is number
                     && (request.resource.data.grupoActivo is string || request.resource.data.grupoActivo == null)
                     && request.resource.data.gruposCongelados is list
+                    // ✅ V8.6.15 — grupoActivo no se reasigna a mano: solo puede fijarse
+                    // si estaba vacío, o cambiar junto con una transición de estado.
+                    && (resource.data.grupoActivo == null
+                        || request.resource.data.grupoActivo == resource.data.grupoActivo
+                        || request.resource.data.estado != resource.data.estado)
                     && request.resource.data.perpetuo == resource.data.perpetuo
                     && request.resource.data.proInicio == resource.data.proInicio
                     && request.resource.data.proVencimiento == resource.data.proVencimiento
@@ -431,6 +456,7 @@ service cloud.firestore {
                     && request.auth.uid == docenteUid
                     && request.resource.data.keys().hasOnly(['correo', 'fechaSolicitud', 'estadoActual', 'atendida'])
                     && request.resource.data.atendida == false
+                    && request.resource.data.correo == request.auth.token.email // ✅ V8.6.15
                     && request.resource.data.fechaSolicitud is number;
 
       // El docente puede reenviar su solicitud (por ejemplo, si pagó de
@@ -441,6 +467,7 @@ service cloud.firestore {
                     && (
                          (request.auth.uid == docenteUid
                           && request.resource.data.keys().hasOnly(['correo', 'fechaSolicitud', 'estadoActual', 'atendida'])
+                          && request.resource.data.correo == request.auth.token.email // ✅ V8.6.15
                           && request.resource.data.atendida == false)
                          ||
                          (esAdmin()

@@ -476,6 +476,9 @@ async function entrar(){
         return;
     }
 
+    // ✅ V8.6.17 — diagnóstico: en qué paso falló (se muestra en el aviso y se envía a Sentry).
+    let pasoEntrar = "mapeo";
+
     // ✅ SOLUCIÓN iPHONE: Forzar petición limpia al servidor saltándose la caché agresiva
     try {
         let mapeoRef = await db.collection("mapeo_codigos").doc(codigoCorto).get({ source: "server" });
@@ -485,6 +488,7 @@ async function entrar(){
         }
 
         let targetId = mapeoRef.data().docenteUid;
+        pasoEntrar = "clase";
         let docRef = await db.collection("clases").doc(targetId).get({ source: "server" });
         let claseData = docRef.data();
 
@@ -506,6 +510,7 @@ async function entrar(){
             return;
         }
 
+        pasoEntrar = "registro";
         targetDocenteUid = targetId;
         clase = claseData;
         
@@ -553,7 +558,13 @@ async function entrar(){
         });
 
     } catch(err) {
-        alert("Error de conexión. Revisa tus datos móviles.");
+        // ✅ V8.6.17 — antes este error era invisible para Sentry (estaba atrapado) y el
+        // mensaje no decía la causa. Ahora se reporta y se muestra un código corto
+        // (paso/tipo) que el alumno puede decirle al docente. No incluye datos personales.
+        let tipoErr = (err && (err.code || err.name)) ? String(err.code || err.name) : "desconocido";
+        smartprofSentryError(err, "entrar:" + pasoEntrar);
+        console.error("[SmartProf] entrar() falló en '" + pasoEntrar + "':", err);
+        alert("Error de conexión. Revisa tus datos móviles.\n\nCódigo: " + pasoEntrar + "/" + tipoErr);
     }
 }
 

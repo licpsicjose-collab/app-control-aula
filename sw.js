@@ -28,7 +28,7 @@ try { VERSION = new URL(self.location.href).searchParams.get('v') || 'dev'; } ca
 var PREFIJO = 'smartprof-aula-';
 var CACHE = PREFIJO + VERSION;      // código de la app (se renueva en cada versión)
 var CACHE_CDN = PREFIJO + 'cdn';    // SDK con versión en la URL (inmutables)
-var TIMEOUT_RED_MS = 5000;          // red lenta: se usa la copia guardada si existe
+var TIMEOUT_RED_MS = 5000;          // SOLO para HTML (navegación): red lenta → se usa la copia guardada si existe
 
 var BASE = new URL('./', self.location.href).href;
 
@@ -118,8 +118,11 @@ function manejarLocal(req, url, event) {
       });
     });
   }
-  // HTML / JS / JSON: red primero (siempre la versión más nueva si hay red),
-  // con tiempo límite para no dejar la pantalla en blanco en redes lentas.
+  // HTML: red primero con tiempo límite (evita pantalla en blanco en redes lentas).
+  // JS / JSON propios: red primero SIN tiempo límite — solo se usa la copia si la
+  // red FALLA. Así, un HTML nuevo nunca se mezcla con un JS viejo por lentitud
+  // (el caso inverso, HTML viejo + JS nuevo, es seguro mientras los JS compartidos
+  // solo AGREGUEN funciones; ver SERVICE_WORKER.md).
   return redPrimero(req, event);
 }
 
@@ -140,9 +143,9 @@ function redPrimero(req, event) {
       function responder(r) { if (!resuelto && r) { resuelto = true; resolve(r); } }
       function desdeCache() { return cache.match(req, { ignoreSearch: true }); }
 
-      var temporizador = setTimeout(function () {
+      var temporizador = esNavegacion ? setTimeout(function () {
         desdeCache().then(responder); // si no hay copia, se sigue esperando a la red
-      }, TIMEOUT_RED_MS);
+      }, TIMEOUT_RED_MS) : null;
 
       red.then(function (r) {
         clearTimeout(temporizador);

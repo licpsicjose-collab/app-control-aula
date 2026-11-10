@@ -1,5 +1,11 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.6.17] — Diagnóstico de "Error de conexión" en entrar() + detección de long polling (CANDIDATO)
+
+- `panel-alumno.html`: el aviso de error ahora termina con un código (`paso/tipo`, p. ej. `mapeo/unavailable`) y el error se reporta a Sentry (antes estaba atrapado y Sentry no lo veía). Sin cambios en la lógica de entrada ni en la validación de códigos.
+- `sentry-init.js`: nueva `smartprofSentryError(err, contexto)`; versión 8.6.17.
+- `firebase.js`: `experimentalAutoDetectLongPolling` (dentro de `try/catch`) para dispositivos/redes que bloquean el streaming de Firestore.
+
 ## [V8.6.16] — Service Worker (CANDIDATO, pendiente de aprobación)
 
 - Nuevos: `sw.js`, `sw-registro.js`, `SERVICE_WORKER.md`.

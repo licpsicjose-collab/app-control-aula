@@ -13,3 +13,14 @@ firebase.initializeApp(firebaseConfig);
 
 // ✅ BASE DE DATOS (LO QUE USA TODO EL SISTEMA)
 const db = firebase.firestore();
+
+// ✅ V8.6.17 — Algunos navegadores/redes (iPhone, Xiaomi/Oppo, navegadores integrados,
+// filtros de contenido o proxies) bloquean el canal de streaming de Firestore y la
+// lectura falla con "unavailable" (en entrar(): "Error de conexión"). Con esta opción
+// el SDK detecta el bloqueo y cambia solo a long polling; si el streaming funciona,
+// no cambia nada. Va dentro de try/catch: si el SDK no la reconoce, la app sigue igual.
+try {
+  db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+} catch (errSettingsFirestore) {
+  console.warn("[SmartProf] No se pudo configurar la detección de long polling:", errSettingsFirestore);
+}

@@ -20,7 +20,7 @@
    ------------------------------------------------------------ */
 
 // ✅ Cambiar SOLO este valor en cada nueva versión publicada.
-const SMARTPROF_VERSION = "8.6.16";
+const SMARTPROF_VERSION = "8.6.17";
 
 // ✅ Apagar Sentry por completo (sin quitar código ni scripts)
 //    cambiando esta única constante a false.
@@ -253,6 +253,22 @@ function smartprofSentryBreadcrumb(evento, datos) {
       message: evento,
       level: "info",
       data: datos || {}
+    });
+  } catch (e) { /* nunca romper la app por telemetría */ }
+}
+
+/**
+ * ✅ V8.6.17 — Reporta a Sentry un error que la app YA atrapó con try/catch
+ * (Sentry solo ve automáticamente los errores NO atrapados). "contexto" es un
+ * texto fijo (p. ej. "entrar:mapeo"); nunca incluir datos del usuario aquí.
+ */
+function smartprofSentryError(err, contexto) {
+  if (!SENTRY_ENABLED || !window.Sentry) return;
+  try {
+    window.Sentry.withScope(function (scope) {
+      scope.setTag("contexto", contexto || "desconocido");
+      if (err && (err.code || err.name)) scope.setTag("codigo_error", String(err.code || err.name));
+      window.Sentry.captureException(err);
     });
   } catch (e) { /* nunca romper la app por telemetría */ }
 }

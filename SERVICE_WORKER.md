@@ -15,12 +15,18 @@ Guarda en el teléfono SOLO archivos estáticos (HTML, JS, íconos, SDK de Fireb
 | Aviso de Privacidad | Sin cambios: no se almacenan datos personales |
 
 ## Estrategias de caché
-- **HTML / JS / JSON propios:** red primero, con límite de 5 s; si la red tarda y hay copia, se usa la copia mientras se actualiza en segundo plano. Sin copia, se espera a la red.
+- **HTML:** red primero, con límite de 5 s; si la red tarda y hay copia, se usa la copia mientras se actualiza en segundo plano. Sin copia, se espera a la red.
+- **JS / JSON propios:** red primero **sin límite de tiempo**; la copia solo se usa si la red falla. Evita mezclar un HTML nuevo con un JS viejo por lentitud.
 - **Íconos:** caché primero.
 - **Firebase 9.23.0 y Sentry 10.70.0 (URL con versión):** caché primero, en caché aparte (`smartprof-aula-cdn`) para no volver a descargarlos en cada versión. Si cambia la versión del SDK en los HTML, el SW la aprende solo.
 - **No se guardan** errores (404/500) ni respuestas redirigidas ni respuestas opacas.
 - **Sin red y sin copia:** páginas muestran un aviso "Sin conexión".
 - **Precarga (instalación):** index, login, panel-alumno, firebase.js, sentry-init.js, sw-registro.js, 3 manifests, 4 íconos y los 3 SDK. `panel-docente.html` y `panel-admin.html` se guardan al visitarlos. La precarga tolera fallos (no impide la instalación).
+
+## `skipWaiting()` + `clients.claim()` — por qué se mantienen
+- El SW solo guarda archivos estáticos y deja pasar todo lo demás; ninguna página depende de qué versión del SW la controla, así que cambiar de SW con páginas abiertas no altera su comportamiento (una clase en curso ya cargó todo su código).
+- Sin `skipWaiting`, en una PWA instalada que casi nunca se cierra del todo, una corrección del propio SW podría tardar días en llegar.
+- La caché nueva se precarga completa (copia fresca) antes de activarse; la antigua se borra solo después. Si algún día se prefiere máxima cautela, quitar ambas llamadas es seguro (la instalación inicial se activa igual).
 
 ## Versionado
 `sw-registro.js` registra `sw.js?v=SMARTPROF_VERSION`. **Basta con cambiar `SMARTPROF_VERSION` en `sentry-init.js`** (como ya se hacía): el navegador instala el SW nuevo, que renombra el caché y borra los anteriores (solo los de prefijo `smartprof-aula-`, porque Cache Storage se comparte con todo el origen).
@@ -29,7 +35,7 @@ Guarda en el teléfono SOLO archivos estáticos (HTML, JS, íconos, SDK de Fireb
 En `sw-registro.js` cambiar `SMARTPROF_SW_ENABLED` a `false` y publicar: al abrir cualquier página, cada dispositivo desregistra el SW y borra sus cachés. Verificado en prueba.
 
 ## Riesgos residuales (conocidos)
-1. **Mezcla de versiones:** si hubo un despliegue y un teléfono tiene red muy lenta (>5 s), puede cargar el HTML de la versión anterior desde caché junto con JS nuevo (o al revés). Mitigación: se refresca en segundo plano y la siguiente carga ya es coherente; evitar cambiar nombres de funciones compartidas entre `sentry-init.js` y los HTML sin subir versión.
+1. **Mezcla de versiones:** tras un despliegue, un teléfono con red muy lenta (>5 s) puede abrir el HTML anterior desde caché con JS nuevo. Es el sentido seguro **siempre que `sentry-init.js` y `firebase.js` solo agreguen funciones/constantes y nunca renombren o eliminen las existentes** (regla a respetar). El sentido peligroso (HTML nuevo + JS viejo) solo ocurriría si el HTML llega por red y el JS *falla* justo después. La siguiente carga ya es coherente.
 2. **Navegadores integrados (WhatsApp, etc.):** pueden no soportar SW; en ese caso todo sigue como antes, sin beneficio.
 3. **iOS:** el almacenamiento de SW puede ser purgado por el sistema tras días sin uso; solo se pierde el beneficio.
 4. **Primer ingreso:** sin beneficio (el SW se instala después de `load`); el beneficio llega desde la segunda visita.

@@ -307,6 +307,11 @@ let documentoAlumnoId = "";
 let targetDocenteUid = "";
 let unsubscribeClaseAlumno = null;
 let unsubscribeEstrellas = null;
+// ✅ V8.6.19 — control de resincronización y reintentos de listeners
+let ultimaResync = 0;
+let resincronizando = false;
+let reintentosListenerClase = 0;
+let reintentosListenerEstrellas = 0;
 let pausadaAnterior = false; // ✅ MEJORA 2: control para detectar transición de pausa
 let materialFirmaAnterior = undefined; // ✅ NUEVO — detecta si el material cambió MIENTRAS ya está pausado (url+titulo+disponible)
 let wakeLockRef = null; // ✅ NUEVO — referencia activa del Wake Lock (ver solicitarWakeLock())
@@ -345,7 +350,9 @@ function mostrarFormulario() {
     `;
 }
 
-function comprobarSesionExistente() {
+// ✅ V8.6.18 — "intento" cuenta los reintentos automáticos de la recuperación de sesión.
+function comprobarSesionExistente(intento) {
+    intento = intento || 0;
     // ✅ FIX (auditoría pantalla blanca): lsGet() puede lanzar
     // una excepción en navegadores con el almacenamiento restringido (ej.
     // Safari con "Bloquear todas las cookies", o ciertos WebViews embebidos).
@@ -384,8 +391,17 @@ function comprobarSesionExistente() {
                 // La clase ya caducó en el servidor, limpiar memoria
                 lsRemove("sesion_clase_activa");
             }
-        }).catch(() => {
-            lsRemove("sesion_clase_activa");
+        }).catch((err) => {
+            // ✅ V8.6.18 — ANTES: cualquier fallo de red borraba la sesión guardada, y el
+            // alumno que volvía (p. ej. tras abrir material durante una pausa y recargarse
+            // la página) quedaba fuera de su sesión. AHORA: la sesión solo se borra cuando
+            // el servidor CONFIRMA que la clase ya no existe (rama de arriba). Ante un fallo
+            // de red se conserva y se reintenta (hasta 5 veces, con espera creciente).
+            smartprofSentryError(err, "recuperar_sesion");
+            console.warn("[SmartProf] Recuperación de sesión falló (intento " + (intento + 1) + "):", err);
+            if (intento < 5 && !enClase) {
+                setTimeout(function () { comprobarSesionExistente(intento + 1); }, 2000 * (intento + 1));
+            }
         });
     }
 }
@@ -395,7 +411,26 @@ function escucharClaseMaestro(docenteId) {
 
     unsubscribeClaseAlumno = db.collection("clases").doc(docenteId)
     .onSnapshot(doc => {
-        let data = doc.data();
+        reintentosListenerClase = 0;
+        aplicarEstadoClase(doc.data());
+    }, err => {
+        // ✅ V8.6.19 — antes, un error terminaba el listener para siempre y el alumno
+        // se quedaba con la pantalla vieja (p. ej. "CLASE PAUSADA" aunque ya se reanudó).
+        // Ahora se reporta y se re-suscribe solo (espera creciente, tope de 20 intentos).
+        smartprofSentryError(err, "listener_clase");
+        console.warn("[SmartProf] Listener de clase terminó con error:", err);
+        reintentosListenerClase++;
+        if (reintentosListenerClase > 20) return;
+        let espera = Math.min(30000, 3000 * reintentosListenerClase);
+        setTimeout(function () {
+            if (enClase && targetDocenteUid === docenteId) escucharClaseMaestro(docenteId);
+        }, espera);
+    });
+}
+
+// ✅ V8.6.19 — Lógica original del snapshot de la clase (sin cambios), extraída a una
+// función para poder reutilizarla desde la resincronización (lectura fresca al volver).
+function aplicarEstadoClase(data) {
         if (!data && enClase) {
             enClase = false;
             reportarAFirebase();
@@ -435,7 +470,34 @@ function escucharClaseMaestro(docenteId) {
                 }
             }
         }
-    });
+}
+
+// ✅ V8.6.19 — RESINCRONIZACIÓN AL VOLVER: tras una pausa larga, un cambio de app o
+// una caída de red, el listener en tiempo real puede quedar atascado (sobre todo en
+// iPhone). Al volver al primer plano / recuperar internet se lee el estado real de la
+// clase al servidor y se re-engancha el listener. Máximo una vez cada 5 s (1-3 lecturas
+// por regreso). No cambia el conteo de salidas ni escribe nada en Firestore.
+function resincronizarClase() {
+    if (!enClase || !targetDocenteUid || resincronizando) return;
+    let ahora = Date.now();
+    if (ahora - ultimaResync < 5000) return;
+    ultimaResync = ahora;
+    resincronizando = true;
+    let docenteId = targetDocenteUid;
+
+    db.collection("clases").doc(docenteId).get({ source: "server" })
+    .then(function (doc) {
+        if (!enClase || docenteId !== targetDocenteUid) return;
+        aplicarEstadoClase(doc.exists ? doc.data() : undefined);
+        if (enClase) {
+            escucharClaseMaestro(docenteId);
+            if (!pausadaAnterior) escucharEstrellasTiempoReal();
+        }
+    })
+    .catch(function (err) {
+        console.warn("[SmartProf] Resincronización falló (se reintentará en el próximo regreso):", err);
+    })
+    .then(function () { resincronizando = false; });
 }
 
 // ✅ SECCIÓN 8: Escuchar las estrellas del alumno en tiempo real sin gastar más datos
@@ -445,6 +507,7 @@ function escucharEstrellasTiempoReal() {
     unsubscribeEstrellas = db.collection("clases").doc(targetDocenteUid)
     .collection("alumnos").doc(documentoAlumnoId)
     .onSnapshot(doc => {
+        reintentosListenerEstrellas = 0;
         let data = doc.data();
         if(data) {
             let numEstrellas = data.participaciones || 0;
@@ -460,6 +523,15 @@ function escucharEstrellasTiempoReal() {
                 elEval.innerHTML = textoEvaluacion(data.estado);
             }
         }
+    }, err => {
+        // ✅ V8.6.19 — mismo criterio que el listener de la clase.
+        smartprofSentryError(err, "listener_estrellas");
+        reintentosListenerEstrellas++;
+        if (reintentosListenerEstrellas > 20) return;
+        let espera = Math.min(30000, 3000 * reintentosListenerEstrellas);
+        setTimeout(function () {
+            if (enClase && !pausadaAnterior) escucharEstrellasTiempoReal();
+        }, espera);
     });
 }
 
@@ -511,6 +583,16 @@ async function entrar(){
         }
 
         pasoEntrar = "registro";
+
+        // ✅ V8.6.19 — REINGRESO: si este alumno ya está registrado en la clase (recargó,
+        // cambió de navegador/dispositivo, perdió la sesión local), continúa su registro.
+        // Antes se intentaba set() sobre el documento existente: las reglas lo rechazaban
+        // en silencio, el tiempo local se reiniciaba y sus métricas quedaban congeladas.
+        let idPrevio = `${n}_${g}`.replace(/\s+/g, '_').replace(/\//g, '-');
+        let docPrevio = null;
+        let snPrevio = await db.collection("clases").doc(targetId).collection("alumnos").doc(idPrevio).get({ source: "server" });
+        if (snPrevio.exists) docPrevio = snPrevio.data();
+
         targetDocenteUid = targetId;
         clase = claseData;
         
@@ -524,6 +606,15 @@ async function entrar(){
 
         let tardanza = Date.now() - clase.inicio;
 
+        // ✅ V8.6.19 — Reingreso: se retoman las métricas guardadas. Por ahora el tiempo
+        // desconectado NO se suma a ninguna métrica (neutral); su conteo como "tiempo fuera"
+        // (descontando pausas) se hará junto con el registro de pausas.
+        if (docPrevio) {
+            tiempoFuera = Number(docPrevio.tiempoFuera) || 0;
+            salidas = Number(docPrevio.salidas) || 0;
+            inicio = Date.now() - (Number(docPrevio.tiempo) || 0) - tiempoFuera;
+        }
+
         // Guardar estado local para prevenir cierres por botón de suspensión
         lsSet("sesion_clase_activa", JSON.stringify({
             targetId: targetDocenteUid,
@@ -531,8 +622,8 @@ async function entrar(){
             grupo: g,
             docId: documentoAlumnoId,
             inicio: inicio,
-            tiempoFuera: 0,
-            salidas: 0
+            tiempoFuera: tiempoFuera,
+            salidas: salidas
         }));
 
         smartprofRegistrarFase(SMARTPROF_TIPOS_USUARIO.ALUMNO, SMARTPROF_EVENTOS.ALUMNO_ATENCION);
@@ -540,22 +631,30 @@ async function entrar(){
         escucharClaseMaestro(targetDocenteUid);
         escucharEstrellasTiempoReal();
 
-        // Registro de entrada inicial
-        db.collection("clases")
-        .doc(targetDocenteUid)
-        .collection("alumnos")
-        .doc(documentoAlumnoId)
-        .set({
-            nombre: n,
-            grupo: g,
-            tiempo: 0,
-            tiempoFuera: 0,
-            salidas: 0,
-            participaciones: 0,
-            tardanza: tardanza,
-            retardoManual: (c === clase.codigoRetardo),
-            ultimaActualizacion: Date.now()
-        });
+        // Registro de entrada inicial (solo alumnos nuevos); en reingreso se actualiza
+        // la marca de actividad con las métricas retomadas.
+        if (docPrevio) {
+            reportarAFirebase();
+        } else {
+            db.collection("clases")
+            .doc(targetDocenteUid)
+            .collection("alumnos")
+            .doc(documentoAlumnoId)
+            .set({
+                nombre: n,
+                grupo: g,
+                tiempo: 0,
+                tiempoFuera: 0,
+                salidas: 0,
+                participaciones: 0,
+                tardanza: tardanza,
+                retardoManual: (c === clase.codigoRetardo),
+                ultimaActualizacion: Date.now()
+            }).catch((errRegistro) => {
+                smartprofSentryError(errRegistro, "registro_alumno");
+                console.error("[SmartProf] Falló el registro inicial del alumno:", errRegistro);
+            });
+        }
 
     } catch(err) {
         // ✅ V8.6.17 — antes este error era invisible para Sentry (estaba atrapado) y el
@@ -766,6 +865,17 @@ setInterval(() => {
         reportarAFirebase();
     }
 }, 60000);
+
+// ✅ V8.6.19 — disparadores de resincronización (ver resincronizarClase()).
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") resincronizarClase();
+});
+window.addEventListener("pageshow", () => { resincronizarClase(); });
+window.addEventListener("online", () => { resincronizarClase(); });
+// Red de seguridad durante la pausa: si el listener está muerto, esto detecta la reanudación.
+setInterval(() => {
+    if (enClase && pausadaAnterior && document.visibilityState === "visible") resincronizarClase();
+}, 20000);
 
 // ============================================================
 // ✅ V8 — ONBOARDING INTERACTIVO PARA ALUMNOS

@@ -20,7 +20,7 @@
    ------------------------------------------------------------ */
 
 // ✅ Cambiar SOLO este valor en cada nueva versión publicada.
-const SMARTPROF_VERSION = "8.6.17";
+const SMARTPROF_VERSION = "8.6.19";
 
 // ✅ Apagar Sentry por completo (sin quitar código ni scripts)
 //    cambiando esta única constante a false.

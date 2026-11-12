@@ -1,5 +1,20 @@
 # CHANGELOG — Control de Aula V8
 
+## [V8.6.19] — Regreso confiable del alumno (CANDIDATO)
+
+- `panel-alumno.html`:
+  - **Resincronización al volver** (`visibilitychange` visible, `pageshow`, `online` y cada 20 s durante la pausa): lectura fresca del estado de la clase al servidor y re-enganche del listener. Corrige la pantalla "CLASE PAUSADA" atascada tras una pausa larga.
+  - **Listeners con manejo de errores** (clase y estrellas): reporte a Sentry y re-suscripción automática (espera creciente, tope 20).
+  - **Recuperación de sesión** sin borrado por fallo de red (de 8.6.18).
+  - **Reingreso de alumno ya registrado:** continúa su registro (sin `set()` rechazado ni métricas congeladas). El tiempo desconectado todavía no se cuenta como tiempo fuera: se hará junto con el registro de pausas.
+  - La lógica del snapshot de la clase se movió sin cambios a `aplicarEstadoClase()`.
+- `sentry-init.js`: versión 8.6.19. Sin cambios en reglas, docente ni exportación.
+
+## [V8.6.18] — La recuperación de sesión ya no se borra por fallos de red (CANDIDATO)
+
+- `panel-alumno.html` → `comprobarSesionExistente()`: antes, cualquier error de red al verificar la clase borraba `sesion_clase_activa`; ahora solo se borra si el servidor confirma que la clase no existe. Ante fallo se reintenta hasta 5 veces (2 s, 4 s, 6 s…) y se reporta a Sentry. Sin cambios en entrar(), pausa, métricas ni reglas.
+- `sentry-init.js`: versión 8.6.18.
+
 ## [V8.6.17] — Diagnóstico de "Error de conexión" en entrar() + detección de long polling (CANDIDATO)
 
 - `panel-alumno.html`: el aviso de error ahora termina con un código (`paso/tipo`, p. ej. `mapeo/unavailable`) y el error se reporta a Sentry (antes estaba atrapado y Sentry no lo veía). Sin cambios en la lógica de entrada ni en la validación de códigos.
